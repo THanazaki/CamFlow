@@ -4,6 +4,9 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useState } from 'react'
 
+import { LoginScreen } from '@/components/auth/LoginScreen'
+import { useAuth } from '@/lib/auth/useAuth'
+import { signOut } from '@/lib/auth/session'
 import { useSyncEngine } from '@/lib/sync/useSync'
 
 import { Logo } from './Logo'
@@ -17,6 +20,7 @@ import { SyncIndicator } from './SyncIndicator'
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const [menuOpen, setMenuOpen] = useState(false)
+  const auth = useAuth()
 
   // 同期ループはここで一度だけ立ち上げる
   useSyncEngine()
@@ -25,6 +29,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // pathname を見る useEffect でも書けるが、それだと遷移のたびに再レンダリングが
   // 連鎖するため、リンクを押した時点で直接閉じる
   const closeMenu = () => setMenuOpen(false)
+
+  // サインインするまでアプリの中身は出さない。
+  // IndexedDB にはサインインしたユーザーのデータが入るので、
+  // 誰のものか確定するまで読み書きさせない
+  if (auth.status === 'loading') {
+    return (
+      <div className="bg-background flex min-h-dvh items-center justify-center">
+        <p className="text-muted text-sm">読み込み中…</p>
+      </div>
+    )
+  }
+  if (auth.status === 'anonymous') {
+    return <LoginScreen />
+  }
 
   return (
     <div className="min-h-dvh lg:flex">
@@ -36,8 +54,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <nav className="flex-1 overflow-y-auto px-3">
           <NavList pathname={pathname} />
         </nav>
-        <div className="border-t border-white/10 px-4 py-3">
+        <div className="space-y-2 border-t border-white/10 px-4 py-3">
           <SyncIndicator />
+          <AccountRow
+            email={auth.user?.email}
+            offlineFallback={auth.offlineFallback}
+          />
         </div>
       </aside>
 
@@ -56,8 +78,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <HamburgerIcon open={menuOpen} />
           </button>
         </div>
-        <div className="border-t border-white/10 px-4 py-2">
+        <div className="space-y-2 border-t border-white/10 px-4 py-2">
           <SyncIndicator />
+          <AccountRow email={auth.user?.email} offlineFallback={auth.offlineFallback} />
         </div>
         {menuOpen && (
           <nav id="mobile-nav" className="border-t border-white/10 px-3 pb-3">
@@ -69,6 +92,34 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <main className="flex-1 lg:ml-60">
         <div className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 lg:py-10">{children}</div>
       </main>
+    </div>
+  )
+}
+
+/** アカウント表示とサインアウト。サインアウト時は手元のデータも消える */
+function AccountRow({
+  email,
+  offlineFallback,
+}: {
+  email?: string | null
+  offlineFallback: boolean
+}) {
+  return (
+    <div className="flex items-center justify-between gap-2 text-xs">
+      <span className="min-w-0 truncate text-white/60" title={email ?? undefined}>
+        {email ?? (offlineFallback ? 'オフライン（前回のアカウント）' : 'サインイン済み')}
+      </span>
+      <button
+        type="button"
+        onClick={() => {
+          if (confirm('サインアウトすると、この端末に保存されたデータも削除されます。よろしいですか？')) {
+            void signOut()
+          }
+        }}
+        className="shrink-0 rounded border border-white/20 px-1.5 py-0.5 text-white/70 hover:bg-white/10"
+      >
+        サインアウト
+      </button>
     </div>
   )
 }

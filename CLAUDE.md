@@ -4,7 +4,7 @@
 - **目的**: 個人カメラマンの撮影ライフ（予約・スケジュール・現場タイマー・モデルマスタ・データ管理）を最適化するPWA。
 - **技術スタック**: Next.js 16 (App Router) / React 19 / Tailwind v4 / Supabase (Auth / PostgreSQL / Storage) / Dexie (IndexedDB) / Serwist。
 - **開発方針**: まずはカメラマン機能単体で完成させ、将来的な運営・モデル機能の拡張に備えた設計とする。
-- **現状**: DBスキーマと同期基盤（土台）まで実装済み。業務画面は未実装。
+- **現状**: 認証・同期基盤と、予約管理／撮影管理の画面まで実装済み。
 
 ---
 
@@ -113,8 +113,14 @@
 - **書き込みは必ず `src/lib/sync/mutations.ts` を通す。** ローカル行と outbox を
   同一トランザクションで更新している。Supabase を直接叩くとオフライン中に変更が消える。
 - **`supabase.auth` を触るのは `src/lib/auth/session.ts` だけ。**
-  ログイン画面は未実装で、開発用アカウントによる自動サインインで代用している。
+  メール＋パスワードのアカウント制。サインインするまで `AppShell` がアプリを出さない。
   RLS は有効なまま維持すること。
+- **サインイン／新規登録は `/api/auth` を経由する。** reCAPTCHA の秘密鍵は
+  サーバにしか置けないため。Supabase Auth の CAPTCHA 連携は hCaptcha と
+  Turnstile のみで reCAPTCHA に非対応なので、自前で検証している。
+  なおこれで守れるのはフォームだけで、Supabase の認証エンドポイント自体は守れない。
+- **ユーザーが変わったら IndexedDB を空にすること**（`switchUser` / `signOut`）。
+  RLS が守るのはサーバだけで、ローカルの中身は端末を使う誰でも読める。
 - 論理削除があるテーブル（`venues` / `organizers` / `models` / `sessions` / `slots` /
   `shoot_history`）は `softDeleteRow()` を使う。一覧は `deleted_at is null` で絞る。
 - テーブルを追加したら `SYNC_TABLES`（`src/lib/db/types.ts`）と Dexie のストア定義にも

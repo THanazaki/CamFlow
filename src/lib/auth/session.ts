@@ -1,97 +1,174 @@
-import { getMeta, setMeta } from '@/lib/db'
+import { clearLocalData, getMeta, setMeta } from '@/lib/db'
 import { getSupabase, isSupabaseConfigured } from '@/lib/supabase/client'
 
 /**
- * 認証の唯一の境界。
+ * 認証の唯一の境界。アプリ内で `supabase.auth` を直接触るのはこのファイルだけ。
  *
- * アプリ内で `supabase.auth` を直接触るのはこのファイルだけにする。
- * 今はログイン画面を作らない方針なので、`.env.local` の開発用アカウントで
- * 自動サインインする。ログイン画面を足すときは `signIn()` の中身だけ
- * 差し替えればよく、RLS もスキーマも一切触らない。
+ * サインイン・サインアップは `/api/auth` を経由する。reCAPTCHA の秘密鍵は
+ * サーバにしか置けないため（詳細は src/app/api/auth/route.ts）。
  *
  * RLS は有効なまま維持する。外すと本番に戻し忘れたとき全データが公開される。
  */
 
-const devEmail = process.env.NEXT_PUBLIC_DEV_USER_EMAIL
-const devPassword = process.env.NEXT_PUBLIC_DEV_USER_PASSWORD
-
 /** 端末に覚えさせたユーザーID。オフライン時の書き込みに使う */
 const USER_ID_KEY = 'auth:userId'
 
-let cachedUserId: string | null = null
-let inflight: Promise<string | null> | null = null
+export interface AuthUser {
+  id: string
+  email: string | null
+}
 
-/** 既存セッションがあれば使い、無ければ開発用アカウントでサインインする */
-async function signIn(): Promise<string | null> {
-  if (!isSupabaseConfigured()) return null
+export type AuthStatus = 'loading' | 'authenticated' | 'anonymous'
 
-  const supabase = getSupabase()
+export interface AuthState {
+  status: AuthStatus
+  user: AuthUser | null
+  /** オンラインで検証できず、端末に残したIDで動いている */
+  offlineFallback: boolean
+}
 
-  const { data: existing } = await supabase.auth.getSession()
-  if (existing.session) return existing.session.user.id
+let state: AuthState = { status: 'loading', user: null, offlineFallback: false }
+const listeners = new Set<(s: AuthState) => void>()
+let initialized = false
 
-  // TODO: ログイン画面を作るときはここをフォーム入力に差し替える
-  if (!devEmail || !devPassword) {
-    console.warn(
-      '[auth] NEXT_PUBLIC_DEV_USER_EMAIL / _PASSWORD が未設定です。オフライン専用モードで動作します。',
-    )
-    return null
-  }
+function emit(next: Partial<AuthState>): void {
+  state = { ...state, ...next }
+  for (const l of listeners) l(state)
+}
 
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email: devEmail,
-    password: devPassword,
-  })
-  if (error) {
-    console.warn('[auth] 開発用アカウントでのサインインに失敗しました:', error.message)
-    return null
-  }
-  return data.user?.id ?? null
+export function getAuthState(): AuthState {
+  return state
+}
+
+export function subscribeAuth(listener: (s: AuthState) => void): () => void {
+  listeners.add(listener)
+  listener(state)
+  return () => listeners.delete(listener)
 }
 
 /**
- * 同期に使うユーザーID。オフラインや未設定時は null を返す。
- * 同時に複数回呼ばれても1回だけサインインするよう in-flight を共有する。
+ * 別のユーザーでサインインしたら手元のデータを捨てる。
+ *
+ * RLS が守るのはサーバだけで、IndexedDB の中身はブラウザを使う誰でも読める。
+ * 消さないと前のユーザーの撮影履歴が次のユーザーに見えてしまう。
  */
-export async function getActiveUserId(): Promise<string | null> {
-  if (cachedUserId) return cachedUserId
+async function switchUser(userId: string): Promise<void> {
+  const remembered = await getMeta<string>(USER_ID_KEY)
+  if (remembered && remembered !== userId) {
+    await clearLocalData()
+  }
+  await setMeta(USER_ID_KEY, userId)
+}
 
-  // 成功だけキャッシュし、失敗（オフライン等）は次回の呼び出しで再試行させる
-  inflight ??= signIn()
-    .then(async (id) => {
-      if (id) {
-        cachedUserId = id
-        // 次からオフラインでも書き込めるよう端末に残す
-        await setMeta(USER_ID_KEY, id)
+/** アプリ起動時に一度だけ呼ぶ。既存セッションを復元する */
+export async function initAuth(): Promise<AuthState> {
+  if (initialized) return state
+  initialized = true
+
+  if (isSupabaseConfigured()) {
+    const supabase = getSupabase()
+
+    // セッションが切れた / 他タブでサインアウトした場合に追従する
+    supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT') {
+        emit({ status: 'anonymous', user: null, offlineFallback: false })
+        return
       }
-      return id
-    })
-    .finally(() => {
-      inflight = null
+      if (session?.user) {
+        void switchUser(session.user.id)
+        emit({
+          status: 'authenticated',
+          user: { id: session.user.id, email: session.user.email ?? null },
+          offlineFallback: false,
+        })
+      }
     })
 
-  const id = await inflight
-  if (id) return id
+    try {
+      const { data } = await supabase.auth.getSession()
+      if (data.session?.user) {
+        await switchUser(data.session.user.id)
+        emit({
+          status: 'authenticated',
+          user: { id: data.session.user.id, email: data.session.user.email ?? null },
+          offlineFallback: false,
+        })
+        return state
+      }
+    } catch {
+      // ネットワークが無いだけかもしれないので、下のフォールバックに進む
+    }
+  }
 
-  // オフラインや Supabase 未設定でサインインできない場合は、
-  // 前回サインインしたときのIDを使う。これが無いと「完全オフライン」と言いながら
-  // 一度もオンラインにならない限り1行も書けないことになる
+  // セッションを確認できない場合（オフライン、またはセッション切れ）は、
+  // 前回サインインしたIDで続ける。これが無いと「完全オフライン」と言いながら
+  // 電波が無いと何も読み書きできない。
+  //
+  // 認証の迂回には使えない: サーバのデータは RLS で守られており、
+  // 有効なトークンが無ければ同期できない。ここで見えるのは、その端末に
+  // すでに入っている（devtools で誰でも読める）ローカルデータだけ。
   const remembered = await getMeta<string>(USER_ID_KEY)
   if (remembered) {
-    cachedUserId = remembered
-    return remembered
+    emit({
+      status: 'authenticated',
+      user: { id: remembered, email: null },
+      offlineFallback: true,
+    })
+    return state
   }
-  return null
+
+  emit({ status: 'anonymous', user: null, offlineFallback: false })
+  return state
 }
 
-/** キャッシュしたセッションを捨てる（テスト・サインアウト用） */
-export function resetSession(): void {
-  cachedUserId = null
-  inflight = null
+/** サインイン / サインアップの結果をセッションに反映する */
+export async function applySession(accessToken: string, refreshToken: string): Promise<void> {
+  const supabase = getSupabase()
+  const { data, error } = await supabase.auth.setSession({
+    access_token: accessToken,
+    refresh_token: refreshToken,
+  })
+  if (error) throw new Error(error.message)
+  if (!data.session?.user) throw new Error('セッションを復元できませんでした')
+
+  await switchUser(data.session.user.id)
+  emit({
+    status: 'authenticated',
+    user: { id: data.session.user.id, email: data.session.user.email ?? null },
+    offlineFallback: false,
+  })
 }
 
-/** サインアウト時は端末に残したIDも消す（他人のデータを書き込まないため） */
-export async function forgetUser(): Promise<void> {
-  resetSession()
+/**
+ * サインアウト。
+ * 手元のデータも消す。同じ端末を別の人が使う可能性があるため。
+ */
+export async function signOut(): Promise<void> {
+  if (isSupabaseConfigured()) {
+    try {
+      await getSupabase().auth.signOut()
+    } catch {
+      // オフラインでもローカルは落とす
+    }
+  }
+  await clearLocalData()
   await setMeta(USER_ID_KEY, null)
+  emit({ status: 'anonymous', user: null, offlineFallback: false })
+}
+
+/**
+ * 書き込み・同期に使うユーザーID。
+ * 未サインインなら null（その場合は何も書けない）。
+ */
+export async function getActiveUserId(): Promise<string | null> {
+  if (state.status === 'loading') await initAuth()
+  if (state.user) return state.user.id
+  return (await getMeta<string>(USER_ID_KEY)) ?? null
+}
+
+/** テスト用 */
+export function resetAuthForTest(): void {
+  state = { status: 'loading', user: null, offlineFallback: false }
+  listeners.clear()
+  initialized = false
 }
