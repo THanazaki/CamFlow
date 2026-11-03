@@ -27,6 +27,8 @@ export interface ShootSummary {
   frameCount: number | null
   storagePath: string | null
   storageLabel: string | null
+  /** クラウドの保存先（最大3件）。遡及登録には無い */
+  storageUrls: string[]
   backedUpAt: string | null
   rating: number | null
 }
@@ -229,7 +231,8 @@ export async function loadDashboard(now: Date = new Date()): Promise<DashboardDa
     .map((slot) => {
       const session = sessionMap.get(slot.session_id)
       if (!session || session.status !== 'confirmed') return null
-      if (slot.storage_path) return null // データ登録済み = この工程は完了
+      // 保管先パスでもストレージURLでも、入っていればデータ登録は済み
+      if (slot.storage_path || (slot.storage_urls?.length ?? 0) > 0) return null
       return toReminder(slot, slot.start_at < nowIso ? 'awaiting_data' : 'before_shoot')
     })
     .filter((r): r is ReminderItem => r !== null)
@@ -296,6 +299,7 @@ export async function loadDashboard(now: Date = new Date()): Promise<DashboardDa
             frameCount: slot.frame_count,
             storagePath: slot.storage_path,
             storageLabel: slot.storage_label,
+            storageUrls: slot.storage_urls ?? [],
             backedUpAt: slot.backed_up_at,
             rating: slot.rating,
           },
@@ -313,6 +317,7 @@ export async function loadDashboard(now: Date = new Date()): Promise<DashboardDa
       frameCount: h.frame_count,
       storagePath: h.storage_path,
       storageLabel: h.storage_label,
+      storageUrls: [],
       backedUpAt: h.backed_up_at,
       rating: h.rating,
     })),

@@ -153,6 +153,10 @@ function RecentTable({ rows }: { rows: ShootSummary[] }) {
                     {r.storageLabel && <span className="text-muted">[{r.storageLabel}] </span>}
                     {r.storagePath}
                   </span>
+                ) : r.storageUrls.length > 0 ? (
+                  <span className="text-muted block text-xs" title={r.storageUrls.join('\n')}>
+                    URL {r.storageUrls.length}件
+                  </span>
                 ) : (
                   <span className="text-amber-600 dark:text-amber-400">未登録</span>
                 )}

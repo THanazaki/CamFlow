@@ -315,6 +315,7 @@ export type Database = {
           frame_count: number | null
           storage_path: string | null
           storage_label: string | null
+          storage_urls: string[]
           storage_size_mb: number | null
           backup_location: string | null
           backed_up_at: string | null
@@ -345,6 +346,7 @@ export type Database = {
           frame_count?: number | null
           storage_path?: string | null
           storage_label?: string | null
+          storage_urls?: string[]
           storage_size_mb?: number | null
           backup_location?: string | null
           backed_up_at?: string | null
@@ -375,6 +377,7 @@ export type Database = {
           frame_count?: number | null
           storage_path?: string | null
           storage_label?: string | null
+          storage_urls?: string[]
           storage_size_mb?: number | null
           backup_location?: string | null
           backed_up_at?: string | null
@@ -533,6 +536,7 @@ export type Database = {
           frame_count?: number | null
           storage_path?: string | null
           storage_label?: string | null
+          storage_urls?: string[]
           storage_size_mb?: number | null
           backup_location?: string | null
           backed_up_at?: string | null
@@ -568,6 +572,7 @@ export type Database = {
           frame_count?: number | null
           storage_path?: string | null
           storage_label?: string | null
+          storage_urls?: string[]
           storage_size_mb?: number | null
           backup_location?: string | null
           backed_up_at?: string | null
