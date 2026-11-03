@@ -9,15 +9,23 @@ export interface NavItem {
 
 export const NAV_ITEMS: NavItem[] = [
   { href: '/', label: 'ダッシュボード', ready: true },
-  { href: '/reservations', label: '予約管理', ready: false },
+  {
+    href: '/reservations',
+    label: '予約管理',
+    ready: false,
+    children: [
+      { href: '/reservations/new', label: '予約情報入力', ready: false },
+      { href: '/reservations/schedule', label: '予約スケジュール', ready: false },
+    ],
+  },
   {
     href: '/shoots',
     label: '撮影管理',
     ready: false,
     children: [
       { href: '/shoots/confirm', label: '確定撮影情報入力', ready: false },
-      { href: '/shoots/schedule', label: '撮影スケジュール確認', ready: false },
-      { href: '/shoots/data', label: '撮影データ登録', ready: false },
+      // スケジュール確認と、撮影後の保管先登録をまとめて扱う
+      { href: '/shoots/info', label: '撮影情報', ready: false },
     ],
   },
   {
@@ -33,7 +41,11 @@ export const NAV_ITEMS: NavItem[] = [
     href: '/stats',
     label: '統計情報',
     ready: false,
-    children: [{ href: '/stats/fees', label: '撮影料積算', ready: false }],
+    children: [
+      { href: '/stats/availability', label: '予約可否情報', ready: false },
+      { href: '/stats/history', label: '過去撮影情報', ready: false },
+      { href: '/stats/fees', label: '撮影料積算', ready: false },
+    ],
   },
   { href: '/masters', label: 'マスタ管理', ready: false },
   { href: '/settings', label: '設定', ready: false },
