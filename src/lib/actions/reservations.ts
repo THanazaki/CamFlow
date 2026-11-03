@@ -95,6 +95,8 @@ export async function createReservation(
     session_id: sessionId,
     slot_no: 1,
     start_at: placeholderStartAt(input.shootDate),
+    // サーバ既定の '{}' に合わせる（省くと undefined になり形が食い違う）
+    storage_urls: [],
   })
 
   await createRow('slot_models', {

@@ -1,5 +1,23 @@
 import { db } from '@/lib/db'
 
+/** 確定撮影情報画面の1行（1枠 = 1行） */
+export interface ConfirmedShoot {
+  sessionId: string
+  slotId: string
+  title: string
+  concept: string | null
+  venueName: string | null
+  shootDate: string
+  startTime: string
+  endTime: string
+  models: { name: string; x: string | null; instagram: string | null }[]
+  storageUrls: string[]
+  /** 保存先が1つでも入っていれば撮影データ登録は済み */
+  registered: boolean
+  /** 撮影日を過ぎているか */
+  past: boolean
+}
+
 /** 確定撮影情報入力で「予約から選ぶ」ための候補 */
 export interface ConfirmableReservation {
   sessionId: string
@@ -82,4 +100,66 @@ export async function loadConfirmableReservations(): Promise<ConfirmableReservat
       }
     })
     .sort((a, b) => a.shootDate.localeCompare(b.shootDate))
+}
+
+/**
+ * 確定した撮影（`sessions.status = 'confirmed'`）の一覧。
+ * 撮影日の新しい順。保存先ストレージURL の登録はこの画面から行う。
+ */
+export async function loadConfirmedShoots(now: Date = new Date()): Promise<ConfirmedShoot[]> {
+  const [sessions, slots, slotModels, models, venues] = await Promise.all([
+    db.sessions.toArray(),
+    db.slots.toArray(),
+    db.slot_models.toArray(),
+    db.models.toArray(),
+    db.venues.toArray(),
+  ])
+
+  const modelMap = new Map(models.map((m) => [m.id, m]))
+  const venueMap = new Map(venues.map((v) => [v.id, v]))
+  const sessionMap = new Map(
+    sessions.filter((s) => !s.deleted_at && s.status === 'confirmed').map((s) => [s.id, s]),
+  )
+
+  const modelsBySlot = new Map<string, ConfirmedShoot['models']>()
+  for (const sm of slotModels) {
+    const model = modelMap.get(sm.model_id)
+    if (!model) continue
+    const sns = asRecord(model.sns_links)
+    const list = modelsBySlot.get(sm.slot_id) ?? []
+    list.push({ name: model.name, x: sns.x ?? null, instagram: sns.instagram ?? null })
+    modelsBySlot.set(sm.slot_id, list)
+  }
+
+  const nowMs = now.getTime()
+
+  return slots
+    .filter((slot) => !slot.deleted_at && sessionMap.has(slot.session_id))
+    .map((slot) => {
+      const session = sessionMap.get(slot.session_id)!
+      const start = new Date(slot.start_at)
+      const end = new Date(start.getTime() + slot.planned_minutes * 60_000)
+      const urls = slot.storage_urls ?? []
+
+      return {
+        sessionId: session.id,
+        slotId: slot.id,
+        title: session.title,
+        concept: session.concept,
+        venueName: session.venue_id
+          ? (venueMap.get(session.venue_id)?.name ?? session.venue_name)
+          : session.venue_name,
+        shootDate: session.session_date,
+        startTime: toTime(slot.start_at),
+        endTime: toTime(end.toISOString()),
+        models: modelsBySlot.get(slot.id) ?? [],
+        storageUrls: urls,
+        registered: urls.length > 0 || Boolean(slot.storage_path),
+        past: start.getTime() < nowMs,
+      }
+    })
+    .sort((a, b) => {
+      const byDate = b.shootDate.localeCompare(a.shootDate)
+      return byDate !== 0 ? byDate : b.startTime.localeCompare(a.startTime)
+    })
 }

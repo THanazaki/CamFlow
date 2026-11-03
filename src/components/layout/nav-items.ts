@@ -24,8 +24,7 @@ export const NAV_ITEMS: NavItem[] = [
     ready: false,
     children: [
       { href: '/shoots/confirm', label: '確定撮影情報入力', ready: true },
-      // スケジュール確認と、撮影後の保管先登録をまとめて扱う
-      { href: '/shoots/info', label: '撮影情報', ready: false },
+      { href: '/shoots/info', label: '確定撮影情報', ready: true },
     ],
   },
   {

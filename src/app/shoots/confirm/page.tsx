@@ -9,8 +9,6 @@ import { getActiveUserId } from '@/lib/auth/session'
 import { loadSuggestions } from '@/lib/queries/reservations'
 import { loadConfirmableReservations } from '@/lib/queries/shoots'
 
-const STORAGE_SLOTS = 3
-
 const EMPTY: ShootConfirmInput = {
   fromSessionId: '',
   eventName: '',
@@ -22,7 +20,6 @@ const EMPTY: ShootConfirmInput = {
   shootDate: '',
   startTime: '',
   endTime: '',
-  storageUrls: Array(STORAGE_SLOTS).fill(''),
 }
 
 export default function ShootConfirmPage() {
@@ -45,13 +42,6 @@ export default function ShootConfirmPage() {
 
   const set = <K extends keyof ShootConfirmInput>(key: K, value: ShootConfirmInput[K]) =>
     setForm((f) => ({ ...f, [key]: value }))
-
-  const setStorage = (index: number, value: string) =>
-    setForm((f) => {
-      const next = [...f.storageUrls]
-      next[index] = value
-      return { ...f, storageUrls: next }
-    })
 
   /** 予約を選んだら、その内容で埋める */
   const pickReservation = (sessionId: string) => {
@@ -103,7 +93,7 @@ export default function ShootConfirmPage() {
       <header>
         <h1 className="text-2xl font-semibold tracking-tight">確定撮影情報入力</h1>
         <p className="text-muted mt-1 text-sm">
-          予約が取れた撮影の確定内容を登録します。保存先ストレージURLは撮影後に追記してください。
+          予約が取れた撮影の確定内容を登録します。保存先ストレージURLは撮影後に「確定撮影情報」から登録します。
         </p>
       </header>
 
@@ -281,31 +271,6 @@ export default function ShootConfirmPage() {
               )}
             </Field>
           </div>
-        </section>
-
-        {/* 撮影が終わってから埋める欄。確定時点では空で構わない */}
-        <section className="bg-surface border-border space-y-4 rounded-lg border p-5">
-          <div>
-            <h2 className="text-sm font-medium">撮影後に登録する内容</h2>
-            <p className="text-muted mt-0.5 text-xs">
-              確定時点では空のままで構いません。撮影後に入力すると撮影リマインドから外れます
-            </p>
-          </div>
-
-          {Array.from({ length: STORAGE_SLOTS }, (_, i) => (
-            <Field key={i} label={`保存先ストレージURL ${i + 1}`}>
-              {(p) => (
-                <input
-                  {...p}
-                  type="url"
-                  value={form.storageUrls[i] ?? ''}
-                  onChange={(e) => setStorage(i, e.target.value)}
-                  placeholder="https://drive.example.com/..."
-                  className={inputClass}
-                />
-              )}
-            </Field>
-          ))}
         </section>
 
         <div className="flex flex-wrap items-center gap-3">

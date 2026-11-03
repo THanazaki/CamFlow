@@ -25,8 +25,6 @@ export interface ShootConfirmInput {
   /** 開始・終了時刻（HH:mm） */
   startTime: string
   endTime: string
-  /** 撮影後に登録する保存先。空文字は捨てる */
-  storageUrls: string[]
 }
 
 function normalize(name: string): string {
@@ -93,7 +91,6 @@ export async function confirmShoot(
   }
 
   const startAt = toIso(input.shootDate, input.startTime)
-  const storageUrls = input.storageUrls.map((u) => u.trim()).filter(Boolean)
 
   // ── 予約から確定する ─────────────────────────────────────
   if (input.fromSessionId) {
@@ -107,7 +104,7 @@ export async function confirmShoot(
       .sort((a, b) => a.slot_no - b.slot_no)[0]
 
     if (!slot) {
-      const slotId = await createSlot(userId, sessionId, startAt, minutes, storageUrls)
+      const slotId = await createSlot(userId, sessionId, startAt, minutes)
       await ensureSlotModel(userId, slotId, modelId)
       return { sessionId, slotId }
     }
@@ -115,7 +112,6 @@ export async function confirmShoot(
     await updateRow('slots', slot.id, {
       start_at: startAt,
       planned_minutes: minutes,
-      storage_urls: storageUrls,
     })
     await ensureSlotModel(userId, slot.id, modelId)
     return { sessionId, slotId: slot.id }
@@ -123,7 +119,7 @@ export async function confirmShoot(
 
   // ── 予約を通さず直接登録する ─────────────────────────────
   const sessionId = await createRow('sessions', { user_id: userId, ...sessionValues })
-  const slotId = await createSlot(userId, sessionId, startAt, minutes, storageUrls)
+  const slotId = await createSlot(userId, sessionId, startAt, minutes)
   await ensureSlotModel(userId, slotId, modelId)
   return { sessionId, slotId }
 }
@@ -133,7 +129,6 @@ async function createSlot(
   sessionId: string,
   startAt: string,
   minutes: number,
-  storageUrls: string[],
 ): Promise<string> {
   return createRow('slots', {
     user_id: userId,
@@ -141,7 +136,16 @@ async function createSlot(
     slot_no: 1,
     start_at: startAt,
     planned_minutes: minutes,
-    storage_urls: storageUrls,
+    // サーバ側の既定は '{}'。ローカルで省くと undefined になり、
+    // pull で入るサーバ行と形が食い違う（deleted_at と同じ罠）
+    storage_urls: [],
+  })
+}
+
+/** 保存先ストレージURL の登録。確定撮影情報画面から撮影後に呼ぶ */
+export async function saveStorageUrls(slotId: string, urls: string[]): Promise<void> {
+  await updateRow('slots', slotId, {
+    storage_urls: urls.map((u) => u.trim()).filter(Boolean),
   })
 }
 

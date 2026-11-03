@@ -119,6 +119,9 @@
   `shoot_history`）は `softDeleteRow()` を使う。一覧は `deleted_at is null` で絞る。
 - テーブルを追加したら `SYNC_TABLES`（`src/lib/db/types.ts`）と Dexie のストア定義にも
   足すこと。足さないと同期対象から漏れる。
+- **`createRow` には NOT NULL + 既定値のカラムを明示的に渡すこと**（`storage_urls: []` など）。
+  省くとローカル行だけ `undefined` になり、pull で入るサーバ行（`[]` や `null`）と形が
+  食い違う。`deleted_at` は `SOFT_DELETABLE` を見て自動で埋めているが、それ以外は手動。
 - Service Worker は `serwist.config.mjs` + `npm run build:sw` で生成する。
   `@serwist/next` のプラグイン方式は Turbopack では**何も生成されない**ので使わない。
 - 詳細は `README.md`（アーキテクチャ）と `docs/仕様書.md`（全仕様）を参照。
