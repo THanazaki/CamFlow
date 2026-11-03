@@ -9,6 +9,8 @@ node_modules/
 /build
 next-env.d.ts
 *.tsbuildinfo
+# next dev が自動生成する（next.config の agentRules で無効化可能）
+AGENTS.md
 
 # Serwist が生成する Service Worker（npm run build で作られる）
 /public/sw.js
