@@ -31,6 +31,22 @@ export interface ShootSummary {
   rating: number | null
 }
 
+/**
+ * リマインドが対象とする工程。
+ *
+ *   予約情報入力 ──[予約可否決定]── 撮影確定 ──[撮影]── 撮影データ登録 ── 完了
+ *      └─ 予約リマインド ─┘        └──────── 撮影リマインド ────────┘
+ */
+export type ReminderStage =
+  /** 予約を入れたが可否がまだ決まっていない */
+  | 'awaiting_decision'
+  /** 可否が決まらないまま予定日を過ぎた */
+  | 'overdue_decision'
+  /** 確定済みでこれから撮る */
+  | 'before_shoot'
+  /** 撮影日を過ぎたが保管先が未登録 */
+  | 'awaiting_data'
+
 export interface ReminderItem {
   slotId: string
   sessionId: string
@@ -40,9 +56,9 @@ export interface ReminderItem {
   label: string | null
   venueName: string | null
   modelNames: string[]
-  /** 予約段階（未確定）か確定済みか */
   sessionStatus: LocalSession['status']
-  /** 開始までの日数。0 以下は本日。レンダー中に Date.now() を呼ばないためここで出す */
+  stage: ReminderStage
+  /** 開始までの日数。負なら過ぎている。レンダー中に Date.now() を呼ばないためここで出す */
   daysUntil: number
 }
 
@@ -57,9 +73,18 @@ export interface FeeReminderItem {
   amount: number
 }
 
+export interface ReminderGroup {
+  /** 表示する分（最大 LIMIT 件） */
+  items: ReminderItem[]
+  /** 条件に合う総数。カードのバッジはこちらを出す */
+  totalCount: number
+  /** うち期限を過ぎているもの */
+  overdueCount: number
+}
+
 export interface DashboardData {
-  reservations: ReminderItem[]
-  shoots: ReminderItem[]
+  reservations: ReminderGroup
+  shoots: ReminderGroup
   fees: { items: FeeReminderItem[]; totalAmount: number; totalCount: number }
   recent: ShootSummary[]
 }
@@ -140,7 +165,10 @@ export async function loadDashboard(now: Date = new Date()): Promise<DashboardDa
     modelNamesByHistory.set(hm.shoot_history_id, list)
   }
 
-  const toReminder = (slot: (typeof slots)[number]): ReminderItem | null => {
+  const toReminder = (
+    slot: (typeof slots)[number],
+    stage: ReminderStage,
+  ): ReminderItem | null => {
     const session = sessionMap.get(slot.session_id)
     if (!session) return null
     return {
@@ -153,23 +181,57 @@ export async function loadDashboard(now: Date = new Date()): Promise<DashboardDa
       venueName: resolveVenueName(session, venueMap),
       modelNames: modelNamesBySlot.get(slot.id) ?? [],
       sessionStatus: session.status,
+      stage,
       daysUntil: Math.ceil((new Date(slot.start_at).getTime() - now.getTime()) / 86_400_000),
     }
   }
 
-  // これから来る枠。中止したものは出さない
-  const upcoming = slots
-    .filter((s) => s.start_at >= nowIso && s.shoot_status !== 'cancelled')
-    .sort((a, b) => a.start_at.localeCompare(b.start_at))
-    .map(toReminder)
+  // 中止・不参加の枠はどちらのリマインドにも出さない
+  const live = slots.filter(
+    (s) => s.shoot_status !== 'cancelled' && s.shoot_status !== 'no_show',
+  )
+
+  /**
+   * 期限超過を先頭に、超過が深いものから。残りは予定日の近い順。
+   * 「放置されているもの」から目に入るようにするため。
+   */
+  const sortByUrgency = (a: ReminderItem, b: ReminderItem) => {
+    const aOver = a.daysUntil < 0
+    const bOver = b.daysUntil < 0
+    if (aOver !== bOver) return aOver ? -1 : 1
+    return aOver ? a.startAt.localeCompare(b.startAt) : a.startAt.localeCompare(b.startAt)
+  }
+
+  const group = (items: ReminderItem[]): ReminderGroup => ({
+    items: items.slice(0, LIMIT),
+    totalCount: items.length,
+    overdueCount: items.filter((i) => i.daysUntil < 0).length,
+  })
+
+  // 予約リマインド: 予約情報入力 〜 予約可否決定。
+  // まだ可否が決まっていない（planned）ものは、日付が過ぎていても出す。
+  // 可否が決まらないまま予定日を越えた予約こそ放置されている
+  const reservations = live
+    .map((slot) => {
+      const session = sessionMap.get(slot.session_id)
+      if (!session || session.status !== 'planned') return null
+      return toReminder(slot, slot.start_at < nowIso ? 'overdue_decision' : 'awaiting_decision')
+    })
     .filter((r): r is ReminderItem => r !== null)
-    .filter((r) => r.sessionStatus !== 'cancelled')
+    .sort(sortByUrgency)
 
-  // 予約リマインド: まだ「確定撮影情報入力」を通していないもの
-  const reservations = upcoming.filter((r) => r.sessionStatus === 'planned').slice(0, LIMIT)
-
-  // 撮影リマインド: 「確定撮影情報入力」を通したもの
-  const shoots = upcoming.filter((r) => r.sessionStatus === 'confirmed').slice(0, LIMIT)
+  // 撮影リマインド: 撮影確定（予約成功を含む）〜 撮影データ登録。
+  // 確定済みで、まだ保管先が登録されていない枠。撮影前も撮影後も含み、
+  // データ登録が済んだ時点で消える
+  const shoots = live
+    .map((slot) => {
+      const session = sessionMap.get(slot.session_id)
+      if (!session || session.status !== 'confirmed') return null
+      if (slot.storage_path) return null // データ登録済み = この工程は完了
+      return toReminder(slot, slot.start_at < nowIso ? 'awaiting_data' : 'before_shoot')
+    })
+    .filter((r): r is ReminderItem => r !== null)
+    .sort(sortByUrgency)
 
   // 料金リマインド: 未払いのモデル料。運用フロー分と遡及登録分の両方
   const feeItems: FeeReminderItem[] = []
@@ -260,7 +322,7 @@ export async function loadDashboard(now: Date = new Date()): Promise<DashboardDa
     })
     .slice(0, RECENT_LIMIT)
 
-  return { reservations, shoots, fees, recent }
+  return { reservations: group(reservations), shoots: group(shoots), fees, recent }
 }
 
 export const dashboardInternals = { LIMIT, RECENT_LIMIT, toDateKey }

@@ -107,6 +107,9 @@
 ## 5. アーキテクチャ上の約束（オフラインファースト）
 - **読み取りは全て IndexedDB (Dexie) から行う。画面から Supabase を直接読まない。**
   そのためデータを持つ画面は全て Client Component になる。
+- **読み取りクエリは `src/lib/queries/` に置く。画面で `db.slots` などを直接組み立てない。**
+  サーバ側のビュー（`v_shoot_history_all` など）は Dexie に同期されず画面から引けないため、
+  「ビュー相当」をここに用意する。画面側で組むと同じ結合ロジックが散らばってズレる。
 - **書き込みは必ず `src/lib/sync/mutations.ts` を通す。** ローカル行と outbox を
   同一トランザクションで更新している。Supabase を直接叩くとオフライン中に変更が消える。
 - **`supabase.auth` を触るのは `src/lib/auth/session.ts` だけ。**

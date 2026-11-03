@@ -3,7 +3,7 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 
 import { ReminderCard, ReminderRow } from '@/components/dashboard/ReminderCard'
-import { loadDashboard, type ShootSummary } from '@/lib/queries/dashboard'
+import { loadDashboard, type ReminderItem, type ReminderStage, type ShootSummary } from '@/lib/queries/dashboard'
 import { useSync } from '@/lib/sync/useSync'
 
 /**
@@ -24,8 +24,8 @@ export default function DashboardPage() {
   }
 
   const isEmpty =
-    data.reservations.length === 0 &&
-    data.shoots.length === 0 &&
+    data.reservations.totalCount === 0 &&
+    data.shoots.totalCount === 0 &&
     data.fees.totalCount === 0 &&
     data.recent.length === 0
 
@@ -42,13 +42,19 @@ export default function DashboardPage() {
       <div className="grid gap-4 lg:grid-cols-3">
         <ReminderCard
           title="予約リマインド"
-          count={data.reservations.length}
-          emptyText="確定待ちの予約はありません"
+          count={data.reservations.totalCount}
+          tone={data.reservations.overdueCount > 0 ? 'alert' : 'neutral'}
+          summary={
+            data.reservations.overdueCount > 0
+              ? `可否未決のまま超過 ${data.reservations.overdueCount}`
+              : undefined
+          }
+          emptyText="可否待ちの予約はありません"
         >
-          {data.reservations.map((r) => (
+          {data.reservations.items.map((r) => (
             <ReminderRow
               key={r.slotId}
-              primary={r.title}
+              primary={<Primary item={r} />}
               secondary={[r.venueName, r.modelNames.join('・')].filter(Boolean).join(' / ') || undefined}
               trailing={<DateTime iso={r.startAt} daysUntil={r.daysUntil} />}
             />
@@ -74,13 +80,17 @@ export default function DashboardPage() {
 
         <ReminderCard
           title="撮影リマインド"
-          count={data.shoots.length}
-          emptyText="確定済みの撮影予定はありません"
+          count={data.shoots.totalCount}
+          tone={data.shoots.overdueCount > 0 ? 'alert' : 'neutral'}
+          summary={
+            data.shoots.overdueCount > 0 ? `データ未登録 ${data.shoots.overdueCount}` : undefined
+          }
+          emptyText="対応中の撮影はありません"
         >
-          {data.shoots.map((s) => (
+          {data.shoots.items.map((s) => (
             <ReminderRow
               key={s.slotId}
-              primary={`${s.title}${s.label ? `（${s.label}）` : ''}`}
+              primary={<Primary item={s} />}
               secondary={[s.venueName, s.modelNames.join('・')].filter(Boolean).join(' / ') || undefined}
               trailing={<DateTime iso={s.startAt} daysUntil={s.daysUntil} />}
             />
@@ -162,16 +172,47 @@ function RecentTable({ rows }: { rows: ShootSummary[] }) {
   )
 }
 
+const STAGE_LABEL: Record<ReminderStage, string> = {
+  awaiting_decision: '可否待ち',
+  overdue_decision: '可否未決',
+  before_shoot: '撮影前',
+  awaiting_data: 'データ未登録',
+}
+
+/** 工程が一目で分かるようタイトルの前にバッジを出す */
+function Primary({ item }: { item: ReminderItem }) {
+  const urgent = item.stage === 'overdue_decision' || item.stage === 'awaiting_data'
+  return (
+    <span className="flex items-center gap-1.5">
+      <span
+        className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ${
+          urgent
+            ? 'bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300'
+            : 'bg-navy-100 text-navy-700 dark:bg-white/10 dark:text-navy-100'
+        }`}
+      >
+        {STAGE_LABEL[item.stage]}
+      </span>
+      <span className="truncate">
+        {item.title}
+        {item.label && <span className="text-muted">（{item.label}）</span>}
+      </span>
+    </span>
+  )
+}
+
 function DateTime({ iso, daysUntil }: { iso: string; daysUntil: number }) {
   const d = new Date(iso)
-  const days = daysUntil
+  const overdue = daysUntil < 0
   return (
     <span className="text-right">
       <span className="block whitespace-nowrap">
         {d.toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
       </span>
-      <span className="text-muted block whitespace-nowrap">
-        {days <= 0 ? '本日' : `あと${days}日`}
+      <span
+        className={`block whitespace-nowrap ${overdue ? 'text-amber-600 dark:text-amber-400' : 'text-muted'}`}
+      >
+        {overdue ? `${-daysUntil}日経過` : daysUntil === 0 ? '本日' : `あと${daysUntil}日`}
       </span>
     </span>
   )
