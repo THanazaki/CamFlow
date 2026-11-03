@@ -2,6 +2,7 @@ import Dexie, { type EntityTable } from 'dexie'
 
 import type {
   LocalModel,
+  LocalOrganizer,
   LocalProfile,
   LocalSession,
   LocalSlot,
@@ -19,6 +20,7 @@ import type {
 export class CamFlowDB extends Dexie {
   profiles!: EntityTable<LocalProfile, 'id'>
   venues!: EntityTable<LocalVenue, 'id'>
+  organizers!: EntityTable<LocalOrganizer, 'id'>
   models!: EntityTable<LocalModel, 'id'>
   sessions!: EntityTable<LocalSession, 'id'>
   slots!: EntityTable<LocalSlot, 'id'>
@@ -31,9 +33,11 @@ export class CamFlowDB extends Dexie {
 
     this.version(1).stores({
       profiles: 'id, _dirty',
-      venues: 'id, user_id, name, is_favorite, updated_at, _dirty',
+      venues: 'id, user_id, name, kind, [user_id+kind], is_favorite, updated_at, _dirty',
       models: 'id, user_id, name, name_kana, status, is_favorite, updated_at, _dirty, *tags',
-      sessions: 'id, user_id, session_date, status, shoot_type, venue_id, updated_at, _dirty',
+      organizers: 'id, user_id, name, name_kana, is_favorite, updated_at, _dirty',
+      sessions:
+        'id, user_id, session_date, status, shoot_type, venue_id, organizer_id, updated_at, _dirty',
       slots:
         'id, user_id, session_id, start_at, timer_status, shoot_status, updated_at, _dirty, [session_id+slot_no]',
       slot_models:

@@ -8,7 +8,15 @@ import type { Tables } from '@/types/database'
  */
 
 /** 同期対象のテーブル。push / pull の順序はこの配列順（FK の親から子へ） */
-export const SYNC_TABLES = ['profiles', 'venues', 'models', 'sessions', 'slots', 'slot_models'] as const
+export const SYNC_TABLES = [
+  'profiles',
+  'venues',
+  'organizers',
+  'models',
+  'sessions',
+  'slots',
+  'slot_models',
+] as const
 
 export type SyncTable = (typeof SYNC_TABLES)[number]
 
@@ -20,6 +28,7 @@ export type LocalRow<T extends SyncTable> = Tables<T> & {
 
 export type LocalProfile = LocalRow<'profiles'>
 export type LocalVenue = LocalRow<'venues'>
+export type LocalOrganizer = LocalRow<'organizers'>
 export type LocalModel = LocalRow<'models'>
 export type LocalSession = LocalRow<'sessions'>
 export type LocalSlot = LocalRow<'slots'>
@@ -28,6 +37,7 @@ export type LocalSlotModel = LocalRow<'slot_models'>
 /** 論理削除を持つテーブル（pull で deleted_at を見る必要があるもの） */
 export const SOFT_DELETABLE: ReadonlySet<SyncTable> = new Set([
   'venues',
+  'organizers',
   'models',
   'sessions',
   'slots',

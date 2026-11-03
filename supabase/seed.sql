@@ -11,9 +11,12 @@ declare
   v_user_id uuid;
   v_user_created boolean := false;
 
-  -- スタジオ
+  -- スタジオ・ロケ地
   v_venue_studio uuid := 'a0000000-0000-4000-8000-000000000001';
   v_venue_park   uuid := 'a0000000-0000-4000-8000-000000000002';
+
+  -- 主催団体
+  v_org_autumn uuid := 'e0000000-0000-4000-8000-000000000001';
 
   -- モデル
   v_model_a uuid := 'b0000000-0000-4000-8000-000000000001';
@@ -91,11 +94,20 @@ begin
     -- ----------------------------------------------------------
     -- 1. venues
     -- ----------------------------------------------------------
-    insert into public.venues (id, user_id, name, address, url, nearest_station, hourly_rate, notes, is_favorite) values
-      (v_venue_studio, v_user_id, 'スタジオ ルミエール', '東京都渋谷区神南1-2-3', 'https://example.com/lumiere', '渋谷駅', 3500,
+    insert into public.venues (id, user_id, name, kind, address, url, nearest_station, hourly_rate, notes, is_favorite) values
+      (v_venue_studio, v_user_id, 'スタジオ ルミエール', 'studio',   '東京都渋谷区神南1-2-3', 'https://example.com/lumiere', '渋谷駅', 3500,
        'ストロボ2灯・バックペーパー白/黒あり。電源は壁面のみ', true),
-      (v_venue_park,   v_user_id, '緑ヶ丘中央公園',     '東京都立川市緑ヶ丘1-1',  null,                            '西立川駅', 0,
+      (v_venue_park,   v_user_id, '緑ヶ丘中央公園',     'location', '東京都立川市緑ヶ丘1-1',  null,                            '西立川駅', 0,
        '三脚は要申請。日没が早い時期は15時開始が限界', false)
+    on conflict (id) do nothing;
+
+    -- ----------------------------------------------------------
+    -- 1b. organizers（主催団体）
+    -- ----------------------------------------------------------
+    insert into public.organizers (id, user_id, name, name_kana, url, contact, notes, is_favorite) values
+      (v_org_autumn, v_user_id, 'ポートレート撮影会 秋の回', 'ぽーとれーとさつえいかい',
+       'https://example.com/autumn', 'info@example.com',
+       '参加費は当日現金払い。モデル料は別途その場で手渡し', false)
     on conflict (id) do nothing;
 
     -- ----------------------------------------------------------
@@ -125,23 +137,23 @@ begin
     -- 3. sessions
     -- ----------------------------------------------------------
     insert into public.sessions
-      (id, user_id, title, session_date, shoot_type, status, venue_id, venue_name, organizer,
+      (id, user_id, title, session_date, shoot_type, status, venue_id, venue_name, organizer_id, organizer,
        start_at, end_at, studio_cost, transport_cost, entry_cost, other_cost, other_cost_note, weather_note, memo)
     values
       (v_sess_past, v_user_id, 'スタジオ個人撮影会（栞奈・みなも）', current_date - 60, 'solo', 'done',
-       v_venue_studio, 'スタジオ ルミエール', null,
+       v_venue_studio, 'スタジオ ルミエール', null, null,
        (current_date - 60 + time '13:00') at time zone 'Asia/Tokyo',
        (current_date - 60 + time '16:00') at time zone 'Asia/Tokyo',
        10500, 1200, 0, 0, null, null, '初回のスタジオ。ホリゾントが広くて使いやすい'),
 
       (v_sess_recent, v_user_id, '秋ロケ撮影会', current_date - 14, 'event', 'done',
-       v_venue_park, '緑ヶ丘中央公園', 'ポートレート撮影会 秋の回',
+       v_venue_park, '緑ヶ丘中央公園', v_org_autumn, 'ポートレート撮影会 秋の回',
        (current_date - 14 + time '14:00') at time zone 'Asia/Tokyo',
        (current_date - 14 + time '17:00') at time zone 'Asia/Tokyo',
        0, 2400, 3000, 800, '公園入園料', '快晴・西日が強め', '納品が3名分残っている'),
 
       (v_sess_future, v_user_id, 'スタジオ個人撮影会（12月）', current_date + 21, 'solo', 'confirmed',
-       v_venue_studio, 'スタジオ ルミエール', null,
+       v_venue_studio, 'スタジオ ルミエール', null, null,
        (current_date + 21 + time '12:00') at time zone 'Asia/Tokyo',
        (current_date + 21 + time '16:00') at time zone 'Asia/Tokyo',
        14000, 1200, 0, 0, null, null, 'クリスマス衣装の予定。小物を用意する')

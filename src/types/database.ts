@@ -101,11 +101,54 @@ export type Database = {
         }
         Relationships: []
       }
+      organizers: {
+        Row: {
+          id: string
+          user_id: string
+          name: string
+          name_kana: string | null
+          url: string | null
+          contact: string | null
+          notes: string | null
+          is_favorite: boolean
+          created_at: string
+          updated_at: string
+          deleted_at: string | null
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          name: string
+          name_kana?: string | null
+          url?: string | null
+          contact?: string | null
+          notes?: string | null
+          is_favorite?: boolean
+          created_at?: string
+          updated_at?: string
+          deleted_at?: string | null
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          name?: string
+          name_kana?: string | null
+          url?: string | null
+          contact?: string | null
+          notes?: string | null
+          is_favorite?: boolean
+          created_at?: string
+          updated_at?: string
+          deleted_at?: string | null
+        }
+        Relationships: []
+      }
       venues: {
         Row: {
           id: string
           user_id: string
           name: string
+          kind: Database['public']['Enums']['venue_kind']
           address: string | null
           url: string | null
           nearest_station: string | null
@@ -120,6 +163,7 @@ export type Database = {
           id?: string
           user_id: string
           name: string
+          kind?: Database['public']['Enums']['venue_kind']
           address?: string | null
           url?: string | null
           nearest_station?: string | null
@@ -134,6 +178,7 @@ export type Database = {
           id?: string
           user_id?: string
           name?: string
+          kind?: Database['public']['Enums']['venue_kind']
           address?: string | null
           url?: string | null
           nearest_station?: string | null
@@ -156,6 +201,7 @@ export type Database = {
           status: Database['public']['Enums']['session_status']
           venue_id: string | null
           venue_name: string | null
+          organizer_id: string | null
           organizer: string | null
           start_at: string | null
           end_at: string | null
@@ -179,6 +225,7 @@ export type Database = {
           status?: Database['public']['Enums']['session_status']
           venue_id?: string | null
           venue_name?: string | null
+          organizer_id?: string | null
           organizer?: string | null
           start_at?: string | null
           end_at?: string | null
@@ -202,6 +249,7 @@ export type Database = {
           status?: Database['public']['Enums']['session_status']
           venue_id?: string | null
           venue_name?: string | null
+          organizer_id?: string | null
           organizer?: string | null
           start_at?: string | null
           end_at?: string | null
@@ -222,6 +270,13 @@ export type Database = {
             columns: ['venue_id']
             isOneToOne: false
             referencedRelation: 'venues'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'sessions_organizer_id_fkey'
+            columns: ['organizer_id']
+            isOneToOne: false
+            referencedRelation: 'organizers'
             referencedColumns: ['id']
           },
         ]
@@ -502,6 +557,7 @@ export type Database = {
     }
     Enums: {
       model_status: 'active' | 'inactive' | 'ng'
+      venue_kind: 'studio' | 'location'
       shoot_type: 'solo' | 'event' | 'client' | 'personal'
       session_status: 'planned' | 'confirmed' | 'done' | 'cancelled'
       timer_status: 'idle' | 'running' | 'paused' | 'finished'

@@ -9,6 +9,7 @@ import { useSync } from '@/lib/sync/useSync'
 const LABELS: Record<(typeof SYNC_TABLES)[number], string> = {
   profiles: 'プロフィール',
   venues: 'スタジオ・ロケ地',
+  organizers: '団体',
   models: 'モデル',
   sessions: '撮影イベント',
   slots: '撮影枠',

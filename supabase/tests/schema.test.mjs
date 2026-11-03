@@ -69,12 +69,13 @@ catch (e) { bad('seed.sql 実行', e) }
   const r = await db.query(`
     select
       (select count(*) from public.venues)      as venues,
+      (select count(*) from public.organizers)  as organizers,
       (select count(*) from public.models)      as models,
       (select count(*) from public.sessions)    as sessions,
       (select count(*) from public.slots)       as slots,
       (select count(*) from public.slot_models) as slot_models`)
   const c = r.rows[0]
-  const want = { venues: 2n, models: 5n, sessions: 3n, slots: 8n, slot_models: 9n }
+  const want = { venues: 2n, organizers: 1n, models: 5n, sessions: 3n, slots: 8n, slot_models: 9n }
   const got = Object.fromEntries(Object.entries(c).map(([k, v]) => [k, BigInt(v)]))
   JSON.stringify(got, (k, v) => typeof v === 'bigint' ? Number(v) : v) ===
   JSON.stringify(want, (k, v) => typeof v === 'bigint' ? Number(v) : v)
@@ -147,6 +148,11 @@ await mustFail('他ユーザーの model を参照する slot_models',
 await mustFail('他ユーザーの venue を参照する session',
   `insert into public.sessions (user_id, title, session_date, venue_id)
    values ('${UB}', 'NG', current_date, 'a0000000-0000-4000-8000-000000000001')`)
+await mustFail('他ユーザーの organizer を参照する session',
+  `insert into public.sessions (user_id, title, session_date, organizer_id)
+   values ('${UB}', 'NG', current_date, 'e0000000-0000-4000-8000-000000000001')`)
+await mustFail('organizers の同名重複登録',
+  `insert into public.organizers (user_id, name) values ('${UA}', 'ポートレート撮影会 秋の回')`)
 await mustFail('models の同名重複登録',
   `insert into public.models (user_id, name) values ('${UA}', '栞奈')`)
 await mustFail('負の金額',
@@ -174,6 +180,37 @@ await mustPass('タイマー: idle → running → paused → running → finish
    update public.slots set timer_status='idle', timer_started_at=null, timer_ends_at=null,
      timer_remaining_sec=null, timer_finished_at=null
      where id='d0000000-0000-4000-8000-000000000006';`)
+
+// ── 6c. マスタ（団体 / 場所の種別） ───────────────────────────────────────
+console.log('\n[6c] 団体マスタと場所の種別')
+{
+  const v = await db.query(`select name, kind from public.venues order by kind`)
+  const kinds = Object.fromEntries(v.rows.map((r) => [r.kind, r.name]))
+  kinds.studio && kinds.location
+    ? ok('venues がスタジオ / ロケ地に分かれる', JSON.stringify(kinds))
+    : bad('venue_kind', JSON.stringify(v.rows))
+
+  const s = await db.query(`
+    select se.title, o.name as organizer_name, se.organizer as organizer_text
+    from public.sessions se
+    left join public.organizers o on o.id = se.organizer_id
+    where se.organizer_id is not null`)
+  s.rows.length === 1 && s.rows[0].organizer_name === 'ポートレート撮影会 秋の回'
+    ? ok('session から団体マスタを参照できる', s.rows[0].organizer_name)
+    : bad('organizer_id 参照', JSON.stringify(s.rows))
+
+  // 団体を消しても撮影履歴は残る（on delete set null）
+  await db.exec(`insert into public.organizers (id, user_id, name)
+                 values ('e0000000-0000-4000-8000-000000000099', '${UA}', '解散した団体')`)
+  await db.exec(`update public.sessions set organizer_id = 'e0000000-0000-4000-8000-000000000099'
+                 where id = 'c0000000-0000-4000-8000-000000000001'`)
+  await db.exec(`delete from public.organizers where id = 'e0000000-0000-4000-8000-000000000099'`)
+  const after = await db.query(`select organizer_id from public.sessions where id = 'c0000000-0000-4000-8000-000000000001'`)
+  const stillThere = await db.query(`select count(*)::int n from public.sessions where id = 'c0000000-0000-4000-8000-000000000001'`)
+  after.rows[0].organizer_id === null && stillThere.rows[0].n === 1
+    ? ok('団体を削除しても撮影イベントは残る（organizer_id が null になる）')
+    : bad('organizer 削除', JSON.stringify(after.rows))
+}
 
 // ── 7. ビュー ─────────────────────────────────────────────────────────────
 console.log('\n[7] ビューの集計')
