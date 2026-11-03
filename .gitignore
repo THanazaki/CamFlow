@@ -1,0 +1,35 @@
+# dependencies
+node_modules/
+.pnp
+.pnp.*
+
+# Next.js
+/.next/
+/out/
+/build
+next-env.d.ts
+*.tsbuildinfo
+
+# 環境変数（Supabase のキーを含むため絶対にコミットしない）
+.env
+.env*.local
+supabase/.env
+
+# Supabase CLI のローカル作業ファイル
+supabase/.temp/
+supabase/.branches/
+
+# ログ
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# エディタ / OS
+.DS_Store
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# デプロイ
+.vercel
