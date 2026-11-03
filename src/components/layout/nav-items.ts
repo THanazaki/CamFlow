@@ -17,6 +17,7 @@ export const NAV_ITEMS: NavItem[] = [
     children: [
       { href: '/shoots/confirm', label: '確定撮影情報入力', ready: false },
       { href: '/shoots/schedule', label: '撮影スケジュール確認', ready: false },
+      { href: '/shoots/data', label: '撮影データ登録', ready: false },
     ],
   },
   {
