@@ -1,0 +1,96 @@
+import { db } from '@/lib/db'
+import { createRow } from '@/lib/sync/mutations'
+
+/**
+ * 予約情報入力の書き込み。
+ *
+ * 1件の予約は sessions / slots / slot_models の3行になる。
+ * `createRow` はテーブルごとに別トランザクションだが、outbox は seq 昇順に
+ * 直列送信されるので、親 → 子の順に呼べば FK の順序は保たれる。
+ */
+
+export interface ReservationInput {
+  /** 予約受付の開始日時（datetime-local の値） */
+  bookingOpensAt: string
+  /** 撮影日（YYYY-MM-DD） */
+  shootDate: string
+  modelName: string
+  concept: string
+  /** 場所。マスタに同名があれば紐づけ、無ければテキストとして残す */
+  venueName: string
+  bookingUrl: string
+}
+
+export interface ReservationResult {
+  sessionId: string
+  /** 新しくモデルマスタに登録したか */
+  createdModel: boolean
+}
+
+/** 予約段階では枠の時刻が未定なので、撮影日の 0 時を仮置きする */
+function placeholderStartAt(shootDate: string): string {
+  return new Date(`${shootDate}T00:00:00`).toISOString()
+}
+
+function normalize(name: string): string {
+  return name.trim().toLowerCase()
+}
+
+export async function createReservation(
+  userId: string,
+  input: ReservationInput,
+): Promise<ReservationResult> {
+  const modelName = input.modelName.trim()
+  const venueName = input.venueName.trim()
+  const concept = input.concept.trim()
+
+  // モデルはマスタに実体が要る（slot_models.model_id は NOT NULL で
+  // テキストのフォールバックが無い）。同名が無ければ作る
+  const models = await db.models.toArray()
+  const existingModel = models.find(
+    (m) => !m.deleted_at && normalize(m.name) === normalize(modelName),
+  )
+  let modelId = existingModel?.id
+  let createdModel = false
+  if (!modelId) {
+    modelId = await createRow('models', { user_id: userId, name: modelName })
+    createdModel = true
+  }
+
+  // 場所は venue_name のフォールバックがあるので、マスタに無ければ作らない。
+  // 予約段階で場所マスタが増え続けるのを避ける
+  const venues = await db.venues.toArray()
+  const venue = venues.find(
+    (v) => !v.deleted_at && normalize(v.name) === normalize(venueName),
+  )
+
+  const sessionId = await createRow('sessions', {
+    user_id: userId,
+    title: concept || `${modelName} 撮影`,
+    session_date: input.shootDate,
+    // 予約段階。可否が決まったら confirmed / cancelled になる
+    status: 'planned',
+    booking_opens_at: new Date(input.bookingOpensAt).toISOString(),
+    booking_url: input.bookingUrl.trim() || null,
+    concept: concept || null,
+    venue_id: venue?.id ?? null,
+    venue_name: venueName || null,
+  })
+
+  const slotId = await createRow('slots', {
+    user_id: userId,
+    session_id: sessionId,
+    slot_no: 1,
+    start_at: placeholderStartAt(input.shootDate),
+  })
+
+  await createRow('slot_models', {
+    user_id: userId,
+    slot_id: slotId,
+    model_id: modelId,
+  })
+
+  return { sessionId, createdModel }
+}
+
+export const reservationInternals = { placeholderStartAt, normalize }

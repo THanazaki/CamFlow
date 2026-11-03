@@ -1,6 +1,7 @@
 import type { Table } from 'dexie'
 
 import { db } from '@/lib/db'
+import { SOFT_DELETABLE } from '@/lib/db/types'
 import type { LocalRow, OutboxEntry, OutboxOp, SyncTable } from '@/lib/db/types'
 import type { TablesInsert, TablesUpdate } from '@/types/database'
 
@@ -54,6 +55,14 @@ export async function createRow<T extends SyncTable>(
   const now = new Date().toISOString()
   const id = (values as { id?: string }).id ?? newId()
   const record = { ...values, id, created_at: now, updated_at: now } as Record<string, unknown>
+
+  // 論理削除のあるテーブルは deleted_at を明示的に null にする。
+  // 入れないと undefined のままになり、pull で入ってくるサーバ行（null）と
+  // 形が食い違う。`deleted_at === null` で絞る一覧から新規行が消えるので、
+  // ローカル行はサーバ行と同じ形にそろえる
+  if (SOFT_DELETABLE.has(table) && record.deleted_at === undefined) {
+    record.deleted_at = null
+  }
 
   await db.transaction('rw', [db.syncTable(table), db._outbox], async () => {
     await (db.syncTable(table) as Table<Record<string, unknown>, string>).add({

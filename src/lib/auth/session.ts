@@ -1,3 +1,4 @@
+import { getMeta, setMeta } from '@/lib/db'
 import { getSupabase, isSupabaseConfigured } from '@/lib/supabase/client'
 
 /**
@@ -13,6 +14,9 @@ import { getSupabase, isSupabaseConfigured } from '@/lib/supabase/client'
 
 const devEmail = process.env.NEXT_PUBLIC_DEV_USER_EMAIL
 const devPassword = process.env.NEXT_PUBLIC_DEV_USER_PASSWORD
+
+/** 端末に覚えさせたユーザーID。オフライン時の書き込みに使う */
+const USER_ID_KEY = 'auth:userId'
 
 let cachedUserId: string | null = null
 let inflight: Promise<string | null> | null = null
@@ -54,19 +58,40 @@ export async function getActiveUserId(): Promise<string | null> {
 
   // 成功だけキャッシュし、失敗（オフライン等）は次回の呼び出しで再試行させる
   inflight ??= signIn()
-    .then((id) => {
-      cachedUserId = id
+    .then(async (id) => {
+      if (id) {
+        cachedUserId = id
+        // 次からオフラインでも書き込めるよう端末に残す
+        await setMeta(USER_ID_KEY, id)
+      }
       return id
     })
     .finally(() => {
       inflight = null
     })
 
-  return inflight
+  const id = await inflight
+  if (id) return id
+
+  // オフラインや Supabase 未設定でサインインできない場合は、
+  // 前回サインインしたときのIDを使う。これが無いと「完全オフライン」と言いながら
+  // 一度もオンラインにならない限り1行も書けないことになる
+  const remembered = await getMeta<string>(USER_ID_KEY)
+  if (remembered) {
+    cachedUserId = remembered
+    return remembered
+  }
+  return null
 }
 
 /** キャッシュしたセッションを捨てる（テスト・サインアウト用） */
 export function resetSession(): void {
   cachedUserId = null
   inflight = null
+}
+
+/** サインアウト時は端末に残したIDも消す（他人のデータを書き込まないため） */
+export async function forgetUser(): Promise<void> {
+  resetSession()
+  await setMeta(USER_ID_KEY, null)
 }

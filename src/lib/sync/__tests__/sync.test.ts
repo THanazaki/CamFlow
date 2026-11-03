@@ -51,6 +51,44 @@ describe('書き込みの原子性', () => {
     expect(await db._outbox.count()).toBe(0)
   })
 
+  it('論理削除のあるテーブルは deleted_at を null で作る', async () => {
+    // null を入れないと undefined のままになり、pull で入るサーバ行（null）と
+    // 形が食い違う。`deleted_at === null` で絞る一覧から新規行が丸ごと消える
+    const id = await createRow('models', modelValues())
+    const row = await db.models.get(id)
+
+    expect(row).toHaveProperty('deleted_at')
+    expect(row?.deleted_at).toBeNull()
+  })
+
+  it('論理削除を持たないテーブルには deleted_at を足さない', async () => {
+    const slotId = await createRow('slots', {
+      user_id: USER,
+      session_id: 's1',
+      slot_no: 1,
+      start_at: new Date().toISOString(),
+    })
+    const row = await db.slot_models.get(
+      await createRow('slot_models', { user_id: USER, slot_id: slotId, model_id: 'm1' }),
+    )
+
+    expect(row).not.toHaveProperty('deleted_at')
+  })
+
+  it('ローカル作成した行とサーバ由来の行で deleted_at の形がそろう', async () => {
+    const localId = await createRow('models', modelValues({ name: 'ローカル作成' }))
+    transport.seed('models', { id: 'server-1', user_id: USER, name: 'サーバ由来', deleted_at: null })
+    await pullAll(transport)
+
+    const local = await db.models.get(localId)
+    const server = await db.models.get('server-1')
+    expect(local?.deleted_at).toBe(server?.deleted_at)
+
+    // 「未削除」で絞る一覧に両方出る
+    const visible = (await db.models.toArray()).filter((m) => m.deleted_at === null)
+    expect(visible.map((m) => m.name).sort()).toEqual(['サーバ由来', 'ローカル作成'])
+  })
+
   it('update は差分だけを outbox に積む（行全体を送らない）', async () => {
     const id = await createRow('models', modelValues())
     await db._outbox.clear()

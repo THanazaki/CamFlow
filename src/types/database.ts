@@ -203,6 +203,9 @@ export type Database = {
           venue_name: string | null
           organizer_id: string | null
           organizer: string | null
+          booking_opens_at: string | null
+          booking_url: string | null
+          concept: string | null
           start_at: string | null
           end_at: string | null
           studio_cost: number
@@ -227,6 +230,9 @@ export type Database = {
           venue_name?: string | null
           organizer_id?: string | null
           organizer?: string | null
+          booking_opens_at?: string | null
+          booking_url?: string | null
+          concept?: string | null
           start_at?: string | null
           end_at?: string | null
           studio_cost?: number
@@ -251,6 +257,9 @@ export type Database = {
           venue_name?: string | null
           organizer_id?: string | null
           organizer?: string | null
+          booking_opens_at?: string | null
+          booking_url?: string | null
+          concept?: string | null
           start_at?: string | null
           end_at?: string | null
           studio_cost?: number
@@ -508,6 +517,9 @@ export type Database = {
           venue_name?: string | null
           organizer_id?: string | null
           organizer?: string | null
+          booking_opens_at?: string | null
+          booking_url?: string | null
+          concept?: string | null
           start_at?: string | null
           end_at?: string | null
           venue_cost?: number
@@ -539,6 +551,9 @@ export type Database = {
           venue_name?: string | null
           organizer_id?: string | null
           organizer?: string | null
+          booking_opens_at?: string | null
+          booking_url?: string | null
+          concept?: string | null
           start_at?: string | null
           end_at?: string | null
           venue_cost?: number

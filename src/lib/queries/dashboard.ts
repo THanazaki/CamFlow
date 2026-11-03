@@ -133,8 +133,10 @@ export async function loadDashboard(now: Date = new Date()): Promise<DashboardDa
 
   // 論理削除した行は push が通るまで手元に残る（softDeleteRow は deleted_at を立てるだけ）。
   // 一覧に出さないようここで落とす
+  // undefined も「未削除」として扱う。createRow は null を入れるが、
+  // 古いローカル行や将来の経路で欠けても一覧から消えないようにする
   const notDeleted = <T extends { deleted_at: string | null }>(rows: T[]) =>
-    rows.filter((r) => r.deleted_at === null)
+    rows.filter((r) => !r.deleted_at)
 
   const sessions = notDeleted(allSessions)
   const slots = notDeleted(allSlots)

@@ -14,8 +14,8 @@ export const NAV_ITEMS: NavItem[] = [
     label: '予約管理',
     ready: false,
     children: [
-      { href: '/reservations/new', label: '予約情報入力', ready: false },
-      { href: '/reservations/schedule', label: '予約スケジュール', ready: false },
+      { href: '/reservations/new', label: '予約情報入力', ready: true },
+      { href: '/reservations/schedule', label: '予約スケジュール', ready: true },
     ],
   },
   {
