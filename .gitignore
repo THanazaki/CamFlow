@@ -10,6 +10,10 @@ node_modules/
 next-env.d.ts
 *.tsbuildinfo
 
+# Serwist が生成する Service Worker（npm run build で作られる）
+/public/sw.js
+/public/sw.js.map
+
 # 環境変数（Supabase のキーを含むため絶対にコミットしない）
 .env
 .env*.local

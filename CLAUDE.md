@@ -27,19 +27,44 @@
 
 ---
 
-## 4. データベース設計方針 (Supabase)
+## 4. データベース設計 (Supabase) ※実装済み
 - **ユーザー管理**: `profiles` テーブルでユーザー基本情報を管理。
 - **データモデル**:
   - `models`: モデル情報マスター
+  - `venues`: スタジオ・ロケ地マスター
   - `sessions`: 撮影イベント・セッション単位の管理
-  - `slots`: 各撮影枠（日時、タイマー、費用、納品状態など）
+  - `slots`: 各撮影枠（日時、タイマー、保管先など）。**現場タイマーの単位**
+  - `slot_models`: 枠 × モデルの明細。**モデル料の支払いと納品の単位**
+    （1枠に複数モデルが入りうるため、支払い・納品は枠ではなくこちらに持つ）
+  - `sync_tombstones`: オフライン同期用の物理削除ログ
 - 全テーブルに `user_id` を保持し、Row Level Security (RLS) を適切に設定する。
+- **集計値はカラムで持たない**（撮影回数・累計支払額・総支出）。ビュー
+  `v_model_stats` / `v_session_costs` / `v_pending_deliveries` から導出する。
+- 詳細は `supabase/README.md` を参照。
 
 ---
 
-## 5. 開発コマンド
+## 5. アーキテクチャ上の約束（オフラインファースト）
+- **読み取りは全て IndexedDB (Dexie) から行う。画面から Supabase を直接読まない。**
+  そのためデータを持つ画面は全て Client Component になる。
+- **書き込みは必ず `src/lib/sync/mutations.ts` を通す。** ローカル行と outbox を
+  同一トランザクションで更新している。Supabase を直接叩くとオフライン中に変更が消える。
+- **`supabase.auth` を触るのは `src/lib/auth/session.ts` だけ。**
+  ログイン画面は未実装で、開発用アカウントによる自動サインインで代用している。
+  RLS は有効なまま維持すること。
+- 論理削除があるテーブル（venues / models / sessions / slots）は `softDeleteRow()` を使う。
+- Service Worker は `serwist.config.mjs` + `npm run build:sw` で生成する。
+  `@serwist/next` のプラグイン方式は Turbopack では**何も生成されない**ので使わない。
+- 詳細は `README.md` を参照。
+
+---
+
+## 6. 開発コマンド
 - **開発サーバー起動**: `npm run dev`
-- **ビルド確認**: `npm run build`
+- **ビルド確認**: `npm run build`（Service Worker の生成を含む）
+- **オフライン動作確認**: `npm run build && npm start`（dev では SW が無効）
+- **テスト**: `npm test`（同期エンジン） / `npm run test:schema`（DBスキーマ）
+- **型生成**: `npm run db:types`（要 Supabase ローカルスタック）
 
 ## 作業ルール
 - 変更前に必ずgit commitすること

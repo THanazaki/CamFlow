@@ -1,5 +1,5 @@
 import { PGlite } from '@electric-sql/pglite'
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 
 const DIR = new URL('..', import.meta.url).pathname.replace(/\/$/, '')
 const db = await PGlite.create()
@@ -36,12 +36,8 @@ await db.exec(`
 
 // ── 1. マイグレーション適用 ───────────────────────────────────────────────
 console.log('\n[1] マイグレーション適用')
-const migrations = [
-  '20261103000100_init_enums.sql',
-  '20261103000200_init_tables.sql',
-  '20261103000300_rls_and_triggers.sql',
-  '20261103000400_views.sql',
-]
+// ディレクトリから読むので、新しいマイグレーションを足せば自動で検証対象になる
+const migrations = readdirSync(`${DIR}/migrations`).filter(f => f.endsWith('.sql')).sort()
 for (const f of migrations) {
   try { await db.exec(readFileSync(`${DIR}/migrations/${f}`, 'utf8')); ok(f) }
   catch (e) { bad(f, e); process.exit(1) }
@@ -261,6 +257,57 @@ const asUser = async (uid) => {
   } catch { blocked = true }
   await db.exec(`reset role`)
   blocked ? ok('他人の user_id を指定した insert は with check で拒否') : bad('RLS with check', '通ってしまった')
+}
+
+// ── 9. 削除記録（オフライン同期用の tombstone） ───────────────────────────
+// 行を消すのでカウント系の検査より後に置くこと
+console.log('\n[9] sync_tombstones（物理削除の記録）')
+{
+  const count = async () => (await db.query(`select count(*)::int n from public.sync_tombstones`)).rows[0].n
+  const before = await count()
+
+  // 子を持たない枠を削除 → 1件
+  await db.exec(`delete from public.slots where id = 'd0000000-0000-4000-8000-000000000008'`)
+  const t1 = await db.query(`
+    select table_name, row_id, user_id from public.sync_tombstones order by id desc limit 1`)
+  ;(await count()) === before + 1 && t1.rows[0].table_name === 'slots'
+    ? ok('物理削除で tombstone が1件記録される', JSON.stringify(t1.rows[0].table_name))
+    : bad('tombstone 記録', JSON.stringify(t1.rows))
+  t1.rows[0].user_id === UA ? ok('tombstone に所有者の user_id が入る') : bad('tombstone user_id', t1.rows[0].user_id)
+
+  // slot_models を2件持つ枠を削除 → cascade 分も記録される（これが無いと削除が同期されない）
+  const mark = (await db.query(`select coalesce(max(id), 0) m from public.sync_tombstones`)).rows[0].m
+  await db.exec(`delete from public.slots where id = 'd0000000-0000-4000-8000-000000000007'`)
+  const added = await db.query(`
+    select table_name, count(*)::int n from public.sync_tombstones
+    where id > ${mark} group by table_name order by table_name`)
+  const byTable = Object.fromEntries(added.rows.map(r => [r.table_name, r.n]))
+  byTable.slots === 1 && byTable.slot_models === 2
+    ? ok('cascade 削除も記録される', JSON.stringify(byTable))
+    : bad('cascade tombstone', JSON.stringify(byTable))
+
+  // 論理削除は tombstone を作らない（通常の差分取得で拾えるため）
+  const beforeSoft = await count()
+  await db.exec(`update public.models set deleted_at = now() where id = 'b0000000-0000-4000-8000-000000000005'`)
+  ;(await count()) === beforeSoft
+    ? ok('論理削除では tombstone を作らない') : bad('論理削除', '余分に記録された')
+  await db.exec(`update public.models set deleted_at = null where id = 'b0000000-0000-4000-8000-000000000005'`)
+
+  // 保持期間の掃除
+  await db.exec(`update public.sync_tombstones set deleted_at = now() - interval '100 days' where id = (select min(id) from public.sync_tombstones)`)
+  const purged = await db.query(`select public.purge_sync_tombstones() as n`)
+  Number(purged.rows[0].n) === 1 ? ok('90日より古い tombstone が purge される') : bad('purge', purged.rows[0].n)
+
+  // RLS
+  await db.exec(`set role authenticated; select set_config('request.jwt.claims', '{"sub":"${UB}"}', false);`)
+  const otherSees = (await db.query(`select count(*)::int n from public.sync_tombstones`)).rows[0].n
+  let writeBlocked = false
+  try {
+    await db.exec(`insert into public.sync_tombstones (user_id, table_name, row_id) values ('${UB}', 'models', gen_random_uuid())`)
+  } catch { writeBlocked = true }
+  await db.exec(`reset role`)
+  otherSees === 0 ? ok('他ユーザーの tombstone は見えない') : bad('tombstone RLS', `${otherSees}件見えた`)
+  writeBlocked ? ok('クライアントからの tombstone 書き込みは不可') : bad('tombstone 書き込み', '通ってしまった')
 }
 
 console.log(`\n${'─'.repeat(60)}\n結果: ${pass} 成功 / ${fail} 失敗`)

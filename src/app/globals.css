@@ -1,0 +1,61 @@
+@import "tailwindcss";
+
+/*
+ * CamFlow のカラートークン。
+ * メインカラーはネイビー。ロゴ背景のダークネイビー #0A1128 を基準にする。
+ */
+@theme {
+  --color-navy-50: #eef1f8;
+  --color-navy-100: #d4dbec;
+  --color-navy-200: #a9b6d8;
+  --color-navy-300: #7d90c4;
+  --color-navy-400: #5269a8;
+  --color-navy-500: #34497f;
+  --color-navy-600: #233459;
+  --color-navy-700: #16223c;
+  --color-navy-800: #0f1a2e;
+  --color-navy-900: #0a1128;
+  --color-navy-950: #060b1a;
+}
+
+:root {
+  --background: #f6f7fb;
+  --foreground: #16223c;
+  --surface: #ffffff;
+  --border: #e2e6f0;
+  --muted: #5f6b85;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #060b1a;
+    --foreground: #e8ecf6;
+    --surface: #0f1a2e;
+    --border: #1d2b49;
+    --muted: #97a2bd;
+  }
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-border: var(--border);
+  --color-muted: var(--muted);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family:
+    ui-sans-serif, system-ui, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP",
+    Meiryo, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* PWA（standalone）でのセーフエリア */
+@supports (padding: env(safe-area-inset-bottom)) {
+  body {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
