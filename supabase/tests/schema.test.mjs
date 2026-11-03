@@ -254,6 +254,71 @@ console.log('\n[7] ビューの集計')
   r.rows[0]?.days_overdue === 4 ? ok('期限超過が days_overdue=4 で先頭') : bad('days_overdue', JSON.stringify(r.rows[0]))
 }
 
+// ── 7b. 撮影履歴（遡及登録）と統合ビュー ──────────────────────────────────
+console.log('\n[7b] 撮影履歴と統合ビュー')
+{
+  const HIST = 'f0000000-0000-4000-8000-000000000001'
+  const beforeStats = await db.query(
+    `select shot_count::int, total_fee::int from public.v_model_stats where model_name = '白石ひかる'`,
+  )
+  beforeStats.rows[0].shot_count === 0
+    ? ok('遡及登録前: 白石ひかるの撮影回数は0')
+    : bad('前提', JSON.stringify(beforeStats.rows[0]))
+
+  // 運用フローを通していない過去の撮影を登録
+  await db.exec(`
+    insert into public.shoot_history
+      (id, user_id, shoot_date, title, shoot_type, venue_id, venue_name,
+       transport_cost, frame_count, storage_path, storage_label, rating, memo)
+    values ('${HIST}', '${UA}', current_date - 400, '去年の自主撮影', 'personal',
+            'a0000000-0000-4000-8000-000000000002', '緑ヶ丘中央公園',
+            1500, 280, '/Volumes/OLD/2025/自主撮影', 'OLD', 4, 'アプリ導入前の撮影');
+    insert into public.shoot_history_models
+      (user_id, shoot_history_id, model_id, fee, payment_status, paid_at, costume)
+    values ('${UA}', '${HIST}', 'b0000000-0000-4000-8000-000000000005', 10000, 'paid', current_date - 400, '私服');
+  `)
+
+  const afterStats = await db.query(
+    `select shot_count::int, total_fee::int, total_paid::int, first_shot_date
+     from public.v_model_stats where model_name = '白石ひかる'`,
+  )
+  const a = afterStats.rows[0]
+  a.shot_count === 1 && a.total_paid === 10000
+    ? ok('遡及登録が v_model_stats に合算される', JSON.stringify({ shot_count: a.shot_count, total_paid: a.total_paid }))
+    : bad('v_model_stats 合算', JSON.stringify(a))
+  a.first_shot_date !== null
+    ? ok('遡及登録で初回撮影日が入る')
+    : bad('first_shot_date', JSON.stringify(a))
+
+  // 統合ビュー: 運用フロー分と遡及分の両方が出る
+  const all = await db.query(`
+    select source, count(*)::int n from public.v_shoot_history_all group by source order by source`)
+  const bySource = Object.fromEntries(all.rows.map((r) => [r.source, r.n]))
+  bySource.history === 1 && bySource.slot > 0
+    ? ok('v_shoot_history_all が両方を統合する', JSON.stringify(bySource))
+    : bad('統合ビュー', JSON.stringify(bySource))
+
+  // 履歴を消すとモデル実績から外れる
+  await db.exec(`update public.shoot_history set deleted_at = now() where id = '${HIST}'`)
+  const deleted = await db.query(
+    `select shot_count::int from public.v_model_stats where model_name = '白石ひかる'`,
+  )
+  const gone = await db.query(
+    `select count(*)::int n from public.v_shoot_history_all where source = 'history'`,
+  )
+  deleted.rows[0].shot_count === 0 && gone.rows[0].n === 0
+    ? ok('履歴の論理削除が統計・統合ビューに反映される')
+    : bad('論理削除の反映', JSON.stringify({ stats: deleted.rows[0], view: gone.rows[0] }))
+  await db.exec(`update public.shoot_history set deleted_at = null where id = '${HIST}'`)
+
+  // 撮影履歴のあるモデルは物理削除できない
+  await mustFail('撮影履歴のあるモデルを物理削除',
+    `delete from public.models where id = 'b0000000-0000-4000-8000-000000000005'`)
+  await mustFail('他ユーザーの撮影履歴にモデルを紐づける',
+    `insert into public.shoot_history_models (user_id, shoot_history_id, model_id)
+     values ('${UB}', '${HIST}', 'b0000000-0000-4000-8000-000000000005')`)
+}
+
 // ── 8. RLS ────────────────────────────────────────────────────────────────
 console.log('\n[8] RLS（他ユーザーのデータが見えないこと）')
 const asUser = async (uid) => {

@@ -14,6 +14,8 @@ const LABELS: Record<(typeof SYNC_TABLES)[number], string> = {
   sessions: '撮影イベント',
   slots: '撮影枠',
   slot_models: '枠 × モデル',
+  shoot_history: '撮影履歴（遡及）',
+  shoot_history_models: '履歴 × モデル',
 }
 
 /**

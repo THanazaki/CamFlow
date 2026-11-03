@@ -6,6 +6,8 @@ import type {
   LocalProfile,
   LocalSession,
   LocalSlot,
+  LocalShootHistory,
+  LocalShootHistoryModel,
   LocalSlotModel,
   LocalVenue,
   MetaRow,
@@ -25,6 +27,8 @@ export class CamFlowDB extends Dexie {
   sessions!: EntityTable<LocalSession, 'id'>
   slots!: EntityTable<LocalSlot, 'id'>
   slot_models!: EntityTable<LocalSlotModel, 'id'>
+  shoot_history!: EntityTable<LocalShootHistory, 'id'>
+  shoot_history_models!: EntityTable<LocalShootHistoryModel, 'id'>
   _outbox!: EntityTable<OutboxEntry, 'seq'>
   _meta!: EntityTable<MetaRow, 'key'>
 
@@ -42,6 +46,9 @@ export class CamFlowDB extends Dexie {
         'id, user_id, session_id, start_at, timer_status, shoot_status, updated_at, _dirty, [session_id+slot_no]',
       slot_models:
         'id, user_id, slot_id, model_id, payment_status, delivery_status, delivery_deadline, updated_at, _dirty',
+      shoot_history:
+        'id, user_id, shoot_date, shoot_type, venue_id, organizer_id, delivery_status, updated_at, _dirty',
+      shoot_history_models: 'id, user_id, shoot_history_id, model_id, payment_status, updated_at, _dirty',
       // ++seq で採番順＝送信順。[status+seq] で pending を順番に取り出す
       _outbox: '++seq, status, row_key, [status+seq], [row_key+status]',
       _meta: 'key',

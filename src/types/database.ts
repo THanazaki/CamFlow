@@ -466,6 +466,174 @@ export type Database = {
           },
         ]
       }
+      shoot_history: {
+        Row: {
+          id: string
+          user_id: string
+          shoot_date: string
+          title: string
+          shoot_type: Database['public']['Enums']['shoot_type']
+          venue_id: string | null
+          venue_name: string | null
+          organizer_id: string | null
+          organizer: string | null
+          start_at: string | null
+          end_at: string | null
+          venue_cost: number
+          transport_cost: number
+          entry_cost: number
+          other_cost: number
+          frame_count: number | null
+          storage_path: string | null
+          storage_label: string | null
+          storage_size_mb: number | null
+          backup_location: string | null
+          backed_up_at: string | null
+          delivery_status: Database['public']['Enums']['delivery_status']
+          delivered_at: string | null
+          delivery_url: string | null
+          rating: number | null
+          memo: string | null
+          created_at: string
+          updated_at: string
+          deleted_at: string | null
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          shoot_date: string
+          title: string
+          shoot_type?: Database['public']['Enums']['shoot_type']
+          venue_id?: string | null
+          venue_name?: string | null
+          organizer_id?: string | null
+          organizer?: string | null
+          start_at?: string | null
+          end_at?: string | null
+          venue_cost?: number
+          transport_cost?: number
+          entry_cost?: number
+          other_cost?: number
+          frame_count?: number | null
+          storage_path?: string | null
+          storage_label?: string | null
+          storage_size_mb?: number | null
+          backup_location?: string | null
+          backed_up_at?: string | null
+          delivery_status?: Database['public']['Enums']['delivery_status']
+          delivered_at?: string | null
+          delivery_url?: string | null
+          rating?: number | null
+          memo?: string | null
+          created_at?: string
+          updated_at?: string
+          deleted_at?: string | null
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          shoot_date?: string
+          title?: string
+          shoot_type?: Database['public']['Enums']['shoot_type']
+          venue_id?: string | null
+          venue_name?: string | null
+          organizer_id?: string | null
+          organizer?: string | null
+          start_at?: string | null
+          end_at?: string | null
+          venue_cost?: number
+          transport_cost?: number
+          entry_cost?: number
+          other_cost?: number
+          frame_count?: number | null
+          storage_path?: string | null
+          storage_label?: string | null
+          storage_size_mb?: number | null
+          backup_location?: string | null
+          backed_up_at?: string | null
+          delivery_status?: Database['public']['Enums']['delivery_status']
+          delivered_at?: string | null
+          delivery_url?: string | null
+          rating?: number | null
+          memo?: string | null
+          created_at?: string
+          updated_at?: string
+          deleted_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'shoot_history_venue_id_fkey'
+            columns: ['venue_id']
+            isOneToOne: false
+            referencedRelation: 'venues'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'shoot_history_organizer_id_fkey'
+            columns: ['organizer_id']
+            isOneToOne: false
+            referencedRelation: 'organizers'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      shoot_history_models: {
+        Row: {
+          id: string
+          user_id: string
+          shoot_history_id: string
+          model_id: string
+          costume: string | null
+          fee: number
+          payment_status: Database['public']['Enums']['payment_status']
+          paid_at: string | null
+          memo: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          shoot_history_id: string
+          model_id: string
+          costume?: string | null
+          fee?: number
+          payment_status?: Database['public']['Enums']['payment_status']
+          paid_at?: string | null
+          memo?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          shoot_history_id?: string
+          model_id?: string
+          costume?: string | null
+          fee?: number
+          payment_status?: Database['public']['Enums']['payment_status']
+          paid_at?: string | null
+          memo?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'shoot_history_models_shoot_history_id_fkey'
+            columns: ['shoot_history_id']
+            isOneToOne: false
+            referencedRelation: 'shoot_history'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'shoot_history_models_model_id_fkey'
+            columns: ['model_id']
+            isOneToOne: false
+            referencedRelation: 'models'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       sync_tombstones: {
         Row: {
           id: number
@@ -520,6 +688,33 @@ export type Database = {
           booking_total: number | null
           model_total: number | null
           total_cost: number | null
+        }
+        Relationships: []
+      }
+      v_shoot_history_all: {
+        Row: {
+          source: string | null
+          source_id: string | null
+          user_id: string | null
+          shoot_date: string | null
+          title: string | null
+          shoot_type: Database['public']['Enums']['shoot_type'] | null
+          venue_id: string | null
+          venue_name: string | null
+          organizer_id: string | null
+          organizer: string | null
+          start_at: string | null
+          end_at: string | null
+          frame_count: number | null
+          storage_path: string | null
+          storage_label: string | null
+          storage_size_mb: number | null
+          backup_location: string | null
+          backed_up_at: string | null
+          rating: number | null
+          memo: string | null
+          session_id: string | null
+          slot_no: number | null
         }
         Relationships: []
       }
