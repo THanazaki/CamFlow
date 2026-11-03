@@ -1,11 +1,13 @@
 import { db } from '@/lib/db'
+import type { Enums } from '@/types/database'
 
 /** 予約スケジュール画面の1行 */
 export interface ReservationRow {
   sessionId: string
   /** 予約受付の開始日時。未設定の予約は末尾に回す */
   bookingOpensAt: string | null
-  bookingUrl: string | null
+  bookingMethod: Enums<'booking_method'> | null
+  bookingContact: string | null
   shootDate: string
   modelNames: string[]
   concept: string | null
@@ -56,7 +58,8 @@ export async function loadReservationSchedule(): Promise<ReservationRow[]> {
       return {
         sessionId: s.id,
         bookingOpensAt: s.booking_opens_at,
-        bookingUrl: s.booking_url,
+        bookingMethod: s.booking_method,
+        bookingContact: s.booking_contact,
         shootDate: s.session_date,
         modelNames: names,
         concept: s.concept,
@@ -73,10 +76,20 @@ export async function loadReservationSchedule(): Promise<ReservationRow[]> {
 }
 
 /** 入力補助（datalist）用の候補 */
-export async function loadSuggestions(): Promise<{ models: string[]; venues: string[] }> {
-  const [models, venues] = await Promise.all([db.models.toArray(), db.venues.toArray()])
+export async function loadSuggestions(): Promise<{
+  models: string[]
+  venues: string[]
+  events: string[]
+}> {
+  const [models, venues, sessions] = await Promise.all([
+    db.models.toArray(),
+    db.venues.toArray(),
+    db.sessions.toArray(),
+  ])
   return {
     models: models.filter((m) => !m.deleted_at && m.status !== 'ng').map((m) => m.name),
     venues: venues.filter((v) => !v.deleted_at).map((v) => v.name),
+    // 同じ撮影会に何度も申し込むので、過去に使った撮影会名を候補に出す
+    events: [...new Set(sessions.filter((s) => !s.deleted_at).map((s) => s.title))].sort(),
   }
 }

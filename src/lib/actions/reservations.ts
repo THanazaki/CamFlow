@@ -9,16 +9,24 @@ import { createRow } from '@/lib/sync/mutations'
  * 直列送信されるので、親 → 子の順に呼べば FK の順序は保たれる。
  */
 
+export type BookingMethod = 'page' | 'email' | 'dm'
+
+/** 入力順は画面と同じ（撮影会名 → モデル名 → … → 予約URL） */
 export interface ReservationInput {
-  /** 予約受付の開始日時（datetime-local の値） */
-  bookingOpensAt: string
+  /** 撮影会名。任意。未入力ならコンセプトやモデル名からタイトルを組み立てる */
+  eventName: string
+  modelName: string
+  /** 任意 */
+  concept: string
+  /** 任意。マスタに同名があれば紐づけ、無ければテキストとして残す */
+  venueName: string
   /** 撮影日（YYYY-MM-DD） */
   shootDate: string
-  modelName: string
-  concept: string
-  /** 場所。マスタに同名があれば紐づけ、無ければテキストとして残す */
-  venueName: string
-  bookingUrl: string
+  /** 予約受付の開始日時（datetime-local の値） */
+  bookingOpensAt: string
+  bookingMethod: BookingMethod
+  /** 申込先。bookingMethod によって URL / メールアドレス / DM アカウント */
+  bookingContact: string
 }
 
 export interface ReservationResult {
@@ -64,14 +72,19 @@ export async function createReservation(
     (v) => !v.deleted_at && normalize(v.name) === normalize(venueName),
   )
 
+  // 撮影会名があればそれがタイトル。無ければコンセプト、どちらも無ければモデル名から組む
+  const eventName = input.eventName.trim()
+  const title = eventName || concept || `${modelName} 撮影`
+
   const sessionId = await createRow('sessions', {
     user_id: userId,
-    title: concept || `${modelName} 撮影`,
+    title,
     session_date: input.shootDate,
     // 予約段階。可否が決まったら confirmed / cancelled になる
     status: 'planned',
     booking_opens_at: new Date(input.bookingOpensAt).toISOString(),
-    booking_url: input.bookingUrl.trim() || null,
+    booking_method: input.bookingMethod,
+    booking_contact: input.bookingContact.trim() || null,
     concept: concept || null,
     venue_id: venue?.id ?? null,
     venue_name: venueName || null,

@@ -204,7 +204,8 @@ export type Database = {
           organizer_id: string | null
           organizer: string | null
           booking_opens_at: string | null
-          booking_url: string | null
+          booking_method: Database['public']['Enums']['booking_method'] | null
+          booking_contact: string | null
           concept: string | null
           start_at: string | null
           end_at: string | null
@@ -231,7 +232,8 @@ export type Database = {
           organizer_id?: string | null
           organizer?: string | null
           booking_opens_at?: string | null
-          booking_url?: string | null
+          booking_method?: Database['public']['Enums']['booking_method'] | null
+          booking_contact?: string | null
           concept?: string | null
           start_at?: string | null
           end_at?: string | null
@@ -258,7 +260,8 @@ export type Database = {
           organizer_id?: string | null
           organizer?: string | null
           booking_opens_at?: string | null
-          booking_url?: string | null
+          booking_method?: Database['public']['Enums']['booking_method'] | null
+          booking_contact?: string | null
           concept?: string | null
           start_at?: string | null
           end_at?: string | null
@@ -518,7 +521,8 @@ export type Database = {
           organizer_id?: string | null
           organizer?: string | null
           booking_opens_at?: string | null
-          booking_url?: string | null
+          booking_method?: Database['public']['Enums']['booking_method'] | null
+          booking_contact?: string | null
           concept?: string | null
           start_at?: string | null
           end_at?: string | null
@@ -552,7 +556,8 @@ export type Database = {
           organizer_id?: string | null
           organizer?: string | null
           booking_opens_at?: string | null
-          booking_url?: string | null
+          booking_method?: Database['public']['Enums']['booking_method'] | null
+          booking_contact?: string | null
           concept?: string | null
           start_at?: string | null
           end_at?: string | null
@@ -768,6 +773,7 @@ export type Database = {
     Enums: {
       model_status: 'active' | 'inactive' | 'ng'
       venue_kind: 'studio' | 'location'
+      booking_method: 'page' | 'email' | 'dm'
       shoot_type: 'solo' | 'event' | 'client' | 'personal'
       session_status: 'planned' | 'confirmed' | 'done' | 'cancelled'
       timer_status: 'idle' | 'running' | 'paused' | 'finished'

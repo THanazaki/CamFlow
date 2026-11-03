@@ -4,29 +4,66 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { useRouter } from 'next/navigation'
 import { useId, useState } from 'react'
 
+import {
+  createReservation,
+  type BookingMethod,
+  type ReservationInput,
+} from '@/lib/actions/reservations'
 import { getActiveUserId } from '@/lib/auth/session'
-import { createReservation, type ReservationInput } from '@/lib/actions/reservations'
 import { loadSuggestions } from '@/lib/queries/reservations'
 
 const EMPTY: ReservationInput = {
-  bookingOpensAt: '',
-  shootDate: '',
+  eventName: '',
   modelName: '',
   concept: '',
   venueName: '',
-  bookingUrl: '',
+  shootDate: '',
+  bookingOpensAt: '',
+  bookingMethod: 'page',
+  bookingContact: '',
+}
+
+/** 予約種類ごとに、申込先の呼び方と入力の種類が変わる */
+const BOOKING_METHODS: Record<
+  BookingMethod,
+  { label: string; contactLabel: string; type: 'url' | 'email' | 'text'; placeholder: string }
+> = {
+  page: {
+    label: '予約ページ',
+    contactLabel: '予約ページURL',
+    type: 'url',
+    placeholder: 'https://example.com/booking',
+  },
+  email: {
+    label: 'メール',
+    contactLabel: '予約先メールアドレス',
+    type: 'email',
+    placeholder: 'booking@example.com',
+  },
+  dm: {
+    label: 'DM',
+    contactLabel: 'DM送付先',
+    type: 'text',
+    placeholder: '@example_account',
+  },
 }
 
 export default function ReservationNewPage() {
   const router = useRouter()
-  const suggestions = useLiveQuery(() => loadSuggestions(), [], { models: [], venues: [] })
+  const suggestions = useLiveQuery(() => loadSuggestions(), [], {
+    models: [],
+    venues: [],
+    events: [],
+  })
   const [form, setForm] = useState<ReservationInput>(EMPTY)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [notice, setNotice] = useState<string | null>(null)
 
+  const eventListId = useId()
   const modelListId = useId()
   const venueListId = useId()
+
+  const method = BOOKING_METHODS[form.bookingMethod]
 
   const set = <K extends keyof ReservationInput>(key: K, value: ReservationInput[K]) =>
     setForm((f) => ({ ...f, [key]: value }))
@@ -34,20 +71,17 @@ export default function ReservationNewPage() {
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
-    setNotice(null)
     setSaving(true)
     try {
-      // ログイン画面が無いので、同期と同じ経路でユーザーIDを取る。
-      // オフラインや未設定でも手元には書けるよう、取れなければ中断する
+      // ログイン画面が無いので、同期と同じ経路でユーザーIDを取る
       const userId = await getActiveUserId()
       if (!userId) {
         setError(
-          'ユーザー情報を取得できませんでした。.env.local の設定を確認してください（オフライン時は接続が戻ってから再度お試しください）。',
+          'ユーザー情報を取得できませんでした。.env.local の設定を確認し、一度オンラインで開いてください。',
         )
         return
       }
-      const { createdModel } = await createReservation(userId, form)
-      setNotice(createdModel ? `「${form.modelName.trim()}」をモデルマスタに追加しました` : null)
+      await createReservation(userId, form)
       setForm(EMPTY)
       router.push('/reservations/schedule')
     } catch (err) {
@@ -72,40 +106,26 @@ export default function ReservationNewPage() {
           {error}
         </p>
       )}
-      {notice && (
-        <p className="rounded-md border border-sky-300 bg-sky-50 px-4 py-3 text-sm text-sky-800 dark:border-sky-500/40 dark:bg-sky-500/10 dark:text-sky-300">
-          {notice}
-        </p>
-      )}
 
       <form onSubmit={onSubmit} className="bg-surface border-border space-y-5 rounded-lg border p-5">
-        <Field
-          label="予約開始日時"
-          required
-          hint="予約受付が始まる日時。撮影日とは別です。この時刻までの残り時間が予約スケジュールに出ます"
-        >
+        <Field label="撮影会名" hint="未入力の場合はコンセプトかモデル名から表示名を作ります">
           {(p) => (
-            <input
-              {...p}
-              type="datetime-local"
-              required
-              value={form.bookingOpensAt}
-              onChange={(e) => set('bookingOpensAt', e.target.value)}
-              className={inputClass}
-            />
-          )}
-        </Field>
-
-        <Field label="撮影日" required>
-          {(p) => (
-            <input
-              {...p}
-              type="date"
-              required
-              value={form.shootDate}
-              onChange={(e) => set('shootDate', e.target.value)}
-              className={inputClass}
-            />
+            <>
+              <input
+                {...p}
+                type="text"
+                list={eventListId}
+                value={form.eventName}
+                onChange={(e) => set('eventName', e.target.value)}
+                placeholder="ポートレート撮影会 秋の回"
+                className={inputClass}
+              />
+              <datalist id={eventListId}>
+                {suggestions.events.map((v) => (
+                  <option key={v} value={v} />
+                ))}
+              </datalist>
+            </>
           )}
         </Field>
 
@@ -165,20 +185,84 @@ export default function ReservationNewPage() {
           )}
         </Field>
 
-        <Field label="予約ページURL">
+        <Field label="撮影日" required>
           {(p) => (
             <input
               {...p}
-              type="url"
-              value={form.bookingUrl}
-              onChange={(e) => set('bookingUrl', e.target.value)}
-              placeholder="https://example.com/booking"
+              type="date"
+              required
+              value={form.shootDate}
+              onChange={(e) => set('shootDate', e.target.value)}
               className={inputClass}
             />
           )}
         </Field>
 
-        <div className="border-border flex items-center gap-3 border-t pt-4">
+        <Field
+          label="予約開始日時"
+          required
+          hint="予約受付が始まる日時。撮影日とは別です。この時刻までの残り時間が予約スケジュールに出ます"
+        >
+          {(p) => (
+            <input
+              {...p}
+              type="datetime-local"
+              required
+              value={form.bookingOpensAt}
+              onChange={(e) => set('bookingOpensAt', e.target.value)}
+              className={inputClass}
+            />
+          )}
+        </Field>
+
+        <Field label="予約種類" required>
+          {(p) => (
+            <div
+              {...p}
+              role="radiogroup"
+              aria-label="予約種類"
+              className="flex flex-wrap gap-2"
+            >
+              {(Object.keys(BOOKING_METHODS) as BookingMethod[]).map((key) => (
+                <label
+                  key={key}
+                  className={`cursor-pointer rounded-md border px-3 py-1.5 text-sm ${
+                    form.bookingMethod === key
+                      ? 'border-navy-500 bg-navy-900 text-white'
+                      : 'border-border hover:bg-navy-50 dark:hover:bg-white/5'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="bookingMethod"
+                    value={key}
+                    checked={form.bookingMethod === key}
+                    onChange={() => set('bookingMethod', key)}
+                    className="sr-only"
+                  />
+                  {BOOKING_METHODS[key].label}
+                </label>
+              ))}
+            </div>
+          )}
+        </Field>
+
+        {/* 予約種類で中身が変わるので、ラベルと入力タイプを切り替える */}
+        <Field label={method.contactLabel} required key={form.bookingMethod}>
+          {(p) => (
+            <input
+              {...p}
+              type={method.type}
+              required
+              value={form.bookingContact}
+              onChange={(e) => set('bookingContact', e.target.value)}
+              placeholder={method.placeholder}
+              className={inputClass}
+            />
+          )}
+        </Field>
+
+        <div className="border-border flex flex-wrap items-center gap-3 border-t pt-4">
           <button
             type="submit"
             disabled={saving}
@@ -245,9 +329,7 @@ function Field({
           {hint}
         </p>
       )}
-      <div className="mt-1.5">
-        {children({ id, 'aria-describedby': hint ? hintId : undefined })}
-      </div>
+      <div className="mt-1.5">{children({ id, 'aria-describedby': hint ? hintId : undefined })}</div>
     </div>
   )
 }

@@ -63,9 +63,10 @@ function ReservationCard({ row, nowMs }: { row: ReservationRow; nowMs: number | 
     >
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0 flex-1">
-          <h2 className="truncate text-base font-medium">
-            {row.concept || row.title}
-          </h2>
+          <h2 className="truncate text-base font-medium">{row.title}</h2>
+          {row.concept && row.concept !== row.title && (
+            <p className="text-muted mt-0.5 truncate text-xs">{row.concept}</p>
+          )}
           <dl className="text-muted mt-2 grid gap-x-6 gap-y-1 text-sm sm:grid-cols-2">
             <Row label="モデル" value={row.modelNames.join('・') || '—'} />
             <Row label="撮影日" value={row.shootDate} />
@@ -75,16 +76,7 @@ function ReservationCard({ row, nowMs }: { row: ReservationRow; nowMs: number | 
               value={row.bookingOpensAt ? formatDateTime(row.bookingOpensAt) : '未設定'}
             />
           </dl>
-          {row.bookingUrl && (
-            <a
-              href={row.bookingUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-navy-600 dark:text-navy-200 mt-2 inline-block max-w-full truncate text-xs underline underline-offset-2"
-            >
-              予約ページを開く
-            </a>
-          )}
+          <BookingContact method={row.bookingMethod} contact={row.bookingContact} />
         </div>
 
         <div className="shrink-0 text-right">
@@ -127,6 +119,39 @@ function Countdown({ remainMs, hasSchedule }: { remainMs: number | null; hasSche
       </span>
     </span>
   )
+}
+
+/**
+ * 申込先。予約種類によって中身が URL / メール / DM アカウントと変わるので、
+ * リンクにできるものだけリンクにする。
+ */
+function BookingContact({
+  method,
+  contact,
+}: {
+  method: ReservationRow['bookingMethod']
+  contact: string | null
+}) {
+  if (!contact) return null
+
+  const linkClass =
+    'text-navy-600 dark:text-navy-200 mt-2 inline-block max-w-full truncate text-xs underline underline-offset-2'
+
+  if (method === 'page') {
+    return (
+      <a href={contact} target="_blank" rel="noopener noreferrer" className={linkClass}>
+        予約ページを開く
+      </a>
+    )
+  }
+  if (method === 'email') {
+    return (
+      <a href={`mailto:${contact}`} className={linkClass}>
+        メールで申込（{contact}）
+      </a>
+    )
+  }
+  return <p className="text-muted mt-2 truncate text-xs">DM: {contact}</p>
 }
 
 function Row({ label, value }: { label: string; value: string }) {
