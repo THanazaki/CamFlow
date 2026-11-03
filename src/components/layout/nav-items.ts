@@ -7,8 +7,9 @@ export interface NavItem {
 
 export const NAV_ITEMS: NavItem[] = [
   { href: '/', label: 'ダッシュボード', ready: true },
-  { href: '/sessions', label: '撮影スケジュール', ready: false },
-  { href: '/models', label: 'モデル', ready: false },
-  { href: '/timer', label: '現場タイマー', ready: false },
-  { href: '/deliveries', label: '納品管理', ready: false },
+  { href: '/reservations', label: '予約管理', ready: false },
+  { href: '/shoots', label: '撮影管理', ready: false },
+  { href: '/archives', label: '過去撮影データ管理', ready: false },
+  { href: '/stats', label: '統計情報', ready: false },
+  { href: '/settings', label: '設定', ready: false },
 ]
