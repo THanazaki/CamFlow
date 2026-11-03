@@ -1,9 +1,10 @@
 # CamFlow - 個人カメラマン向け撮影管理PWA
 
 ## 1. プロジェクト概要
-- **目的**: 個人カメラマンの撮影ライフ（予約・スケジュール・現場タイマー・モデルマスター・データ管理）を最適化するPWA。
-- **技術スタック**: Next.js (App Router), Supabase (Auth / PostgreSQL / Storage), Tailwind CSS.
+- **目的**: 個人カメラマンの撮影ライフ（予約・スケジュール・現場タイマー・モデルマスタ・データ管理）を最適化するPWA。
+- **技術スタック**: Next.js 16 (App Router) / React 19 / Tailwind v4 / Supabase (Auth / PostgreSQL / Storage) / Dexie (IndexedDB) / Serwist。
 - **開発方針**: まずはカメラマン機能単体で完成させ、将来的な運営・モデル機能の拡張に備えた設計とする。
+- **現状**: DBスキーマと同期基盤（土台）まで実装済み。業務画面は未実装。
 
 ---
 
@@ -13,34 +14,93 @@
   - 要素: カメラアイコン ＋ 斜体（イタリック）の白文字「*CamFlow*」
   - ルール: 確定したアイコン形状やロゴデザインを勝手に変更しないこと。
 - **レイアウト**:
-  - PC / タブレット: 左固定サイドバーナビゲーション
+  - PC / タブレット: 左固定サイドバーナビゲーション（幅 240px）
   - スマホ (SP): ヘッダー ＋ ハンバーガーメニュー
-- **メインカラー**: ネイビー (Navy)
+- **メインカラー**: ネイビー (Navy)。`globals.css` に `--color-navy-50` 〜 `950` を定義。
+- サイドバーは幅が狭いので、メニューのラベルを増やすときは**折り返さないか実機で確認すること**。
 
 ---
 
-## 3. Phase 1 実装機能一覧
-- **撮影スケジュール・枠管理**: 予約日時、枠（1部〜N部）、場所、費用、タイマー状態の管理
-- **モデルマスター管理**: 過去に撮影したモデルの情報、SNSリンク、メモ、撮影回数等の管理
-- **現場用撮影タイマー**: セッション撮影対応のカウントダウンタイマー機能
-- **データ・フォルダ構成管理**: 撮影後のストレージ構成や納品ステータス管理
+## 3. メニュー構成
+
+```
+ダッシュボード              /
+予約管理 ▾
+  予約情報入力              /reservations/new
+  予約スケジュール          /reservations/schedule
+撮影管理 ▾
+  確定撮影情報入力          /shoots/confirm
+  撮影情報                  /shoots/info
+過去撮影データ管理 ▾
+  撮影情報登録              /archives/new
+  撮影情報検索              /archives/search
+統計情報 ▾
+  予約可否情報              /stats/availability
+  過去撮影情報              /stats/history
+  撮影料積算                /stats/fees
+マスタ管理                  /masters
+設定                        /settings
+```
+
+- 定義は `src/components/layout/nav-items.ts`。
+- **サブメニューを持つ項目は親自体がページを持たない**（開閉トグル）。
+  `/reservations` `/shoots` `/archives` `/stats` に対応するページは作らない。
+- 未実装の画面は「準備中」としてグレーアウトし、リンクにしない。
+
+### 業務フロー
+
+```
+予約情報入力 → 確定撮影情報入力 →（撮影）→ 撮影情報 → 統計情報
+                                                ▲
+                          このフローに乗っていない過去の撮影だけを
+                          「撮影情報登録」で後から取り込む
+```
+
+**「撮影情報」と「撮影情報登録」は名前が近いが別物。**
+前者は既存レコードの**更新**（確定済みの撮影に保管先を登録）、
+後者は**新規作成**（フローを通していない過去の撮影を遡及登録）。
 
 ---
 
 ## 4. データベース設計 (Supabase) ※実装済み
-- **ユーザー管理**: `profiles` テーブルでユーザー基本情報を管理。
-- **データモデル**:
-  - `models`: モデル情報マスター
-  - `venues`: スタジオ・ロケ地マスター
-  - `sessions`: 撮影イベント・セッション単位の管理
-  - `slots`: 各撮影枠（日時、タイマー、保管先など）。**現場タイマーの単位**
-  - `slot_models`: 枠 × モデルの明細。**モデル料の支払いと納品の単位**
-    （1枠に複数モデルが入りうるため、支払い・納品は枠ではなくこちらに持つ）
-  - `sync_tombstones`: オフライン同期用の物理削除ログ
+
+データは**運用フロー**と**遡及登録**の2系統に分かれる。
+
+| 系統 | テーブル | 入口 |
+|---|---|---|
+| 運用フロー | `sessions` / `slots` / `slot_models` | 予約情報入力 → 確定撮影情報入力 → 撮影情報 |
+| 遡及登録 | `shoot_history` / `shoot_history_models` | 撮影情報登録 |
+
+### マスタ（4種）
+- `models`: モデルマスタ
+- `venues`: スタジオ / ロケ地マスタ。**`kind` カラムで区別**し、テーブルは分けていない
+  （持つ項目が共通なため。分けると `sessions.venue_id` の参照先が2つになる）
+- `organizers`: 団体マスタ（撮影会の主催団体）
+- `profiles`: ユーザー基本情報・既定値
+
+### トランザクション
+- `sessions`: 撮影イベント（1日 / 1案件）
+- `slots`: 各撮影枠（日時、タイマー、保管先など）。**現場タイマーの単位**
+- `slot_models`: 枠 × モデルの明細。**モデル料の支払いと納品の単位**
+  （1枠に複数モデルが入りうるため、支払い・納品は枠ではなくこちらに持つ）
+- `shoot_history` / `shoot_history_models`: 遡及登録した過去の撮影。1行 = 1回の撮影。
+  タイマー系カラムと枠番号は持たない
+- `sync_tombstones`: オフライン同期用の物理削除ログ
+
+### 守るべきルール
 - 全テーブルに `user_id` を保持し、Row Level Security (RLS) を適切に設定する。
-- **集計値はカラムで持たない**（撮影回数・累計支払額・総支出）。ビュー
-  `v_model_stats` / `v_session_costs` / `v_pending_deliveries` から導出する。
-- 詳細は `supabase/README.md` を参照。
+- **集計値はカラムで持たない**（撮影回数・累計支払額・総支出）。ビューから導出する。
+- **「過去の撮影」を扱う画面は個別テーブルではなく必ずビューを見ること。**
+  2系統に分かれているため、片方しか見ないと数が合わなくなる。
+
+| ビュー | 用途 |
+|---|---|
+| `v_shoot_history_all` | 過去の撮影の統合（撮影済みの枠＋遡及登録）。検索・一覧はこれ |
+| `v_model_stats` | モデルの撮影実績。2系統を合算済み |
+| `v_session_costs` | 撮影イベントごとの支出合計 |
+| `v_pending_deliveries` | 未納品一覧。**運用フロー分のみ。遡及登録分は未対応** |
+
+- 詳細は `docs/仕様書.md` と `supabase/README.md` を参照。
 
 ---
 
@@ -52,10 +112,13 @@
 - **`supabase.auth` を触るのは `src/lib/auth/session.ts` だけ。**
   ログイン画面は未実装で、開発用アカウントによる自動サインインで代用している。
   RLS は有効なまま維持すること。
-- 論理削除があるテーブル（venues / models / sessions / slots）は `softDeleteRow()` を使う。
+- 論理削除があるテーブル（`venues` / `organizers` / `models` / `sessions` / `slots` /
+  `shoot_history`）は `softDeleteRow()` を使う。一覧は `deleted_at is null` で絞る。
+- テーブルを追加したら `SYNC_TABLES`（`src/lib/db/types.ts`）と Dexie のストア定義にも
+  足すこと。足さないと同期対象から漏れる。
 - Service Worker は `serwist.config.mjs` + `npm run build:sw` で生成する。
   `@serwist/next` のプラグイン方式は Turbopack では**何も生成されない**ので使わない。
-- 詳細は `README.md` を参照。
+- 詳細は `README.md`（アーキテクチャ）と `docs/仕様書.md`（全仕様）を参照。
 
 ---
 
@@ -63,8 +126,16 @@
 - **開発サーバー起動**: `npm run dev`
 - **ビルド確認**: `npm run build`（Service Worker の生成を含む）
 - **オフライン動作確認**: `npm run build && npm start`（dev では SW が無効）
-- **テスト**: `npm test`（同期エンジン） / `npm run test:schema`（DBスキーマ）
+- **テスト**: `npm test`（同期エンジン31項目） / `npm run test:schema`（DBスキーマ60項目）
 - **型生成**: `npm run db:types`（要 Supabase ローカルスタック）
+
+### 環境メモ
+- このコンテナには **Docker が無い**ため `supabase start` は使えない。
+  Supabase はホスト側で起動する。`npm run test:schema` は PGlite 上で動くので Docker 不要。
+- devcontainer からホストの Supabase に繋ぐ場合、`127.0.0.1` では届かない。
+  `host.docker.internal` を使う（`.env.example` 参照）。
+- `npm run dev` はバインドマウント上でファイル変更を取りこぼすことがある。
+  反映されないときは dev サーバーを再起動する。
 
 ## 作業ルール
 - 変更前に必ずgit commitすること
