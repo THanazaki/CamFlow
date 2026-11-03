@@ -121,6 +121,8 @@
   なおこれで守れるのはフォームだけで、Supabase の認証エンドポイント自体は守れない。
 - **ユーザーが変わったら IndexedDB を空にすること**（`switchUser` / `signOut`）。
   RLS が守るのはサーバだけで、ローカルの中身は端末を使う誰でも読める。
+- 開発中は `test` / `test` でサインインできる（Supabase 不要）。同期はされず
+  データはその端末にだけ残る。本番ビルドでは API の分岐も画面の導線も無効。
 - 論理削除があるテーブル（`venues` / `organizers` / `models` / `sessions` / `slots` /
   `shoot_history`）は `softDeleteRow()` を使う。一覧は `deleted_at is null` で絞る。
 - テーブルを追加したら `SYNC_TABLES`（`src/lib/db/types.ts`）と Dexie のストア定義にも

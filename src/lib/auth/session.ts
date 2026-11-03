@@ -140,6 +140,17 @@ export async function applySession(accessToken: string, refreshToken: string): P
 }
 
 /**
+ * Supabase を通さないローカルだけのセッション（開発用テストアカウント）。
+ *
+ * Supabase のユーザーではないので**同期はされない**。
+ * サーバに送ろうとしても RLS で弾かれるため、データはこの端末に残るだけ。
+ */
+export async function applyLocalSession(userId: string, email: string): Promise<void> {
+  await switchUser(userId)
+  emit({ status: 'authenticated', user: { id: userId, email }, offlineFallback: true })
+}
+
+/**
  * サインアウト。
  * 手元のデータも消す。同じ端末を別の人が使う可能性があるため。
  */

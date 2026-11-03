@@ -22,6 +22,22 @@ const SCORE_THRESHOLD = Number(process.env.RECAPTCHA_SCORE_THRESHOLD ?? '0.5')
 
 type Action = 'signin' | 'signup'
 
+/**
+ * 開発用テストアカウント（test / test）。
+ *
+ * Supabase も reCAPTCHA も用意せずに画面を触れるようにするためのもの。
+ * Supabase のユーザーではないので**同期はされず、データはその端末だけ**に残る。
+ *
+ * 本番では無効。`NODE_ENV` はビルド時に固定されるため、`next build` した
+ * 成果物にはこの分岐自体が通らない形で入る。
+ */
+const DEV_TEST_USER_ID = '00000000-0000-4000-8000-000000000001'
+
+export function isDevTestLogin(email?: string, password?: string): boolean {
+  if (process.env.NODE_ENV === 'production') return false
+  return email?.trim().toLowerCase() === 'test' && password === 'test'
+}
+
 interface Body {
   action?: Action
   email?: string
@@ -89,6 +105,16 @@ export async function POST(request: Request) {
   // ずっと多く、設定チェックを先に置くと入力エラーが 500 に埋もれる
   const { action, email, password } = body
   if (action !== 'signin' && action !== 'signup') return bad('action が不正です')
+
+  // 開発用のテストアカウント。Supabase も reCAPTCHA も無しで画面を触れるようにする。
+  // 本番では絶対に通さない（ここを抜けると認証が意味をなさなくなる）
+  if (isDevTestLogin(email, password)) {
+    return NextResponse.json({
+      localUser: { id: DEV_TEST_USER_ID, email: 'test' },
+      message: 'テストアカウントで入りました。データはこの端末にのみ保存され、同期はされません。',
+    })
+  }
+
   if (!email || !password) return bad('メールアドレスとパスワードを入力してください')
   if (action === 'signup' && password.length < 8) {
     return bad('パスワードは8文字以上にしてください')

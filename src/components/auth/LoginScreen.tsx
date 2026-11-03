@@ -3,10 +3,13 @@
 import { useId, useState } from 'react'
 
 import { getRecaptchaToken, isRecaptchaConfigured } from '@/lib/auth/recaptcha'
-import { applySession } from '@/lib/auth/session'
+import { applyLocalSession, applySession } from '@/lib/auth/session'
 import { Logo } from '@/components/layout/Logo'
 
 type Mode = 'signin' | 'signup'
+
+/** ビルド時に固定される。本番バンドルではテスト用の導線ごと落ちる */
+const IS_DEV = process.env.NODE_ENV !== 'production'
 
 export function LoginScreen() {
   const [mode, setMode] = useState<Mode>('signin')
@@ -36,10 +39,16 @@ export function LoginScreen() {
         error?: string
         message?: string
         session?: { access_token: string; refresh_token: string } | null
+        localUser?: { id: string; email: string }
       }
 
       if (!res.ok) {
         setError(json.error ?? '処理に失敗しました')
+        return
+      }
+      // 開発用テストアカウント。Supabase を通さずローカルだけで入る
+      if (json.localUser) {
+        await applyLocalSession(json.localUser.id, json.localUser.email)
         return
       }
       if (!json.session) {
@@ -108,7 +117,10 @@ export function LoginScreen() {
               </label>
               <input
                 id={emailId}
-                type="email"
+                // 開発ではテストアカウント（test）を打てるよう text にする。
+                // 本番はブラウザ側の形式チェックを効かせる
+                type={IS_DEV ? 'text' : 'email'}
+                inputMode="email"
                 required
                 autoComplete="email"
                 value={email}
@@ -144,6 +156,27 @@ export function LoginScreen() {
               {busy ? '処理中…' : mode === 'signin' ? 'サインイン' : '登録する'}
             </button>
           </form>
+
+          {IS_DEV && (
+            <div className="border-border mt-5 rounded-md border border-dashed p-3">
+              <p className="text-muted text-xs">
+                開発用のテストアカウントで入れます（<code className="font-mono">test</code> /{' '}
+                <code className="font-mono">test</code>）。
+                Supabase を通さないため<strong>同期はされず</strong>、データはこの端末にのみ残ります。
+              </p>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => {
+                  setEmail('test')
+                  setPassword('test')
+                }}
+                className="border-border hover:bg-navy-50 mt-2 w-full rounded-md border px-3 py-1.5 text-xs disabled:opacity-50 dark:hover:bg-white/5"
+              >
+                テストアカウントを入力
+              </button>
+            </div>
+          )}
 
           <p className="text-muted mt-4 text-center text-[11px] leading-relaxed">
             {isRecaptchaConfigured() ? (
