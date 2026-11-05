@@ -670,6 +670,47 @@ export type Database = {
           },
         ]
       }
+      model_former_names: {
+        Row: {
+          id: string
+          user_id: string
+          model_id: string
+          name: string
+          used_from: string | null
+          used_until: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          model_id: string
+          name: string
+          used_from?: string | null
+          used_until?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          model_id?: string
+          name?: string
+          used_from?: string | null
+          used_until?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'model_former_names_model_id_fkey'
+            columns: ['model_id']
+            isOneToOne: false
+            referencedRelation: 'models'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       audit_logs: {
         Row: {
           id: number

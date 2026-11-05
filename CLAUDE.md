@@ -78,6 +78,7 @@
 
 ### マスタ（4種）
 - `models`: モデルマスタ
+  - `model_former_names`: モデルの旧名義（子テーブル）。現在の活動名は `models.name`
 - `venues`: スタジオ / ロケ地マスタ。**`kind` カラムで区別**し、テーブルは分けていない
   （持つ項目が共通なため。分けると `sessions.venue_id` の参照先が2つになる）
 - `organizers`: 団体マスタ（撮影会の主催団体）
@@ -148,7 +149,7 @@
 - **開発サーバー起動**: `npm run dev`
 - **ビルド確認**: `npm run build`（Service Worker の生成を含む）
 - **オフライン動作確認**: `npm run build && npm start`（dev では SW が無効）
-- **テスト**: `npm test`（単体テスト63項目） / `npm run test:schema`（DBスキーマ91項目）
+- **テスト**: `npm test`（単体テスト66項目） / `npm run test:schema`（DBスキーマ101項目）
 - **型生成**: `npm run db:types`（要 Supabase ローカルスタック）
 
 ### 環境メモ
@@ -161,3 +162,4 @@
 
 ## 作業ルール
 - 変更前に必ずgit commitすること
+- 変更が終わったら、そのつど git commit すること（push は依頼があるときだけ）

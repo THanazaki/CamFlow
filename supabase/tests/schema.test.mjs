@@ -575,5 +575,50 @@ console.log('\n[11] shoot_history の入力項目')
     `update public.slots set storage_urls = ${urls(11)} where id = 'c1000000-0000-4000-8000-0000000000ac'`)
 }
 
+// ── 12. モデルの旧名義 ───────────────────────────────────────────────
+console.log('\n[12] model_former_names（旧名義）')
+{
+  const M = 'c2000000-0000-4000-8000-0000000000aa'
+  const former = (values, user = UA, model = M) =>
+    `insert into public.model_former_names (user_id, model_id, name, used_from, used_until)
+     values ('${user}', '${model}', ${values})`
+  await db.exec(`insert into public.models (id, user_id, name) values ('${M}', '${UA}', '現在の名義')`)
+
+  await mustPass('旧名義を複数登録できる（期間は任意）',
+    `${former(`'旧名義A', '2024-01-01', '2024-12-31'`)}; ${former(`'旧名義B', null, null`)}`)
+  await mustFail('同じモデルに同じ旧名義（大文字小文字違いも）',
+    `${former(`'Kanna', null, null`)}; ${former(`'kanna', null, null`)}`)
+  await mustFail('空白のみの旧名義', former(`'   ', null, null`))
+  await mustFail('終了日が開始日より前', former(`'旧名義C', '2025-01-02', '2025-01-01'`))
+  await mustFail('他ユーザーのモデルへの登録', former(`'旧名義D', null, null`, UB))
+
+  // 別のモデルが同じ旧名義を使っていてもよい
+  const M2 = 'c2000000-0000-4000-8000-0000000000ab'
+  await db.exec(`insert into public.models (id, user_id, name) values ('${M2}', '${UA}', '別のモデル')`)
+  await mustPass('別のモデルなら同じ旧名義を登録できる', former(`'旧名義A', null, null`, UA, M2))
+
+  // RLS
+  await db.exec(`set role authenticated; select set_config('request.jwt.claims', '{"sub":"${UB}"}', false);`)
+  const otherSees = (await db.query(`select count(*)::int n from public.model_former_names`)).rows[0].n
+  await db.exec(`select set_config('request.jwt.claims', '{"sub":"${UA}"}', false);`)
+  const ownerSees = (await db.query(`select count(*)::int n from public.model_former_names`)).rows[0].n
+  await db.exec(`reset role`)
+  otherSees === 0 && ownerSees === 3
+    ? ok('旧名義は本人だけが読める') : bad('旧名義の RLS', `他人${otherSees}件 / 本人${ownerSees}件`)
+
+  // モデルを物理削除すると旧名義も消え、削除が端末へ同期され、ログにも残る
+  const tomb = async () => (await db.query(`
+    select count(*)::int n from public.sync_tombstones where table_name = 'model_former_names'`)).rows[0].n
+  const before = await tomb()
+  await db.exec(`delete from public.models where id = '${M}'`)
+  const left = (await db.query(`select count(*)::int n from public.model_former_names where model_id = '${M}'`)).rows[0].n
+  left === 0 && (await tomb()) === before + 2
+    ? ok('モデルの物理削除で旧名義も消え、tombstone が残る') : bad('cascade', `残り${left}件`)
+  const audited = (await db.query(`
+    select count(*)::int n from public.audit_logs
+    where table_name = 'model_former_names' and operation = 'DELETE'`)).rows[0].n
+  audited === 2 ? ok('旧名義の操作もログに残る') : bad('旧名義のログ', `${audited}件`)
+}
+
 console.log(`\n${'─'.repeat(60)}\n結果: ${pass} 成功 / ${fail} 失敗`)
 process.exit(fail > 0 ? 1 : 0)

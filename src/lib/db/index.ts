@@ -2,6 +2,7 @@ import Dexie, { type EntityTable } from 'dexie'
 
 import type {
   LocalModel,
+  LocalModelFormerName,
   LocalOrganizer,
   LocalProfile,
   LocalSession,
@@ -24,6 +25,7 @@ export class CamFlowDB extends Dexie {
   venues!: EntityTable<LocalVenue, 'id'>
   organizers!: EntityTable<LocalOrganizer, 'id'>
   models!: EntityTable<LocalModel, 'id'>
+  model_former_names!: EntityTable<LocalModelFormerName, 'id'>
   sessions!: EntityTable<LocalSession, 'id'>
   slots!: EntityTable<LocalSlot, 'id'>
   slot_models!: EntityTable<LocalSlotModel, 'id'>
@@ -52,6 +54,11 @@ export class CamFlowDB extends Dexie {
       // ++seq で採番順＝送信順。[status+seq] で pending を順番に取り出す
       _outbox: '++seq, status, row_key, [status+seq], [row_key+status]',
       _meta: 'key',
+    })
+
+    // 指定しなかったストアは v1 のまま残り、既存のデータも消えない
+    this.version(2).stores({
+      model_former_names: 'id, user_id, model_id, name, updated_at, _dirty',
     })
   }
 
