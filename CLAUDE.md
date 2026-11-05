@@ -91,9 +91,12 @@
 - `shoot_history` / `shoot_history_models`: 遡及登録した過去の撮影。1行 = 1回の撮影。
   タイマー系カラムと枠番号は持たない
 - `sync_tombstones`: オフライン同期用の物理削除ログ
+- `audit_logs`: DB 操作ログ。トリガだけが書き込み、端末には同期しない
 
 ### 守るべきルール
 - 全テーブルに `user_id` を保持し、Row Level Security (RLS) を適切に設定する。
+- **テーブルを追加したら `record_audit_log()` のトリガも付けること。** 付け忘れると
+  `npm run test:schema` が失敗する。
 - **集計値はカラムで持たない**（撮影回数・累計支払額・総支出）。ビューから導出する。
 - **「過去の撮影」を扱う画面は個別テーブルではなく必ずビューを見ること。**
   2系統に分かれているため、片方しか見ないと数が合わなくなる。
@@ -145,7 +148,7 @@
 - **開発サーバー起動**: `npm run dev`
 - **ビルド確認**: `npm run build`（Service Worker の生成を含む）
 - **オフライン動作確認**: `npm run build && npm start`（dev では SW が無効）
-- **テスト**: `npm test`（同期エンジン31項目） / `npm run test:schema`（DBスキーマ60項目）
+- **テスト**: `npm test`（単体テスト49項目） / `npm run test:schema`（DBスキーマ81項目）
 - **型生成**: `npm run db:types`（要 Supabase ローカルスタック）
 
 ### 環境メモ

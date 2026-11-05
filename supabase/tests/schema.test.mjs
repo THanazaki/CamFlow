@@ -431,5 +431,99 @@ console.log('\n[9] sync_tombstones（物理削除の記録）')
   writeBlocked ? ok('クライアントからの tombstone 書き込みは不可') : bad('tombstone 書き込み', '通ってしまった')
 }
 
+// ── 10. DB 操作ログ ─────────────────────────────────────────────────────
+console.log('\n[10] audit_logs（DB 操作ログ）')
+{
+  // テーブルを追加したときにトリガの付け忘れで記録が漏れないようにする
+  const missing = await db.query(`
+    select c.relname from pg_class c
+    join pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'public' and c.relkind = 'r'
+      and c.relname not in ('audit_logs', 'sync_tombstones')
+      and not exists (
+        select 1 from pg_trigger t
+        join pg_proc p on p.oid = t.tgfoid
+        where t.tgrelid = c.oid and p.proname = 'record_audit_log'
+      )`)
+  missing.rows.length === 0
+    ? ok('対象外以外の全テーブルにトリガがある')
+    : bad('トリガ漏れ', JSON.stringify(missing.rows))
+
+  const asUser = (id) => `set role authenticated; select set_config('request.jwt.claims', '{"sub":"${id}"}', false);`
+  const MODEL = 'b0000000-0000-4000-8000-0000000000aa'
+  const logs = async (rowId) => (await db.query(`
+    select operation, user_id, actor_id, old_data, new_data from public.audit_logs
+    where row_id = '${rowId}' order by id`)).rows
+
+  // 本人の操作として INSERT → UPDATE → 論理削除 → DELETE
+  await db.exec(`${asUser(UA)}
+    insert into public.models (id, user_id, name) values ('${MODEL}', '${UA}', '監査テスト');
+    update public.models set name = '監査テスト改' where id = '${MODEL}';
+    update public.models set deleted_at = now() where id = '${MODEL}';
+    delete from public.models where id = '${MODEL}';
+    reset role;`)
+  const rows = await logs(MODEL)
+  rows.map(r => r.operation).join() === 'INSERT,UPDATE,UPDATE,DELETE'
+    ? ok('INSERT / UPDATE / 論理削除 / DELETE が順に記録される')
+    : bad('操作の記録', rows.map(r => r.operation).join())
+  rows.every(r => r.user_id === UA && r.actor_id === UA)
+    ? ok('所有者と操作者が記録される') : bad('所有者と操作者', JSON.stringify(rows[0]))
+  rows[0].old_data === null && rows[0].new_data?.name === '監査テスト'
+    ? ok('INSERT は変更後だけを持つ') : bad('INSERT の内容', JSON.stringify(rows[0]))
+  rows[1].old_data?.name === '監査テスト' && rows[1].new_data?.name === '監査テスト改'
+    ? ok('UPDATE は変更前後を持つ') : bad('UPDATE の内容', JSON.stringify(rows[1]))
+  rows[3].old_data?.name === '監査テスト改' && rows[3].new_data === null
+    ? ok('DELETE は変更前だけを持つ') : bad('DELETE の内容', JSON.stringify(rows[3]))
+
+  // profiles は user_id カラムを持たない
+  const profile = await db.query(`select id from public.profiles where id = '${UA}'`)
+  await db.exec(`update public.profiles set updated_at = now() where id = '${UA}'`)
+  const profileLog = await logs(UA)
+  profile.rows.length === 1 && profileLog.at(-1)?.user_id === UA
+    ? ok('profiles の変更も所有者つきで記録される') : bad('profiles', JSON.stringify(profileLog.at(-1)))
+
+  // cascade で消えた子の行も残る
+  await db.exec(`
+    insert into public.sessions (id, user_id, title, session_date)
+      values ('e0000000-0000-4000-8000-0000000000aa', '${UA}', '監査', current_date);
+    insert into public.slots (id, user_id, session_id, slot_no, start_at, planned_minutes)
+      values ('e0000000-0000-4000-8000-0000000000ab', '${UA}', 'e0000000-0000-4000-8000-0000000000aa', 1, now(), 60);
+    delete from public.sessions where id = 'e0000000-0000-4000-8000-0000000000aa';`)
+  const cascaded = await logs('e0000000-0000-4000-8000-0000000000ab')
+  cascaded.at(-1)?.operation === 'DELETE'
+    ? ok('cascade 削除も記録される') : bad('cascade', JSON.stringify(cascaded))
+
+  // RLS: 他人のログは読めず、本人でも書き換えられない
+  await db.exec(asUser(UB))
+  const otherSees = (await db.query(`select count(*)::int n from public.audit_logs where row_id = '${MODEL}'`)).rows[0].n
+  await db.exec(asUser(UA))
+  const ownerSees = (await db.query(`select count(*)::int n from public.audit_logs where row_id = '${MODEL}'`)).rows[0].n
+  const attempts = {
+    insert: `insert into public.audit_logs (user_id, table_name, row_id, operation) values ('${UA}', 'models', gen_random_uuid(), 'INSERT')`,
+    update: `update public.audit_logs set table_name = 'x'`,
+    delete: `delete from public.audit_logs`,
+  }
+  const allowed = []
+  for (const [name, sql] of Object.entries(attempts)) {
+    try { await db.exec(sql); allowed.push(name) } catch { /* 拒否されるのが正しい */ }
+  }
+  await db.exec(`reset role`)
+  otherSees === 0 && ownerSees === 4
+    ? ok('ログは本人だけが読める') : bad('ログの RLS', `他人${otherSees}件 / 本人${ownerSees}件`)
+  allowed.length === 0
+    ? ok('本人でもログを書き換えられない') : bad('ログの書き換え', allowed.join())
+
+  // アカウント削除を止めず、ログも残さない
+  const GONE = '99999999-9999-4999-8999-999999999999'
+  try {
+    await db.exec(`
+      insert into auth.users (id, email) values ('${GONE}', 'gone@example.com');
+      insert into public.models (user_id, name) values ('${GONE}', '削除されるモデル');
+      delete from auth.users where id = '${GONE}';`)
+    const left = (await db.query(`select count(*)::int n from public.audit_logs where user_id = '${GONE}'`)).rows[0].n
+    left === 0 ? ok('アカウント削除でログも消える') : bad('アカウント削除', `${left}件残った`)
+  } catch (e) { bad('アカウント削除', e) }
+}
+
 console.log(`\n${'─'.repeat(60)}\n結果: ${pass} 成功 / ${fail} 失敗`)
 process.exit(fail > 0 ? 1 : 0)

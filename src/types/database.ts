@@ -668,6 +668,42 @@ export type Database = {
           },
         ]
       }
+      audit_logs: {
+        Row: {
+          id: number
+          user_id: string
+          table_name: string
+          row_id: string
+          operation: string
+          old_data: Json | null
+          new_data: Json | null
+          actor_id: string | null
+          occurred_at: string
+        }
+        Insert: {
+          id?: never
+          user_id: string
+          table_name: string
+          row_id: string
+          operation: string
+          old_data?: Json | null
+          new_data?: Json | null
+          actor_id?: string | null
+          occurred_at?: string
+        }
+        Update: {
+          id?: never
+          user_id?: string
+          table_name?: string
+          row_id?: string
+          operation?: string
+          old_data?: Json | null
+          new_data?: Json | null
+          actor_id?: string | null
+          occurred_at?: string
+        }
+        Relationships: []
+      }
       sync_tombstones: {
         Row: {
           id: number
