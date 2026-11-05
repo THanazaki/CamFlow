@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useId, useState } from 'react'
 
 import { saveStorageUrls } from '@/lib/actions/shoots'
+import { placeCategoryLabel } from '@/lib/place-category'
 import { loadConfirmedShoots, type ConfirmedShoot } from '@/lib/queries/shoots'
 
 const STORAGE_SLOTS = 3
@@ -104,7 +105,11 @@ function ShootCard({ shoot }: { shoot: ConfirmedShoot }) {
               {shoot.shootDate} {shoot.startTime}〜{shoot.endTime}
             </span>
           </Row>
+          <Row label="場所区分">
+            {shoot.placeCategory ? placeCategoryLabel(shoot.placeCategory) : '—'}
+          </Row>
           <Row label="場所">{shoot.venueName ?? '—'}</Row>
+          {shoot.meetingPoint && <Row label="集合場所">{shoot.meetingPoint}</Row>}
           <Row label="モデル">
             {shoot.models.length === 0 ? (
               '—'

@@ -1,4 +1,5 @@
 import { db } from '@/lib/db'
+import type { PlaceCategory } from '@/lib/place-category'
 import { DEFAULT_SHOOT_CATEGORY, type ShootCategory } from '@/lib/shoot-category'
 
 /** 確定撮影情報画面の1行（1枠 = 1行） */
@@ -8,6 +9,9 @@ export interface ConfirmedShoot {
   title: string
   concept: string | null
   venueName: string | null
+  /** 導入前の行は NULL */
+  placeCategory: PlaceCategory | null
+  meetingPoint: string | null
   shootDate: string
   startTime: string
   endTime: string
@@ -152,6 +156,8 @@ export async function loadConfirmedShoots(now: Date = new Date()): Promise<Confi
         venueName: session.venue_id
           ? (venueMap.get(session.venue_id)?.name ?? session.venue_name)
           : session.venue_name,
+        placeCategory: session.place_category ?? null,
+        meetingPoint: session.meeting_point ?? null,
         shootDate: session.session_date,
         startTime: toTime(slot.start_at),
         endTime: toTime(end.toISOString()),

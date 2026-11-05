@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 
 import { db } from '@/lib/db'
-import { loadConfirmableReservations } from '@/lib/queries/shoots'
+import { loadConfirmableReservations, loadConfirmedShoots } from '@/lib/queries/shoots'
 import type { ShootCategory } from '@/lib/shoot-category'
 
 import { createReservation, type ReservationInput } from '../reservations'
@@ -33,7 +33,9 @@ function confirmation(overrides: Partial<ShootConfirmInput> = {}): ShootConfirmI
     modelX: '',
     modelInstagram: '',
     concept: '',
+    placeCategory: 'studio',
     venueName: '',
+    meetingPoint: '',
     shootDate: '2026-12-20',
     startTime: '13:00',
     endTime: '15:00',
@@ -140,5 +142,52 @@ describe('確定撮影情報入力の撮影区分', () => {
     await confirmShoot(USER, confirmation({ fromSessionId: sessionId, shootCategory: 'group' }))
 
     expect(await db.slot_models.count()).toBe(1)
+  })
+})
+
+describe('確定撮影情報入力の場所区分', () => {
+  it('屋外は集合場所を前後の空白を除いて保存する', async () => {
+    const { sessionId } = await confirmShoot(
+      USER,
+      confirmation({ placeCategory: 'outdoor', meetingPoint: ' 原宿駅 表参道口 ' }),
+    )
+
+    const session = await db.sessions.get(sessionId)
+    expect(session?.place_category).toBe('outdoor')
+    expect(session?.meeting_point).toBe('原宿駅 表参道口')
+  })
+
+  it('屋外でも集合場所は空のまま登録できる', async () => {
+    const { sessionId } = await confirmShoot(USER, confirmation({ placeCategory: 'outdoor' }))
+
+    expect((await db.sessions.get(sessionId))?.meeting_point).toBeNull()
+  })
+
+  it('スタジオでは欄を隠す前に入力した集合場所を保存しない', async () => {
+    const { sessionId } = await confirmShoot(
+      USER,
+      confirmation({ placeCategory: 'studio', meetingPoint: '原宿駅' }),
+    )
+
+    const session = await db.sessions.get(sessionId)
+    expect(session?.place_category).toBe('studio')
+    expect(session?.meeting_point).toBeNull()
+  })
+
+  it('予約から確定するときも保存し、確定撮影情報に出す', async () => {
+    const { sessionId } = await createReservation(USER, reservation())
+
+    await confirmShoot(
+      USER,
+      confirmation({
+        fromSessionId: sessionId,
+        placeCategory: 'outdoor',
+        meetingPoint: '原宿駅',
+      }),
+    )
+
+    const [shoot] = await loadConfirmedShoots()
+    expect(shoot.placeCategory).toBe('outdoor')
+    expect(shoot.meetingPoint).toBe('原宿駅')
   })
 })

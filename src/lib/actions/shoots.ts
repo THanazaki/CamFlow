@@ -1,4 +1,5 @@
 import { db } from '@/lib/db'
+import { categoryHasMeetingPoint, type PlaceCategory } from '@/lib/place-category'
 import { categoryHasModel, fallbackShootTitle, type ShootCategory } from '@/lib/shoot-category'
 import { createRow, deleteRow, updateRow } from '@/lib/sync/mutations'
 import type { Json } from '@/types/database'
@@ -23,7 +24,10 @@ export interface ShootConfirmInput {
   modelX: string
   modelInstagram: string
   concept: string
+  placeCategory: PlaceCategory
   venueName: string
+  /** 屋外以外では無視する */
+  meetingPoint: string
   /** 撮影日（YYYY-MM-DD） */
   shootDate: string
   /** 開始・終了時刻（HH:mm） */
@@ -55,6 +59,10 @@ export async function confirmShoot(
   const venueName = input.venueName.trim()
   const concept = input.concept.trim()
   const eventName = input.eventName.trim()
+  // モデル名と同じく、欄を隠す前の入力が残っていても屋外以外では使わない
+  const meetingPoint = categoryHasMeetingPoint(input.placeCategory)
+    ? input.meetingPoint.trim()
+    : ''
 
   if (hasModel && !modelName) {
     throw new Error('モデル名を入力してください')
@@ -81,6 +89,8 @@ export async function confirmShoot(
     concept: concept || null,
     venue_id: venue?.id ?? null,
     venue_name: venueName || null,
+    place_category: input.placeCategory,
+    meeting_point: meetingPoint || null,
   }
 
   const startAt = toIso(input.shootDate, input.startTime)

@@ -4,9 +4,15 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { useRouter } from 'next/navigation'
 import { useId, useState } from 'react'
 
+import { ChoicePicker } from '@/components/forms/ChoicePicker'
 import { ShootCategoryPicker } from '@/components/forms/ShootCategoryPicker'
 import { confirmShoot, type ShootConfirmInput } from '@/lib/actions/shoots'
 import { getActiveUserId } from '@/lib/auth/session'
+import {
+  categoryHasMeetingPoint,
+  DEFAULT_PLACE_CATEGORY,
+  PLACE_CATEGORIES,
+} from '@/lib/place-category'
 import { loadSuggestions } from '@/lib/queries/reservations'
 import { loadConfirmableReservations } from '@/lib/queries/shoots'
 import { categoryHasModel, DEFAULT_SHOOT_CATEGORY } from '@/lib/shoot-category'
@@ -19,7 +25,9 @@ const EMPTY: ShootConfirmInput = {
   modelX: '',
   modelInstagram: '',
   concept: '',
+  placeCategory: DEFAULT_PLACE_CATEGORY,
   venueName: '',
+  meetingPoint: '',
   shootDate: '',
   startTime: '',
   endTime: '',
@@ -44,6 +52,7 @@ export default function ShootConfirmPage() {
   const pickerId = useId()
 
   const hasModel = categoryHasModel(form.shootCategory)
+  const hasMeetingPoint = categoryHasMeetingPoint(form.placeCategory)
 
   const set = <K extends keyof ShootConfirmInput>(key: K, value: ShootConfirmInput[K]) =>
     setForm((f) => ({ ...f, [key]: value }))
@@ -231,6 +240,19 @@ export default function ShootConfirmPage() {
             )}
           </Field>
 
+          <Field label="場所区分" required>
+            {(p) => (
+              <ChoicePicker
+                id={p.id}
+                name="placeCategory"
+                label="場所区分"
+                options={PLACE_CATEGORIES}
+                value={form.placeCategory}
+                onChange={(v) => set('placeCategory', v)}
+              />
+            )}
+          </Field>
+
           <Field label="場所" hint="マスタに同名があれば紐づきます。無ければ名前だけ残ります">
             {(p) => (
               <>
@@ -240,7 +262,7 @@ export default function ShootConfirmPage() {
                   list={venueListId}
                   value={form.venueName}
                   onChange={(e) => set('venueName', e.target.value)}
-                  placeholder="スタジオ ルミエール"
+                  placeholder={hasMeetingPoint ? '代々木公園' : 'スタジオ ルミエール'}
                   className={inputClass}
                 />
                 <datalist id={venueListId}>
@@ -251,6 +273,21 @@ export default function ShootConfirmPage() {
               </>
             )}
           </Field>
+
+          {hasMeetingPoint && (
+            <Field label="集合場所">
+              {(p) => (
+                <input
+                  {...p}
+                  type="text"
+                  value={form.meetingPoint}
+                  onChange={(e) => set('meetingPoint', e.target.value)}
+                  placeholder="原宿駅 表参道口"
+                  className={inputClass}
+                />
+              )}
+            </Field>
+          )}
 
           <Field label="撮影日" required>
             {(p) => (

@@ -162,6 +162,9 @@ await mustFail('負の金額',
 await mustFail('定義にない撮影区分',
   `insert into public.sessions (user_id, title, session_date, shoot_category)
    values ('${UA}', 'NG', current_date, 'unknown')`)
+await mustFail('定義にない場所区分',
+  `insert into public.sessions (user_id, title, session_date, place_category)
+   values ('${UA}', 'NG', current_date, 'unknown')`)
 
 console.log('\n[6b] 許可されるべき書き込み')
 const mustPass = async (name, sql) => {
@@ -172,6 +175,12 @@ await mustPass('撮影区分 4種を登録できる',
    insert into public.sessions (user_id, title, session_date, shoot_category)
    values ('${UB}', '個撮', current_date, 'solo'), ('${UB}', '団体', current_date, 'group'),
           ('${UB}', 'セッション', current_date, 'session'), ('${UB}', '大撮', current_date, 'large');
+   rollback`)
+await mustPass('場所区分 2種と集合場所を登録できる',
+  `begin;
+   insert into public.sessions (user_id, title, session_date, place_category, meeting_point)
+   values ('${UB}', '屋外', current_date, 'outdoor', '原宿駅'),
+          ('${UB}', 'スタジオ', current_date, 'studio', null);
    rollback`)
 await mustPass('論理削除後は同名モデルを再登録できる',
   `update public.models set deleted_at = now() where id = 'b0000000-0000-4000-8000-000000000004';
