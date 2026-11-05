@@ -34,7 +34,7 @@ export const NAV_ITEMS: NavItem[] = [
     label: '過去撮影データ管理',
     ready: false,
     children: [
-      { href: '/archives/new', label: '過去撮影登録', ready: false },
+      { href: '/archives/new', label: '過去撮影登録', ready: true },
       { href: '/archives/search', label: '撮影情報検索', ready: false },
     ],
   },

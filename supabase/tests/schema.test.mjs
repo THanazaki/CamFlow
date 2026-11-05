@@ -525,5 +525,36 @@ console.log('\n[10] audit_logs（DB 操作ログ）')
   } catch (e) { bad('アカウント削除', e) }
 }
 
+// ── 11. 過去撮影登録の入力項目 ─────────────────────────────────────────
+console.log('\n[11] shoot_history の入力項目')
+{
+  const H = 'c1000000-0000-4000-8000-0000000000aa'
+  await db.exec(`
+    insert into public.shoot_history
+      (id, user_id, shoot_date, title, shoot_category, concept, place_category, meeting_point)
+    values ('${H}', '${UA}', '2026-01-10', '過去撮影', 'large', '夕景', 'outdoor', '原宿駅')`)
+  const row = (await db.query(`
+    select source, shoot_category, concept, place_category, meeting_point
+    from public.v_shoot_history_all where source_id = '${H}'`)).rows[0]
+  row?.source === 'history' && row.shoot_category === 'large' && row.concept === '夕景' &&
+    row.place_category === 'outdoor' && row.meeting_point === '原宿駅'
+    ? ok('追加した項目を v_shoot_history_all から引ける')
+    : bad('v_shoot_history_all', JSON.stringify(row))
+
+  // 運用フロー側も同じ列を sessions から返す
+  await db.exec(`
+    insert into public.sessions (id, user_id, title, session_date, shoot_category, concept, place_category, meeting_point)
+      values ('c1000000-0000-4000-8000-0000000000ab', '${UA}', '運用', '2026-01-11', 'group', '白ホリ', 'outdoor', '渋谷駅');
+    insert into public.slots (id, user_id, session_id, slot_no, start_at, planned_minutes, shoot_status)
+      values ('c1000000-0000-4000-8000-0000000000ac', '${UA}', 'c1000000-0000-4000-8000-0000000000ab', 1, now(), 60, 'shot');`)
+  const slotRow = (await db.query(`
+    select source, shoot_category, concept, place_category, meeting_point
+    from public.v_shoot_history_all where source_id = 'c1000000-0000-4000-8000-0000000000ac'`)).rows[0]
+  slotRow?.source === 'slot' && slotRow.shoot_category === 'group' && slotRow.concept === '白ホリ' &&
+    slotRow.place_category === 'outdoor' && slotRow.meeting_point === '渋谷駅'
+    ? ok('運用フロー側の行も同じ項目を返す')
+    : bad('運用フロー側', JSON.stringify(slotRow))
+}
+
 console.log(`\n${'─'.repeat(60)}\n結果: ${pass} 成功 / ${fail} 失敗`)
 process.exit(fail > 0 ? 1 : 0)

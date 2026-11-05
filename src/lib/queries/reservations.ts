@@ -81,15 +81,18 @@ export async function loadSuggestions(): Promise<{
   venues: string[]
   events: string[]
 }> {
-  const [models, venues, sessions] = await Promise.all([
+  const [models, venues, sessions, histories] = await Promise.all([
     db.models.toArray(),
     db.venues.toArray(),
     db.sessions.toArray(),
+    db.shoot_history.toArray(),
   ])
   return {
     models: models.filter((m) => !m.deleted_at && m.status !== 'ng').map((m) => m.name),
     venues: venues.filter((v) => !v.deleted_at).map((v) => v.name),
     // 同じ撮影会に何度も申し込むので、過去に使った撮影会名を候補に出す
-    events: [...new Set(sessions.filter((s) => !s.deleted_at).map((s) => s.title))].sort(),
+    events: [
+      ...new Set([...sessions, ...histories].filter((s) => !s.deleted_at).map((s) => s.title)),
+    ].sort(),
   }
 }

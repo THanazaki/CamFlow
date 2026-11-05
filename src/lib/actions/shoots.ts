@@ -13,9 +13,8 @@ import type { Json } from '@/types/database'
  * （モデルを指定しない撮影区分では slot_models を持たない）。
  */
 
-export interface ShootConfirmInput {
-  /** 予約から確定する場合はその session.id。新規なら空 */
-  fromSessionId: string
+/** 撮影会名から撮影日まで。確定撮影情報入力と過去撮影登録で共通 */
+export interface ShootDetailsInput {
   eventName: string
   shootCategory: ShootCategory
   /** モデルを指定しない撮影区分では、モデル名と SNS を無視する */
@@ -30,6 +29,11 @@ export interface ShootConfirmInput {
   meetingPoint: string
   /** 撮影日（YYYY-MM-DD） */
   shootDate: string
+}
+
+export interface ShootConfirmInput extends ShootDetailsInput {
+  /** 予約から確定する場合はその session.id。新規なら空 */
+  fromSessionId: string
   /** 開始・終了時刻（HH:mm） */
   startTime: string
   endTime: string
@@ -77,8 +81,7 @@ export async function confirmShoot(
   const modelId = hasModel ? await resolveModel(userId, modelName, input) : null
 
   // ── 場所 ─────────────────────────────────────────────────
-  const venues = await db.venues.toArray()
-  const venue = venues.find((v) => !v.deleted_at && normalize(v.name) === normalize(venueName))
+  const venue = await findVenue(venueName)
 
   const sessionValues = {
     title: eventName || concept || fallbackShootTitle(input.shootCategory, modelName),
@@ -132,11 +135,17 @@ export async function confirmShoot(
   return { sessionId, slotId }
 }
 
+/** 同名の場所マスタを探す。無ければ名前だけのテキストとして残す */
+export async function findVenue(venueName: string) {
+  const venues = await db.venues.toArray()
+  return venues.find((v) => !v.deleted_at && normalize(v.name) === normalize(venueName))
+}
+
 /** モデルマスタの行を返す。同名が無ければ作り、あれば入力された SNS を反映する */
-async function resolveModel(
+export async function resolveModel(
   userId: string,
   modelName: string,
-  input: ShootConfirmInput,
+  input: Pick<ShootDetailsInput, 'modelX' | 'modelInstagram'>,
 ): Promise<string> {
   const models = await db.models.toArray()
   const existingModel = models.find(
@@ -211,7 +220,7 @@ function asRecord(value: unknown): Record<string, string> {
 
 function buildSnsLinks(
   current: Record<string, string>,
-  input: Pick<ShootConfirmInput, 'modelX' | 'modelInstagram'>,
+  input: Pick<ShootDetailsInput, 'modelX' | 'modelInstagram'>,
 ): Record<string, string> {
   const next = { ...current }
   const x = input.modelX.trim()

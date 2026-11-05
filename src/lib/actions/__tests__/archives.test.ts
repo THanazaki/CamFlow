@@ -1,0 +1,126 @@
+import { beforeEach, describe, expect, it } from 'vitest'
+
+import { db } from '@/lib/db'
+import { loadDashboard } from '@/lib/queries/dashboard'
+import { loadSuggestions } from '@/lib/queries/reservations'
+
+import { createShootHistory, localToday } from '../archives'
+import type { ShootDetailsInput } from '../shoots'
+
+const USER = '11111111-1111-4111-8111-111111111111'
+
+function input(overrides: Partial<ShootDetailsInput> = {}): ShootDetailsInput {
+  return {
+    eventName: '',
+    shootCategory: 'solo',
+    modelName: '栞奈',
+    modelX: '',
+    modelInstagram: '',
+    concept: '',
+    placeCategory: 'studio',
+    venueName: '',
+    meetingPoint: '',
+    shootDate: '2026-01-10',
+    ...overrides,
+  }
+}
+
+beforeEach(async () => {
+  await db.delete()
+  await db.open()
+})
+
+describe('過去撮影登録', () => {
+  it('入力内容を shoot_history と shoot_history_models に保存する', async () => {
+    const { historyId } = await createShootHistory(
+      USER,
+      input({
+        eventName: ' 春の撮影会 ',
+        concept: ' 夕景 ',
+        placeCategory: 'outdoor',
+        venueName: '代々木公園',
+        meetingPoint: ' 原宿駅 ',
+        modelX: '@kanna',
+      }),
+    )
+
+    const history = await db.shoot_history.get(historyId)
+    expect(history).toMatchObject({
+      shoot_date: '2026-01-10',
+      title: '春の撮影会',
+      shoot_category: 'solo',
+      concept: '夕景',
+      place_category: 'outdoor',
+      venue_name: '代々木公園',
+      meeting_point: '原宿駅',
+      deleted_at: null,
+      venue_cost: 0,
+      delivery_status: 'not_started',
+    })
+
+    const [model] = await db.models.toArray()
+    expect(model.sns_links).toEqual({ x: '@kanna' })
+    const [link] = await db.shoot_history_models.toArray()
+    expect(link).toMatchObject({
+      shoot_history_id: historyId,
+      model_id: model.id,
+      fee: 0,
+      payment_status: 'paid',
+    })
+  })
+
+  it('親 → 子の順に送信キューへ積む', async () => {
+    await createShootHistory(USER, input())
+
+    const tables = (await db._outbox.orderBy('seq').toArray()).map((e) => e.table)
+    expect(tables.indexOf('shoot_history')).toBeLessThan(tables.indexOf('shoot_history_models'))
+  })
+
+  it.each([
+    ['session', 'セッション'],
+    ['large', '大撮'],
+  ] as const)('%s はモデルなしで登録でき、タイトルは区分名になる', async (shootCategory, title) => {
+    const { historyId } = await createShootHistory(
+      USER,
+      input({ shootCategory, modelName: '隠す前の入力' }),
+    )
+
+    expect((await db.shoot_history.get(historyId))?.title).toBe(title)
+    expect(await db.models.count()).toBe(0)
+    expect(await db.shoot_history_models.count()).toBe(0)
+  })
+
+  it('スタジオでは欄を隠す前に入力した集合場所を保存しない', async () => {
+    const { historyId } = await createShootHistory(USER, input({ meetingPoint: '原宿駅' }))
+
+    expect((await db.shoot_history.get(historyId))?.meeting_point).toBeNull()
+  })
+
+  it('モデルが必要な区分で名前が空ならエラーにする', async () => {
+    await expect(createShootHistory(USER, input({ modelName: '  ' }))).rejects.toThrow(
+      'モデル名を入力してください',
+    )
+    expect(await db.shoot_history.count()).toBe(0)
+  })
+
+  it('今日は登録でき、未来の日付はエラーにする', async () => {
+    await expect(createShootHistory(USER, input({ shootDate: localToday() }))).resolves.toBeTruthy()
+    await expect(createShootHistory(USER, input({ shootDate: '2999-01-01' }))).rejects.toThrow(
+      '今日以前',
+    )
+    expect(await db.shoot_history.count()).toBe(1)
+  })
+
+  it('登録するとダッシュボードの直近の撮影に出る', async () => {
+    const { historyId } = await createShootHistory(USER, input({ eventName: '春の撮影会' }))
+
+    const { recent } = await loadDashboard()
+    expect(recent.map((s) => s.sourceId)).toContain(historyId)
+  })
+
+  it('登録した撮影会名を次回の候補に出す', async () => {
+    await createShootHistory(USER, input({ eventName: '春の撮影会' }))
+
+    expect((await loadSuggestions()).events).toContain('春の撮影会')
+  })
+})

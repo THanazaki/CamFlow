@@ -497,6 +497,10 @@ export type Database = {
           shoot_date: string
           title: string
           shoot_type: Database['public']['Enums']['shoot_type']
+          shoot_category: Database['public']['Enums']['shoot_category'] | null
+          concept: string | null
+          place_category: Database['public']['Enums']['place_category'] | null
+          meeting_point: string | null
           venue_id: string | null
           venue_name: string | null
           organizer_id: string | null
@@ -528,14 +532,14 @@ export type Database = {
           shoot_date: string
           title: string
           shoot_type?: Database['public']['Enums']['shoot_type']
+          shoot_category?: Database['public']['Enums']['shoot_category'] | null
+          concept?: string | null
+          place_category?: Database['public']['Enums']['place_category'] | null
+          meeting_point?: string | null
           venue_id?: string | null
           venue_name?: string | null
           organizer_id?: string | null
           organizer?: string | null
-          booking_opens_at?: string | null
-          booking_method?: Database['public']['Enums']['booking_method'] | null
-          booking_contact?: string | null
-          concept?: string | null
           start_at?: string | null
           end_at?: string | null
           venue_cost?: number
@@ -545,7 +549,6 @@ export type Database = {
           frame_count?: number | null
           storage_path?: string | null
           storage_label?: string | null
-          storage_urls?: string[]
           storage_size_mb?: number | null
           backup_location?: string | null
           backed_up_at?: string | null
@@ -564,14 +567,14 @@ export type Database = {
           shoot_date?: string
           title?: string
           shoot_type?: Database['public']['Enums']['shoot_type']
+          shoot_category?: Database['public']['Enums']['shoot_category'] | null
+          concept?: string | null
+          place_category?: Database['public']['Enums']['place_category'] | null
+          meeting_point?: string | null
           venue_id?: string | null
           venue_name?: string | null
           organizer_id?: string | null
           organizer?: string | null
-          booking_opens_at?: string | null
-          booking_method?: Database['public']['Enums']['booking_method'] | null
-          booking_contact?: string | null
-          concept?: string | null
           start_at?: string | null
           end_at?: string | null
           venue_cost?: number
@@ -581,7 +584,6 @@ export type Database = {
           frame_count?: number | null
           storage_path?: string | null
           storage_label?: string | null
-          storage_urls?: string[]
           storage_size_mb?: number | null
           backup_location?: string | null
           backed_up_at?: string | null
@@ -785,6 +787,10 @@ export type Database = {
           memo: string | null
           session_id: string | null
           slot_no: number | null
+          shoot_category: Database['public']['Enums']['shoot_category'] | null
+          concept: string | null
+          place_category: Database['public']['Enums']['place_category'] | null
+          meeting_point: string | null
         }
         Relationships: []
       }
