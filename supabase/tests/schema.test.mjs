@@ -531,15 +531,29 @@ console.log('\n[11] shoot_history の入力項目')
   const H = 'c1000000-0000-4000-8000-0000000000aa'
   await db.exec(`
     insert into public.shoot_history
-      (id, user_id, shoot_date, title, shoot_category, concept, place_category, meeting_point)
-    values ('${H}', '${UA}', '2026-01-10', '過去撮影', 'large', '夕景', 'outdoor', '原宿駅')`)
+      (id, user_id, shoot_date, title, shoot_category, concept, place_category, storage_urls)
+    values ('${H}', '${UA}', '2026-01-10', '過去撮影', 'large', '夕景', 'outdoor', array['https://example.com/a', 'https://example.com/b'])`)
   const row = (await db.query(`
-    select source, shoot_category, concept, place_category, meeting_point
+    select source, shoot_category, concept, place_category, meeting_point, storage_urls
     from public.v_shoot_history_all where source_id = '${H}'`)).rows[0]
   row?.source === 'history' && row.shoot_category === 'large' && row.concept === '夕景' &&
-    row.place_category === 'outdoor' && row.meeting_point === '原宿駅'
+    row.place_category === 'outdoor' && row.meeting_point === null && row.storage_urls?.length === 2
     ? ok('追加した項目を v_shoot_history_all から引ける')
     : bad('v_shoot_history_all', JSON.stringify(row))
+
+  const urls = (n) => `array[${Array.from({ length: n }, (_, i) => `'https://example.com/${i}'`).join(',')}]`
+  await mustPass('ストレージURLを10個登録できる',
+    `begin;
+     insert into public.shoot_history (user_id, shoot_date, title, storage_urls)
+     values ('${UA}', current_date, '10個', ${urls(10)});
+     rollback`)
+  await mustFail('ストレージURLの11個目',
+    `insert into public.shoot_history (user_id, shoot_date, title, storage_urls)
+     values ('${UA}', current_date, '11個', ${urls(11)})`)
+  const dropped = await db.query(`
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'shoot_history' and column_name = 'meeting_point'`)
+  dropped.rows.length === 0 ? ok('shoot_history は集合場所を持たない') : bad('meeting_point', '列が残っている')
 
   // 運用フロー側も同じ列を sessions から返す
   await db.exec(`

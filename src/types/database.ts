@@ -500,7 +500,6 @@ export type Database = {
           shoot_category: Database['public']['Enums']['shoot_category'] | null
           concept: string | null
           place_category: Database['public']['Enums']['place_category'] | null
-          meeting_point: string | null
           venue_id: string | null
           venue_name: string | null
           organizer_id: string | null
@@ -514,6 +513,7 @@ export type Database = {
           frame_count: number | null
           storage_path: string | null
           storage_label: string | null
+          storage_urls: string[]
           storage_size_mb: number | null
           backup_location: string | null
           backed_up_at: string | null
@@ -535,7 +535,6 @@ export type Database = {
           shoot_category?: Database['public']['Enums']['shoot_category'] | null
           concept?: string | null
           place_category?: Database['public']['Enums']['place_category'] | null
-          meeting_point?: string | null
           venue_id?: string | null
           venue_name?: string | null
           organizer_id?: string | null
@@ -549,6 +548,7 @@ export type Database = {
           frame_count?: number | null
           storage_path?: string | null
           storage_label?: string | null
+          storage_urls?: string[]
           storage_size_mb?: number | null
           backup_location?: string | null
           backed_up_at?: string | null
@@ -570,7 +570,6 @@ export type Database = {
           shoot_category?: Database['public']['Enums']['shoot_category'] | null
           concept?: string | null
           place_category?: Database['public']['Enums']['place_category'] | null
-          meeting_point?: string | null
           venue_id?: string | null
           venue_name?: string | null
           organizer_id?: string | null
@@ -584,6 +583,7 @@ export type Database = {
           frame_count?: number | null
           storage_path?: string | null
           storage_label?: string | null
+          storage_urls?: string[]
           storage_size_mb?: number | null
           backup_location?: string | null
           backed_up_at?: string | null
@@ -791,6 +791,7 @@ export type Database = {
           concept: string | null
           place_category: Database['public']['Enums']['place_category'] | null
           meeting_point: string | null
+          storage_urls: string[] | null
         }
         Relationships: []
       }

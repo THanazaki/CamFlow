@@ -4,12 +4,11 @@ import { db } from '@/lib/db'
 import { loadDashboard } from '@/lib/queries/dashboard'
 import { loadSuggestions } from '@/lib/queries/reservations'
 
-import { createShootHistory, localToday } from '../archives'
-import type { ShootDetailsInput } from '../shoots'
+import { createShootHistory, localToday, type ShootHistoryInput } from '../archives'
 
 const USER = '11111111-1111-4111-8111-111111111111'
 
-function input(overrides: Partial<ShootDetailsInput> = {}): ShootDetailsInput {
+function input(overrides: Partial<ShootHistoryInput> = {}): ShootHistoryInput {
   return {
     eventName: '',
     shootCategory: 'solo',
@@ -19,8 +18,8 @@ function input(overrides: Partial<ShootDetailsInput> = {}): ShootDetailsInput {
     concept: '',
     placeCategory: 'studio',
     venueName: '',
-    meetingPoint: '',
     shootDate: '2026-01-10',
+    storageUrls: [],
     ...overrides,
   }
 }
@@ -39,8 +38,8 @@ describe('過去撮影登録', () => {
         concept: ' 夕景 ',
         placeCategory: 'outdoor',
         venueName: '代々木公園',
-        meetingPoint: ' 原宿駅 ',
         modelX: '@kanna',
+        storageUrls: [' https://example.com/a ', '', 'https://example.com/b'],
       }),
     )
 
@@ -52,7 +51,7 @@ describe('過去撮影登録', () => {
       concept: '夕景',
       place_category: 'outdoor',
       venue_name: '代々木公園',
-      meeting_point: '原宿駅',
+      storage_urls: ['https://example.com/a', 'https://example.com/b'],
       deleted_at: null,
       venue_cost: 0,
       delivery_status: 'not_started',
@@ -90,10 +89,22 @@ describe('過去撮影登録', () => {
     expect(await db.shoot_history_models.count()).toBe(0)
   })
 
-  it('スタジオでは欄を隠す前に入力した集合場所を保存しない', async () => {
-    const { historyId } = await createShootHistory(USER, input({ meetingPoint: '原宿駅' }))
+  it('ストレージURLが無くても登録でき、空の配列で保存する', async () => {
+    const { historyId } = await createShootHistory(USER, input({ storageUrls: ['', '  '] }))
 
-    expect((await db.shoot_history.get(historyId))?.meeting_point).toBeNull()
+    expect((await db.shoot_history.get(historyId))?.storage_urls).toEqual([])
+  })
+
+  it('ストレージURLは10個まで登録でき、11個目はエラーにする', async () => {
+    const urls = (n: number) => Array.from({ length: n }, (_, i) => `https://example.com/${i}`)
+
+    const { historyId } = await createShootHistory(USER, input({ storageUrls: urls(10) }))
+    expect((await db.shoot_history.get(historyId))?.storage_urls).toHaveLength(10)
+
+    await expect(createShootHistory(USER, input({ storageUrls: urls(11) }))).rejects.toThrow(
+      '10個まで',
+    )
+    expect(await db.shoot_history.count()).toBe(1)
   })
 
   it('モデルが必要な区分で名前が空ならエラーにする', async () => {
@@ -112,10 +123,15 @@ describe('過去撮影登録', () => {
   })
 
   it('登録するとダッシュボードの直近の撮影に出る', async () => {
-    const { historyId } = await createShootHistory(USER, input({ eventName: '春の撮影会' }))
+    const { historyId } = await createShootHistory(
+      USER,
+      input({ eventName: '春の撮影会', storageUrls: ['https://example.com/a'] }),
+    )
 
     const { recent } = await loadDashboard()
-    expect(recent.map((s) => s.sourceId)).toContain(historyId)
+    expect(recent.find((s) => s.sourceId === historyId)?.storageUrls).toEqual([
+      'https://example.com/a',
+    ])
   })
 
   it('登録した撮影会名を次回の候補に出す', async () => {

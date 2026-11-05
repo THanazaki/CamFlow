@@ -317,7 +317,7 @@ export async function loadDashboard(now: Date = new Date()): Promise<DashboardDa
       frameCount: h.frame_count,
       storagePath: h.storage_path,
       storageLabel: h.storage_label,
-      storageUrls: [],
+      storageUrls: h.storage_urls ?? [],
       backedUpAt: h.backed_up_at,
       rating: h.rating,
     })),

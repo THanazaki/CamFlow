@@ -32,11 +32,14 @@ export function ShootDetailsFields({
   values,
   onChange,
   maxShootDate,
+  showMeetingPoint = true,
 }: {
   values: ShootDetailsInput
   onChange: <K extends keyof ShootDetailsInput>(key: K, value: ShootDetailsInput[K]) => void
   /** 選べる撮影日の上限（YYYY-MM-DD） */
   maxShootDate?: string
+  /** 過去の撮影では集合場所を入力しない */
+  showMeetingPoint?: boolean
 }) {
   const suggestions = useLiveQuery(() => loadSuggestions(), [], {
     models: [],
@@ -49,7 +52,7 @@ export function ShootDetailsFields({
   const venueListId = useId()
 
   const hasModel = categoryHasModel(values.shootCategory)
-  const hasMeetingPoint = categoryHasMeetingPoint(values.placeCategory)
+  const isOutdoor = categoryHasMeetingPoint(values.placeCategory)
 
   return (
     <>
@@ -172,7 +175,7 @@ export function ShootDetailsFields({
               list={venueListId}
               value={values.venueName}
               onChange={(e) => onChange('venueName', e.target.value)}
-              placeholder={hasMeetingPoint ? '代々木公園' : 'スタジオ ルミエール'}
+              placeholder={isOutdoor ? '代々木公園' : 'スタジオ ルミエール'}
               className={inputClass}
             />
             <datalist id={venueListId}>
@@ -184,7 +187,7 @@ export function ShootDetailsFields({
         )}
       </Field>
 
-      {hasMeetingPoint && (
+      {showMeetingPoint && isOutdoor && (
         <Field label="集合場所">
           {(p) => (
             <input

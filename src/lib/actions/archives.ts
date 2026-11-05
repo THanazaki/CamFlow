@@ -1,4 +1,3 @@
-import { categoryHasMeetingPoint } from '@/lib/place-category'
 import { categoryHasModel, fallbackShootTitle } from '@/lib/shoot-category'
 import { createRow } from '@/lib/sync/mutations'
 
@@ -11,6 +10,14 @@ import { findVenue, resolveModel, type ShootDetailsInput } from './shoots'
  * 登録した時点で撮影済みの実績として数えられる。
  */
 
+/** DB の CHECK 制約と同じ値 */
+export const MAX_STORAGE_URLS = 10
+
+export interface ShootHistoryInput extends Omit<ShootDetailsInput, 'meetingPoint'> {
+  /** 保存先ストレージURL。空欄は無視する */
+  storageUrls: string[]
+}
+
 /** ローカルタイムゾーンの今日（YYYY-MM-DD） */
 export function localToday(now: Date = new Date()): string {
   const month = String(now.getMonth() + 1).padStart(2, '0')
@@ -20,17 +27,15 @@ export function localToday(now: Date = new Date()): string {
 
 export async function createShootHistory(
   userId: string,
-  input: ShootDetailsInput,
+  input: ShootHistoryInput,
 ): Promise<{ historyId: string }> {
   const hasModel = categoryHasModel(input.shootCategory)
-  // 欄を隠す前の入力が残っていても、その区分で使わない値は保存しない
+  // 欄を隠す前の入力が残っていても、モデルを指定しない区分では使わない
   const modelName = hasModel ? input.modelName.trim() : ''
-  const meetingPoint = categoryHasMeetingPoint(input.placeCategory)
-    ? input.meetingPoint.trim()
-    : ''
   const venueName = input.venueName.trim()
   const concept = input.concept.trim()
   const eventName = input.eventName.trim()
+  const storageUrls = input.storageUrls.map((url) => url.trim()).filter(Boolean)
 
   if (hasModel && !modelName) {
     throw new Error('モデル名を入力してください')
@@ -38,6 +43,9 @@ export async function createShootHistory(
   // 登録すると撮影済みの実績に数えるので、未来の日付は受け付けない
   if (input.shootDate > localToday()) {
     throw new Error('撮影日には今日以前の日付を入力してください')
+  }
+  if (storageUrls.length > MAX_STORAGE_URLS) {
+    throw new Error(`保存先ストレージURLは${MAX_STORAGE_URLS}個までです`)
   }
 
   const modelId = hasModel ? await resolveModel(userId, modelName, input) : null
@@ -54,7 +62,7 @@ export async function createShootHistory(
     place_category: input.placeCategory,
     venue_id: venue?.id ?? null,
     venue_name: venueName || null,
-    meeting_point: meetingPoint || null,
+    storage_urls: storageUrls,
     venue_cost: 0,
     transport_cost: 0,
     entry_cost: 0,
