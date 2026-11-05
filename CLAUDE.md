@@ -40,13 +40,16 @@
   予約可否情報              /stats/availability
   過去撮影情報              /stats/history
   撮影料積算                /stats/fees
-マスタ管理                  /masters
+マスタ管理 ▾
+  モデルマスタ              /masters/models
+  撮影会マスタ              /masters/organizers
+  ロケ地・スタジオマスタ    /masters/venues
 設定                        /settings
 ```
 
 - 定義は `src/components/layout/nav-items.ts`。
 - **サブメニューを持つ項目は親自体がページを持たない**（開閉トグル）。
-  `/reservations` `/shoots` `/archives` `/stats` に対応するページは作らない。
+  `/reservations` `/shoots` `/archives` `/stats` `/masters` に対応するページは作らない。
 - 未実装の画面は「準備中」としてグレーアウトし、リンクにしない。
 
 ### 業務フロー

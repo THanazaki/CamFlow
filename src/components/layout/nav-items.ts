@@ -48,6 +48,15 @@ export const NAV_ITEMS: NavItem[] = [
       { href: '/stats/fees', label: '撮影料積算', ready: false },
     ],
   },
-  { href: '/masters', label: 'マスタ管理', ready: false },
+  {
+    href: '/masters',
+    label: 'マスタ管理',
+    ready: false,
+    children: [
+      { href: '/masters/models', label: 'モデルマスタ', ready: false },
+      { href: '/masters/organizers', label: '撮影会マスタ', ready: false },
+      { href: '/masters/venues', label: 'ロケ地・スタジオマスタ', ready: false },
+    ],
+  },
   { href: '/settings', label: '設定', ready: false },
 ]
