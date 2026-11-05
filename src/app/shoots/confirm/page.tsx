@@ -4,14 +4,17 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { useRouter } from 'next/navigation'
 import { useId, useState } from 'react'
 
+import { ShootCategoryPicker } from '@/components/forms/ShootCategoryPicker'
 import { confirmShoot, type ShootConfirmInput } from '@/lib/actions/shoots'
 import { getActiveUserId } from '@/lib/auth/session'
 import { loadSuggestions } from '@/lib/queries/reservations'
 import { loadConfirmableReservations } from '@/lib/queries/shoots'
+import { categoryHasModel, DEFAULT_SHOOT_CATEGORY } from '@/lib/shoot-category'
 
 const EMPTY: ShootConfirmInput = {
   fromSessionId: '',
   eventName: '',
+  shootCategory: DEFAULT_SHOOT_CATEGORY,
   modelName: '',
   modelX: '',
   modelInstagram: '',
@@ -40,6 +43,8 @@ export default function ShootConfirmPage() {
   const venueListId = useId()
   const pickerId = useId()
 
+  const hasModel = categoryHasModel(form.shootCategory)
+
   const set = <K extends keyof ShootConfirmInput>(key: K, value: ShootConfirmInput[K]) =>
     setForm((f) => ({ ...f, [key]: value }))
 
@@ -55,6 +60,7 @@ export default function ShootConfirmPage() {
       ...f,
       fromSessionId: r.sessionId,
       eventName: r.eventName,
+      shootCategory: r.shootCategory,
       modelName: r.modelName,
       modelX: r.modelX,
       modelInstagram: r.modelInstagram,
@@ -149,54 +155,68 @@ export default function ShootConfirmPage() {
             )}
           </Field>
 
-          <Field label="モデル名" required hint="マスタに無い名前はそのまま新規登録されます">
+          <Field label="撮影区分" required>
             {(p) => (
-              <>
-                <input
-                  {...p}
-                  type="text"
-                  required
-                  list={modelListId}
-                  value={form.modelName}
-                  onChange={(e) => set('modelName', e.target.value)}
-                  placeholder="栞奈"
-                  className={inputClass}
-                />
-                <datalist id={modelListId}>
-                  {suggestions.models.map((m) => (
-                    <option key={m} value={m} />
-                  ))}
-                </datalist>
-              </>
+              <ShootCategoryPicker
+                id={p.id}
+                value={form.shootCategory}
+                onChange={(v) => set('shootCategory', v)}
+              />
             )}
           </Field>
 
-          <Field
-            label="モデルアカウント"
-            hint="入力するとモデルマスタに保存します。空欄なら既存のリンクはそのまま残ります"
-          >
-            {(p) => (
-              <div className="grid gap-2 sm:grid-cols-2">
-                <input
-                  {...p}
-                  type="text"
-                  value={form.modelX}
-                  onChange={(e) => set('modelX', e.target.value)}
-                  placeholder="X: @example"
-                  aria-label="X アカウント"
-                  className={inputClass}
-                />
-                <input
-                  type="text"
-                  value={form.modelInstagram}
-                  onChange={(e) => set('modelInstagram', e.target.value)}
-                  placeholder="Instagram: @example"
-                  aria-label="Instagram アカウント"
-                  className={inputClass}
-                />
-              </div>
-            )}
-          </Field>
+          {hasModel && (
+            <>
+              <Field label="モデル名" required hint="マスタに無い名前はそのまま新規登録されます">
+                {(p) => (
+                  <>
+                    <input
+                      {...p}
+                      type="text"
+                      required
+                      list={modelListId}
+                      value={form.modelName}
+                      onChange={(e) => set('modelName', e.target.value)}
+                      placeholder="栞奈"
+                      className={inputClass}
+                    />
+                    <datalist id={modelListId}>
+                      {suggestions.models.map((m) => (
+                        <option key={m} value={m} />
+                      ))}
+                    </datalist>
+                  </>
+                )}
+              </Field>
+
+              <Field
+                label="モデルアカウント"
+                hint="入力するとモデルマスタに保存します。空欄なら既存のリンクはそのまま残ります"
+              >
+                {(p) => (
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <input
+                      {...p}
+                      type="text"
+                      value={form.modelX}
+                      onChange={(e) => set('modelX', e.target.value)}
+                      placeholder="X: @example"
+                      aria-label="X アカウント"
+                      className={inputClass}
+                    />
+                    <input
+                      type="text"
+                      value={form.modelInstagram}
+                      onChange={(e) => set('modelInstagram', e.target.value)}
+                      placeholder="Instagram: @example"
+                      aria-label="Instagram アカウント"
+                      className={inputClass}
+                    />
+                  </div>
+                )}
+              </Field>
+            </>
+          )}
 
           <Field label="撮影コンセプト">
             {(p) => (

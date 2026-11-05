@@ -4,6 +4,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { useRouter } from 'next/navigation'
 import { useId, useState } from 'react'
 
+import { ShootCategoryPicker } from '@/components/forms/ShootCategoryPicker'
 import {
   createReservation,
   type BookingMethod,
@@ -11,9 +12,11 @@ import {
 } from '@/lib/actions/reservations'
 import { getActiveUserId } from '@/lib/auth/session'
 import { loadSuggestions } from '@/lib/queries/reservations'
+import { categoryHasModel, DEFAULT_SHOOT_CATEGORY } from '@/lib/shoot-category'
 
 const EMPTY: ReservationInput = {
   eventName: '',
+  shootCategory: DEFAULT_SHOOT_CATEGORY,
   modelName: '',
   concept: '',
   venueName: '',
@@ -64,6 +67,7 @@ export default function ReservationNewPage() {
   const venueListId = useId()
 
   const method = BOOKING_METHODS[form.bookingMethod]
+  const hasModel = categoryHasModel(form.shootCategory)
 
   const set = <K extends keyof ReservationInput>(key: K, value: ReservationInput[K]) =>
     setForm((f) => ({ ...f, [key]: value }))
@@ -108,7 +112,10 @@ export default function ReservationNewPage() {
       )}
 
       <form onSubmit={onSubmit} className="bg-surface border-border space-y-5 rounded-lg border p-5">
-        <Field label="撮影会名" hint="未入力の場合はコンセプトかモデル名から表示名を作ります">
+        <Field
+          label="撮影会名"
+          hint={`未入力の場合はコンセプトか${hasModel ? 'モデル名' : '撮影区分'}から表示名を作ります`}
+        >
           {(p) => (
             <>
               <input
@@ -129,27 +136,39 @@ export default function ReservationNewPage() {
           )}
         </Field>
 
-        <Field label="モデル名" required hint="マスタに無い名前はそのまま新規登録されます">
+        <Field label="撮影区分" required>
           {(p) => (
-            <>
-              <input
-                {...p}
-                type="text"
-                required
-                list={modelListId}
-                value={form.modelName}
-                onChange={(e) => set('modelName', e.target.value)}
-                placeholder="栞奈"
-                className={inputClass}
-              />
-              <datalist id={modelListId}>
-                {suggestions.models.map((m) => (
-                  <option key={m} value={m} />
-                ))}
-              </datalist>
-            </>
+            <ShootCategoryPicker
+              id={p.id}
+              value={form.shootCategory}
+              onChange={(v) => set('shootCategory', v)}
+            />
           )}
         </Field>
+
+        {hasModel && (
+          <Field label="モデル名" required hint="マスタに無い名前はそのまま新規登録されます">
+            {(p) => (
+              <>
+                <input
+                  {...p}
+                  type="text"
+                  required
+                  list={modelListId}
+                  value={form.modelName}
+                  onChange={(e) => set('modelName', e.target.value)}
+                  placeholder="栞奈"
+                  className={inputClass}
+                />
+                <datalist id={modelListId}>
+                  {suggestions.models.map((m) => (
+                    <option key={m} value={m} />
+                  ))}
+                </datalist>
+              </>
+            )}
+          </Field>
+        )}
 
         <Field label="撮影コンセプト">
           {(p) => (

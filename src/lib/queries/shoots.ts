@@ -1,4 +1,5 @@
 import { db } from '@/lib/db'
+import { DEFAULT_SHOOT_CATEGORY, type ShootCategory } from '@/lib/shoot-category'
 
 /** 確定撮影情報画面の1行（1枠 = 1行） */
 export interface ConfirmedShoot {
@@ -23,6 +24,7 @@ export interface ConfirmableReservation {
   sessionId: string
   label: string
   eventName: string
+  shootCategory: ShootCategory
   modelName: string
   modelX: string
   modelInstagram: string
@@ -87,6 +89,7 @@ export async function loadConfirmableReservations(): Promise<ConfirmableReservat
         sessionId: session.id,
         label: `${session.session_date} ${session.title}${model ? ` / ${model.name}` : ''}`,
         eventName: session.title,
+        shootCategory: session.shoot_category ?? DEFAULT_SHOOT_CATEGORY,
         modelName: model?.name ?? '',
         modelX: sns.x ?? '',
         modelInstagram: sns.instagram ?? '',

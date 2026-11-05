@@ -198,6 +198,7 @@ export type Database = {
           title: string
           session_date: string
           shoot_type: Database['public']['Enums']['shoot_type']
+          shoot_category: Database['public']['Enums']['shoot_category'] | null
           status: Database['public']['Enums']['session_status']
           venue_id: string | null
           venue_name: string | null
@@ -226,6 +227,7 @@ export type Database = {
           title: string
           session_date: string
           shoot_type?: Database['public']['Enums']['shoot_type']
+          shoot_category?: Database['public']['Enums']['shoot_category'] | null
           status?: Database['public']['Enums']['session_status']
           venue_id?: string | null
           venue_name?: string | null
@@ -254,6 +256,7 @@ export type Database = {
           title?: string
           session_date?: string
           shoot_type?: Database['public']['Enums']['shoot_type']
+          shoot_category?: Database['public']['Enums']['shoot_category'] | null
           status?: Database['public']['Enums']['session_status']
           venue_id?: string | null
           venue_name?: string | null
@@ -780,6 +783,7 @@ export type Database = {
       venue_kind: 'studio' | 'location'
       booking_method: 'page' | 'email' | 'dm'
       shoot_type: 'solo' | 'event' | 'client' | 'personal'
+      shoot_category: 'solo' | 'group' | 'session' | 'large'
       session_status: 'planned' | 'confirmed' | 'done' | 'cancelled'
       timer_status: 'idle' | 'running' | 'paused' | 'finished'
       shoot_status: 'planned' | 'shot' | 'cancelled' | 'no_show'

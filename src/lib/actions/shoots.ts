@@ -1,5 +1,6 @@
 import { db } from '@/lib/db'
-import { createRow, updateRow } from '@/lib/sync/mutations'
+import { categoryHasModel, fallbackShootTitle, type ShootCategory } from '@/lib/shoot-category'
+import { createRow, deleteRow, updateRow } from '@/lib/sync/mutations'
 import type { Json } from '@/types/database'
 
 /**
@@ -7,13 +8,16 @@ import type { Json } from '@/types/database'
  *
  * 予約（status='planned'）から確定させる場合と、予約を通していない撮影を
  * 直接登録する場合の両方を扱う。どちらも最終的に status='confirmed' の
- * session + slot + slot_models になる。
+ * session + slot + slot_models になる
+ * （モデルを指定しない撮影区分では slot_models を持たない）。
  */
 
 export interface ShootConfirmInput {
   /** 予約から確定する場合はその session.id。新規なら空 */
   fromSessionId: string
   eventName: string
+  shootCategory: ShootCategory
+  /** モデルを指定しない撮影区分では、モデル名と SNS を無視する */
   modelName: string
   /** モデルの SNS。入力があればモデルマスタを更新する */
   modelX: string
@@ -45,10 +49,16 @@ export async function confirmShoot(
   userId: string,
   input: ShootConfirmInput,
 ): Promise<{ sessionId: string; slotId: string }> {
-  const modelName = input.modelName.trim()
+  const hasModel = categoryHasModel(input.shootCategory)
+  // 欄を隠す前に入力した名前が残っていても、モデルを指定しない区分では使わない
+  const modelName = hasModel ? input.modelName.trim() : ''
   const venueName = input.venueName.trim()
   const concept = input.concept.trim()
   const eventName = input.eventName.trim()
+
+  if (hasModel && !modelName) {
+    throw new Error('モデル名を入力してください')
+  }
 
   const minutes = minutesBetween(input.shootDate, input.startTime, input.endTime)
   if (minutes <= 0) {
@@ -56,33 +66,16 @@ export async function confirmShoot(
   }
 
   // ── モデル ───────────────────────────────────────────────
-  const models = await db.models.toArray()
-  const existingModel = models.find(
-    (m) => !m.deleted_at && normalize(m.name) === normalize(modelName),
-  )
-  let modelId = existingModel?.id
-  if (!modelId) {
-    modelId = await createRow('models', {
-      user_id: userId,
-      name: modelName,
-      sns_links: buildSnsLinks({}, input),
-    })
-  } else {
-    // 既存モデルの SNS は、入力があったものだけ上書きする。
-    // 空欄で既存のリンクを消さないため
-    const merged = buildSnsLinks(asRecord(existingModel?.sns_links), input)
-    if (JSON.stringify(merged) !== JSON.stringify(asRecord(existingModel?.sns_links))) {
-      await updateRow('models', modelId, { sns_links: merged as Json })
-    }
-  }
+  const modelId = hasModel ? await resolveModel(userId, modelName, input) : null
 
   // ── 場所 ─────────────────────────────────────────────────
   const venues = await db.venues.toArray()
   const venue = venues.find((v) => !v.deleted_at && normalize(v.name) === normalize(venueName))
 
   const sessionValues = {
-    title: eventName || concept || `${modelName} 撮影`,
+    title: eventName || concept || fallbackShootTitle(input.shootCategory, modelName),
     session_date: input.shootDate,
+    shoot_category: input.shootCategory,
     // 予約が通った、または予約を通さず確定した撮影
     status: 'confirmed' as const,
     concept: concept || null,
@@ -105,7 +98,7 @@ export async function confirmShoot(
 
     if (!slot) {
       const slotId = await createSlot(userId, sessionId, startAt, minutes)
-      await ensureSlotModel(userId, slotId, modelId)
+      if (modelId) await ensureSlotModel(userId, slotId, modelId)
       return { sessionId, slotId }
     }
 
@@ -113,15 +106,55 @@ export async function confirmShoot(
       start_at: startAt,
       planned_minutes: minutes,
     })
-    await ensureSlotModel(userId, slot.id, modelId)
+    if (modelId) {
+      await ensureSlotModel(userId, slot.id, modelId)
+    } else {
+      // 予約時はモデルありの区分だったものを、確定時に変更した場合
+      await removeSlotModels(slot.id)
+    }
     return { sessionId, slotId: slot.id }
   }
 
   // ── 予約を通さず直接登録する ─────────────────────────────
   const sessionId = await createRow('sessions', { user_id: userId, ...sessionValues })
   const slotId = await createSlot(userId, sessionId, startAt, minutes)
-  await ensureSlotModel(userId, slotId, modelId)
+  if (modelId) await ensureSlotModel(userId, slotId, modelId)
   return { sessionId, slotId }
+}
+
+/** モデルマスタの行を返す。同名が無ければ作り、あれば入力された SNS を反映する */
+async function resolveModel(
+  userId: string,
+  modelName: string,
+  input: ShootConfirmInput,
+): Promise<string> {
+  const models = await db.models.toArray()
+  const existingModel = models.find(
+    (m) => !m.deleted_at && normalize(m.name) === normalize(modelName),
+  )
+  if (!existingModel) {
+    return createRow('models', {
+      user_id: userId,
+      name: modelName,
+      sns_links: buildSnsLinks({}, input),
+    })
+  }
+
+  // 既存モデルの SNS は、入力があったものだけ上書きする。
+  // 空欄で既存のリンクを消さないため
+  const current = asRecord(existingModel.sns_links)
+  const merged = buildSnsLinks(current, input)
+  if (JSON.stringify(merged) !== JSON.stringify(current)) {
+    await updateRow('models', existingModel.id, { sns_links: merged as Json })
+  }
+  return existingModel.id
+}
+
+async function removeSlotModels(slotId: string): Promise<void> {
+  const rows = await db.slot_models.where('slot_id').equals(slotId).toArray()
+  for (const row of rows) {
+    await deleteRow('slot_models', row.id)
+  }
 }
 
 async function createSlot(

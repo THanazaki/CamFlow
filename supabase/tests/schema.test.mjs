@@ -159,10 +159,20 @@ await mustFail('負の金額',
   `insert into public.sessions (user_id, title, session_date, studio_cost)
    values ('${UA}', 'NG', current_date, -1)`)
 
+await mustFail('定義にない撮影区分',
+  `insert into public.sessions (user_id, title, session_date, shoot_category)
+   values ('${UA}', 'NG', current_date, 'unknown')`)
+
 console.log('\n[6b] 許可されるべき書き込み')
 const mustPass = async (name, sql) => {
   try { await db.exec(sql); ok(name) } catch (e) { bad(name, e) }
 }
+await mustPass('撮影区分 4種を登録できる',
+  `begin;
+   insert into public.sessions (user_id, title, session_date, shoot_category)
+   values ('${UB}', '個撮', current_date, 'solo'), ('${UB}', '団体', current_date, 'group'),
+          ('${UB}', 'セッション', current_date, 'session'), ('${UB}', '大撮', current_date, 'large');
+   rollback`)
 await mustPass('論理削除後は同名モデルを再登録できる',
   `update public.models set deleted_at = now() where id = 'b0000000-0000-4000-8000-000000000004';
    insert into public.models (user_id, name) values ('${UA}', '七瀬ゆい');

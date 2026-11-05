@@ -28,6 +28,8 @@
 予約管理 ▾
   予約情報入力              /reservations/new
   予約スケジュール          /reservations/schedule
+  撮影希望モデル登録        /reservations/wishlist
+  予約成否分析              /reservations/analysis
 撮影管理 ▾
   確定撮影情報入力          /shoots/confirm
   撮影情報                  /shoots/info
