@@ -1,6 +1,7 @@
 import { db } from '@/lib/db'
 import { categoryHasMeetingPoint, type PlaceCategory } from '@/lib/place-category'
 import { categoryHasModel, fallbackShootTitle, type ShootCategory } from '@/lib/shoot-category'
+import { normalizeStorageUrls } from '@/lib/storage-urls'
 import { createRow, deleteRow, updateRow } from '@/lib/sync/mutations'
 import type { Json } from '@/types/database'
 
@@ -197,7 +198,7 @@ async function createSlot(
 /** 保存先ストレージURL の登録。確定撮影情報画面から撮影後に呼ぶ */
 export async function saveStorageUrls(slotId: string, urls: string[]): Promise<void> {
   await updateRow('slots', slotId, {
-    storage_urls: urls.map((u) => u.trim()).filter(Boolean),
+    storage_urls: normalizeStorageUrls(urls),
   })
 }
 

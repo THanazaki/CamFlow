@@ -27,7 +27,7 @@ export interface ShootSummary {
   frameCount: number | null
   storagePath: string | null
   storageLabel: string | null
-  /** クラウドの保存先（最大3件）。遡及登録には無い */
+  /** クラウドの保存先（最大10件） */
   storageUrls: string[]
   backedUpAt: string | null
   rating: number | null

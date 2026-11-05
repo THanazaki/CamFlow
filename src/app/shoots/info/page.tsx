@@ -2,13 +2,18 @@
 
 import { useLiveQuery } from 'dexie-react-hooks'
 import Link from 'next/link'
-import { useId, useState } from 'react'
+import { useState } from 'react'
 
+import { StorageUrlsField } from '@/components/forms/StorageUrlsField'
 import { saveStorageUrls } from '@/lib/actions/shoots'
 import { placeCategoryLabel } from '@/lib/place-category'
 import { loadConfirmedShoots, type ConfirmedShoot } from '@/lib/queries/shoots'
+import { MAX_STORAGE_URLS, normalizeStorageUrls } from '@/lib/storage-urls'
 
-const STORAGE_SLOTS = 3
+/** 欄が1つも無いと入力できないので、空なら空欄を1つ出す */
+function toRows(urls: string[]): string[] {
+  return urls.length > 0 ? urls : ['']
+}
 
 /**
  * 確定撮影情報。
@@ -61,22 +66,21 @@ export default function ShootInfoPage() {
 }
 
 function ShootCard({ shoot }: { shoot: ConfirmedShoot }) {
-  // 保存済みの値を初期値にして、3枠ぶんに広げる
-  const [urls, setUrls] = useState<string[]>(() =>
-    Array.from({ length: STORAGE_SLOTS }, (_, i) => shoot.storageUrls[i] ?? ''),
-  )
+  const [urls, setUrls] = useState<string[]>(() => toRows(shoot.storageUrls))
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const groupId = useId()
 
-  const dirty = urls.some((u, i) => u !== (shoot.storageUrls[i] ?? ''))
+  // 空欄を増やしただけでは保存するものが変わらない
+  const dirty =
+    JSON.stringify(urls.map((u) => u.trim()).filter(Boolean)) !== JSON.stringify(shoot.storageUrls)
 
   const onSave = async () => {
     setSaving(true)
     setError(null)
     try {
       await saveStorageUrls(shoot.slotId, urls)
+      setUrls(toRows(normalizeStorageUrls(urls)))
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
     } catch (err) {
@@ -129,28 +133,12 @@ function ShootCard({ shoot }: { shoot: ConfirmedShoot }) {
       </div>
 
       <div className="px-5 py-4">
-        <fieldset>
-          <legend className="text-sm font-medium">保存先ストレージURL</legend>
-          <p className="text-muted mt-0.5 text-xs" id={`${groupId}-hint`}>
-            最大3つ。1つでも登録すると撮影リマインドから外れます
-          </p>
-          <div className="mt-2 space-y-2">
-            {urls.map((url, i) => (
-              <input
-                key={i}
-                type="url"
-                value={url}
-                onChange={(e) =>
-                  setUrls((prev) => prev.map((v, j) => (j === i ? e.target.value : v)))
-                }
-                placeholder={`https://drive.example.com/... (${i + 1})`}
-                aria-label={`保存先ストレージURL ${i + 1}`}
-                aria-describedby={`${groupId}-hint`}
-                className="bg-background border-border focus:border-navy-500 focus:ring-navy-500/30 w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2"
-              />
-            ))}
-          </div>
-        </fieldset>
+        <StorageUrlsField
+          label="保存先ストレージURL"
+          hint={`最大${MAX_STORAGE_URLS}個。1つでも登録すると撮影リマインドから外れます`}
+          urls={urls}
+          onChange={setUrls}
+        />
 
         {error && (
           <p className="mt-2 text-xs text-red-700 dark:text-red-400">{error}</p>

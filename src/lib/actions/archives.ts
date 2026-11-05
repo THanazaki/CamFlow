@@ -1,4 +1,5 @@
 import { categoryHasModel, fallbackShootTitle } from '@/lib/shoot-category'
+import { normalizeStorageUrls } from '@/lib/storage-urls'
 import { createRow } from '@/lib/sync/mutations'
 
 import { findVenue, resolveModel, type ShootDetailsInput } from './shoots'
@@ -9,9 +10,6 @@ import { findVenue, resolveModel, type ShootDetailsInput } from './shoots'
  * 運用フローを通していない過去の撮影を shoot_history + shoot_history_models として作る。
  * 登録した時点で撮影済みの実績として数えられる。
  */
-
-/** DB の CHECK 制約と同じ値 */
-export const MAX_STORAGE_URLS = 10
 
 export interface ShootHistoryInput extends Omit<ShootDetailsInput, 'meetingPoint'> {
   /** 保存先ストレージURL。空欄は無視する */
@@ -35,7 +33,7 @@ export async function createShootHistory(
   const venueName = input.venueName.trim()
   const concept = input.concept.trim()
   const eventName = input.eventName.trim()
-  const storageUrls = input.storageUrls.map((url) => url.trim()).filter(Boolean)
+  const storageUrls = normalizeStorageUrls(input.storageUrls)
 
   if (hasModel && !modelName) {
     throw new Error('モデル名を入力してください')
@@ -43,9 +41,6 @@ export async function createShootHistory(
   // 登録すると撮影済みの実績に数えるので、未来の日付は受け付けない
   if (input.shootDate > localToday()) {
     throw new Error('撮影日には今日以前の日付を入力してください')
-  }
-  if (storageUrls.length > MAX_STORAGE_URLS) {
-    throw new Error(`保存先ストレージURLは${MAX_STORAGE_URLS}個までです`)
   }
 
   const modelId = hasModel ? await resolveModel(userId, modelName, input) : null

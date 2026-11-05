@@ -568,6 +568,11 @@ console.log('\n[11] shoot_history の入力項目')
     slotRow.place_category === 'outdoor' && slotRow.meeting_point === '渋谷駅'
     ? ok('運用フロー側の行も同じ項目を返す')
     : bad('運用フロー側', JSON.stringify(slotRow))
+
+  await mustPass('確定撮影情報のURLを10個登録できる',
+    `update public.slots set storage_urls = ${urls(10)} where id = 'c1000000-0000-4000-8000-0000000000ac'`)
+  await mustFail('確定撮影情報のURLの11個目',
+    `update public.slots set storage_urls = ${urls(11)} where id = 'c1000000-0000-4000-8000-0000000000ac'`)
 }
 
 console.log(`\n${'─'.repeat(60)}\n結果: ${pass} 成功 / ${fail} 失敗`)

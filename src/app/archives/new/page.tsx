@@ -3,14 +3,12 @@
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 
-import {
-  EMPTY_SHOOT_DETAILS,
-  inputClass,
-  ShootDetailsFields,
-} from '@/components/forms/ShootDetailsFields'
-import { createShootHistory, localToday, MAX_STORAGE_URLS } from '@/lib/actions/archives'
+import { EMPTY_SHOOT_DETAILS, ShootDetailsFields } from '@/components/forms/ShootDetailsFields'
+import { StorageUrlsField } from '@/components/forms/StorageUrlsField'
+import { createShootHistory, localToday } from '@/lib/actions/archives'
 import type { ShootDetailsInput } from '@/lib/actions/shoots'
 import { getActiveUserId } from '@/lib/auth/session'
+import { MAX_STORAGE_URLS } from '@/lib/storage-urls'
 
 /** 入力欄は最初から1つ出しておく */
 const EMPTY_STORAGE_URLS = ['']
@@ -75,7 +73,12 @@ export default function ArchiveNewPage() {
             maxShootDate={localToday()}
             showMeetingPoint={false}
           />
-          <StorageUrlsField urls={storageUrls} onChange={setStorageUrls} />
+          <StorageUrlsField
+            label="ストレージURL"
+            hint={`最大${MAX_STORAGE_URLS}個。空欄は保存されません`}
+            urls={storageUrls}
+            onChange={setStorageUrls}
+          />
         </section>
 
         <div className="flex flex-wrap items-center gap-3">
@@ -99,52 +102,5 @@ export default function ArchiveNewPage() {
         </div>
       </form>
     </div>
-  )
-}
-
-function StorageUrlsField({
-  urls,
-  onChange,
-}: {
-  urls: string[]
-  onChange: (urls: string[]) => void
-}) {
-  return (
-    <fieldset>
-      <legend className="text-sm font-medium">ストレージURL</legend>
-      <p className="text-muted mt-0.5 text-xs">最大{MAX_STORAGE_URLS}個。空欄は保存されません</p>
-      <div className="mt-1.5 space-y-2">
-        {urls.map((url, i) => (
-          <div key={i} className="flex items-center gap-2">
-            <input
-              type="url"
-              value={url}
-              onChange={(e) => onChange(urls.map((v, j) => (j === i ? e.target.value : v)))}
-              placeholder="https://drive.example.com/..."
-              aria-label={`ストレージURL ${i + 1}`}
-              className={inputClass}
-            />
-            {urls.length > 1 && (
-              <button
-                type="button"
-                onClick={() => onChange(urls.filter((_, j) => j !== i))}
-                aria-label={`ストレージURL ${i + 1} を削除`}
-                className="border-border hover:bg-navy-50 shrink-0 rounded-md border px-3 py-2 text-sm dark:hover:bg-white/5"
-              >
-                削除
-              </button>
-            )}
-          </div>
-        ))}
-      </div>
-      <button
-        type="button"
-        onClick={() => onChange([...urls, ''])}
-        disabled={urls.length >= MAX_STORAGE_URLS}
-        className="border-border hover:bg-navy-50 mt-2 rounded-md border px-3 py-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-40 dark:hover:bg-white/5"
-      >
-        追加
-      </button>
-    </fieldset>
   )
 }
