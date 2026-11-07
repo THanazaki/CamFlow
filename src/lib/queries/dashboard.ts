@@ -1,5 +1,6 @@
 import { db } from '@/lib/db'
 import type { LocalModel, LocalSession, LocalVenue } from '@/lib/db/types'
+import { isSlotFinished } from '@/lib/slot-time'
 
 /**
  * ダッシュボード用のクエリ。
@@ -64,15 +65,21 @@ export interface ReminderItem {
   daysUntil: number
 }
 
+/** 料金リマインドの1件。確定した撮影の撮影料（slots.booking_fee）を、支払方法に応じた期日で出す */
 export interface FeeReminderItem {
-  source: 'slot' | 'history'
-  /** slot_models.id または shoot_history_models.id */
-  id: string
-  shootDate: string
+  slotId: string
   title: string
-  modelName: string
-  /** 延長料込みの未払い額 */
+  modelNames: string[]
+  /** 当日 / 事前。支払済み・未選択は出さない */
+  timing: 'on_the_day' | 'in_advance'
+  /** 期日（YYYY-MM-DD）。当日は撮影日、事前は支払日。事前で支払日が未入力なら null */
+  dueDate: string | null
+  /** 当日のときの撮影開始時刻（ISO）。事前は null */
+  dueAt: string | null
+  /** 撮影料（円）。未入力は 0 */
   amount: number
+  /** 期日までの日数（日付単位）。負なら過ぎている。支払日が未入力なら null */
+  daysUntil: number | null
 }
 
 export interface ReminderGroup {
@@ -87,7 +94,13 @@ export interface ReminderGroup {
 export interface DashboardData {
   reservations: ReminderGroup
   shoots: ReminderGroup
-  fees: { items: FeeReminderItem[]; totalAmount: number; totalCount: number }
+  fees: {
+    items: FeeReminderItem[]
+    totalAmount: number
+    totalCount: number
+    /** 期日を過ぎたもの、または支払日が未入力のもの */
+    overdueCount: number
+  }
   recent: ShootSummary[]
 }
 
@@ -98,6 +111,12 @@ const RECENT_LIMIT = 10
 function toDateKey(iso: string): string {
   const d = new Date(iso)
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+/** from から to までの日数（YYYY-MM-DD どうし、日付単位） */
+function daysBetween(from: string, to: string): number {
+  const ms = new Date(`${to}T00:00:00`).getTime() - new Date(`${from}T00:00:00`).getTime()
+  return Math.round(ms / 86_400_000)
 }
 
 /** 配列を id をキーにした Map にする */
@@ -145,10 +164,8 @@ export async function loadDashboard(now: Date = new Date()): Promise<DashboardDa
   const histories = notDeleted(allHistories)
 
   const sessionMap = byId(sessions)
-  const slotMap = byId(slots)
   const modelMap = byId(models)
   const venueMap = byId(venues)
-  const historyMap = byId(histories)
 
   // 枠 → モデル名
   const modelNamesBySlot = new Map<string, string[]>()
@@ -238,45 +255,49 @@ export async function loadDashboard(now: Date = new Date()): Promise<DashboardDa
     .filter((r): r is ReminderItem => r !== null)
     .sort(sortByUrgency)
 
-  // 料金リマインド: 未払いのモデル料。運用フロー分と遡及登録分の両方
-  const feeItems: FeeReminderItem[] = []
+  // 料金リマインド: 確定した撮影の撮影料を、支払方法に応じた期日で出す。
+  //   当日 … 撮影日の撮影開始時刻
+  //   事前 … 指定した支払日
+  // 支払済み・未選択は出さない。支払いを記録する操作がまだ無いので、撮影が終わったら出さない
+  // （残すと消す手段が無い）。事前の支払日を過ぎても撮影前なら、超過として出し続ける
+  const todayKey = toDateKey(nowIso)
+  const feeItems: FeeReminderItem[] = live.flatMap((slot) => {
+    const session = sessionMap.get(slot.session_id)
+    if (!session || (session.status !== 'confirmed' && session.status !== 'done')) return []
+    const timing = slot.fee_payment_timing
+    if (timing !== 'on_the_day' && timing !== 'in_advance') return []
+    if (isSlotFinished(slot, now)) return []
 
-  for (const sm of slotModels) {
-    if (sm.payment_status !== 'unpaid') continue
-    const slot = slotMap.get(sm.slot_id)
-    const session = slot ? sessionMap.get(slot.session_id) : undefined
-    if (!slot || !session) continue
-    feeItems.push({
-      source: 'slot',
-      id: sm.id,
-      shootDate: session.session_date,
-      title: session.title,
-      modelName: modelMap.get(sm.model_id)?.name ?? '(不明なモデル)',
-      amount: Number(sm.fee) + Number(sm.extension_fee),
-    })
-  }
+    const dueDate = timing === 'on_the_day' ? session.session_date : (slot.fee_payment_date ?? null)
+    return [
+      {
+        slotId: slot.id,
+        title: session.title,
+        modelNames: modelNamesBySlot.get(slot.id) ?? [],
+        timing,
+        dueDate,
+        dueAt: timing === 'on_the_day' ? slot.start_at : null,
+        amount: Number(slot.booking_fee ?? 0),
+        daysUntil: dueDate === null ? null : daysBetween(todayKey, dueDate),
+      },
+    ]
+  })
 
-  for (const hm of historyModels) {
-    if (hm.payment_status !== 'unpaid') continue
-    const history = historyMap.get(hm.shoot_history_id)
-    if (!history) continue
-    feeItems.push({
-      source: 'history',
-      id: hm.id,
-      shootDate: history.shoot_date,
-      title: history.title,
-      modelName: modelMap.get(hm.model_id)?.name ?? '(不明なモデル)',
-      amount: Number(hm.fee),
-    })
-  }
-
-  // 古い未払いほど気づきたいので昇順
-  feeItems.sort((a, b) => a.shootDate.localeCompare(b.shootDate))
+  // 期日の近い順（過ぎたものが先頭に来る）。支払日が未入力のものは最優先
+  feeItems.sort((a, b) => {
+    if (a.dueDate === null || b.dueDate === null) {
+      return a.dueDate === b.dueDate ? 0 : a.dueDate === null ? -1 : 1
+    }
+    return (
+      a.dueDate.localeCompare(b.dueDate) || (a.dueAt ?? '').localeCompare(b.dueAt ?? '')
+    )
+  })
 
   const fees = {
     items: feeItems.slice(0, LIMIT),
     totalAmount: feeItems.reduce((sum, f) => sum + f.amount, 0),
     totalCount: feeItems.length,
+    overdueCount: feeItems.filter((f) => f.daysUntil === null || f.daysUntil < 0).length,
   }
 
   // 直近の撮影済み: v_shoot_history_all のクライアント版

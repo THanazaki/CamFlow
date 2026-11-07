@@ -3,7 +3,13 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 
 import { ReminderCard, ReminderRow } from '@/components/dashboard/ReminderCard'
-import { loadDashboard, type ReminderItem, type ReminderStage, type ShootSummary } from '@/lib/queries/dashboard'
+import {
+  loadDashboard,
+  type FeeReminderItem,
+  type ReminderItem,
+  type ReminderStage,
+  type ShootSummary,
+} from '@/lib/queries/dashboard'
 import { useSync } from '@/lib/sync/useSync'
 
 /**
@@ -64,16 +70,16 @@ export default function DashboardPage() {
         <ReminderCard
           title="料金リマインド"
           count={data.fees.totalCount}
-          tone="alert"
-          summary={data.fees.totalCount > 0 ? `未払い ${yen(data.fees.totalAmount)}` : undefined}
-          emptyText="未払いのモデル料はありません"
+          tone={data.fees.overdueCount > 0 ? 'alert' : 'neutral'}
+          summary={data.fees.totalCount > 0 ? `合計 ${yen(data.fees.totalAmount)}` : undefined}
+          emptyText="支払い予定の撮影料はありません"
         >
           {data.fees.items.map((f) => (
             <ReminderRow
-              key={`${f.source}:${f.id}`}
-              primary={f.modelName}
-              secondary={`${f.shootDate} ${f.title}`}
-              trailing={yen(f.amount)}
+              key={f.slotId}
+              primary={<FeePrimary item={f} />}
+              secondary={f.modelNames.join('・') || undefined}
+              trailing={<FeeDue item={f} />}
             />
           ))}
         </ReminderCard>
@@ -218,6 +224,66 @@ function DateTime({ iso, daysUntil }: { iso: string; daysUntil: number }) {
       >
         {overdue ? `${-daysUntil}日経過` : daysUntil === 0 ? '本日' : `あと${daysUntil}日`}
       </span>
+    </span>
+  )
+}
+
+const FEE_TIMING_LABEL: Record<FeeReminderItem['timing'], string> = {
+  on_the_day: '当日',
+  in_advance: '事前',
+}
+
+function FeePrimary({ item }: { item: FeeReminderItem }) {
+  const urgent = item.daysUntil === null || item.daysUntil < 0
+  return (
+    <span className="flex items-center gap-1.5">
+      <span
+        className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ${
+          urgent
+            ? 'bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300'
+            : 'bg-navy-100 text-navy-700 dark:bg-white/10 dark:text-navy-100'
+        }`}
+      >
+        {FEE_TIMING_LABEL[item.timing]}
+      </span>
+      <span className="truncate">{item.title}</span>
+    </span>
+  )
+}
+
+/** 期日と撮影料。当日は撮影開始時刻、事前は支払日 */
+function FeeDue({ item }: { item: FeeReminderItem }) {
+  const when =
+    item.dueAt !== null
+      ? new Date(item.dueAt).toLocaleString('ja-JP', {
+          month: 'numeric',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        })
+      : item.dueDate !== null
+        ? new Date(`${item.dueDate}T00:00:00`).toLocaleDateString('ja-JP', {
+            month: 'numeric',
+            day: 'numeric',
+          })
+        : '支払日未定'
+  const overdue = item.daysUntil === null || item.daysUntil < 0
+  return (
+    <span className="text-right">
+      <span className="block whitespace-nowrap">
+        {when} {item.amount > 0 ? yen(item.amount) : '金額未入力'}
+      </span>
+      {item.daysUntil !== null && (
+        <span
+          className={`block whitespace-nowrap ${overdue ? 'text-amber-600 dark:text-amber-400' : 'text-muted'}`}
+        >
+          {overdue
+            ? `${-item.daysUntil}日経過`
+            : item.daysUntil === 0
+              ? '本日'
+              : `あと${item.daysUntil}日`}
+        </span>
+      )}
     </span>
   )
 }
