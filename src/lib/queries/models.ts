@@ -1,5 +1,5 @@
 import { db } from '@/lib/db'
-import { DEFAULT_MODEL_STATUS, type ModelStatus } from '@/lib/model-status'
+import { toSelectableModelStatus, type SelectableModelStatus } from '@/lib/model-status'
 
 /**
  * モデルマスタの詳細・編集の1件。
@@ -20,7 +20,8 @@ export interface ModelDetail {
   /** 別名義（model_former_names）。登録した順 */
   aliases: string[]
   isFavorite: boolean
-  status: ModelStatus
+  /** ng（今後撮影しない）は休止・引退にそろえて返す */
+  status: SelectableModelStatus
   notes: string | null
   createdAt: string
   updatedAt: string
@@ -49,7 +50,7 @@ export async function loadModelDetail(id: string): Promise<ModelDetail | null> {
     subAffiliations: m.sub_affiliations ?? [],
     aliases: aliases.map((a) => a.name),
     isFavorite: m.is_favorite ?? false,
-    status: m.status ?? DEFAULT_MODEL_STATUS,
+    status: toSelectableModelStatus(m.status),
     notes: m.notes ?? null,
     createdAt: m.created_at,
     updatedAt: m.updated_at,

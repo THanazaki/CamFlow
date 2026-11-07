@@ -284,7 +284,7 @@ describe('モデルの詳細', () => {
         affiliations: ['フリー', '秋'],
         aliases: ['旧名A', '旧名B'],
         isFavorite: true,
-        status: 'ng',
+        status: 'inactive',
         notes: 'メモ',
       }),
     )
@@ -301,7 +301,7 @@ describe('モデルの詳細', () => {
       subAffiliations: ['秋'],
       aliases: ['旧名A', '旧名B'],
       isFavorite: true,
-      status: 'ng',
+      status: 'inactive',
       notes: 'メモ',
       deletedAt: null,
     })

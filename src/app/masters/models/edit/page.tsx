@@ -303,7 +303,7 @@ function ModelEditForm({ model }: { model: ModelDetail }) {
             </label>
           </div>
 
-          <Field label="ステータス" required hint="「今後撮影しない」にすると、モデル名の入力候補に出なくなります">
+          <Field label="ステータス" required>
             {(p) => (
               <ChoicePicker
                 id={p.id}

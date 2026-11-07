@@ -2,15 +2,27 @@ import type { Enums } from '@/types/database'
 
 export type ModelStatus = Enums<'model_status'>
 
-export const DEFAULT_MODEL_STATUS: ModelStatus = 'active'
+/** 画面で選べるステータス。DB の enum に残っている ng（今後撮影しない）は使わない */
+export type SelectableModelStatus = Exclude<ModelStatus, 'ng'>
+
+export const DEFAULT_MODEL_STATUS: SelectableModelStatus = 'active'
 
 /** 表示順もこの順 */
-export const MODEL_STATUSES: { value: ModelStatus; label: string }[] = [
-  { value: 'active', label: '稼働中' },
+export const MODEL_STATUSES: { value: SelectableModelStatus; label: string }[] = [
+  { value: 'active', label: '活動中' },
   { value: 'inactive', label: '休止・引退' },
-  { value: 'ng', label: '今後撮影しない' },
 ]
 
+/**
+ * 画面で扱うステータスにそろえる。
+ * 選択肢から外した ng（今後撮影しない）の行は、休止・引退として扱う。
+ */
+export function toSelectableModelStatus(status: ModelStatus | null | undefined): SelectableModelStatus {
+  if (status === 'ng') return 'inactive'
+  return status ?? DEFAULT_MODEL_STATUS
+}
+
 export function modelStatusLabel(status: ModelStatus): string {
-  return MODEL_STATUSES.find((s) => s.value === status)!.label
+  const selectable = toSelectableModelStatus(status)
+  return MODEL_STATUSES.find((s) => s.value === selectable)!.label
 }

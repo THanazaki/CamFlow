@@ -1,5 +1,5 @@
 import { db } from '@/lib/db'
-import type { ModelStatus } from '@/lib/model-status'
+import type { SelectableModelStatus } from '@/lib/model-status'
 import { createRow, deleteRow, updateRow } from '@/lib/sync/mutations'
 import type { Json } from '@/types/database'
 
@@ -18,7 +18,7 @@ export interface ModelInput {
   /** 別名義。空欄は無視する */
   aliases: string[]
   isFavorite: boolean
-  status: ModelStatus
+  status: SelectableModelStatus
   notes: string
 }
 

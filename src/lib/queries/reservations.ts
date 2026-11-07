@@ -106,7 +106,7 @@ export async function loadSuggestions(): Promise<{
   return {
     // 撮影会が違えば同じ名前のモデルが複数いるので、候補は名前で重複を除く
     models: [
-      ...new Set(models.filter((m) => !m.deleted_at && m.status !== 'ng').map((m) => m.name)),
+      ...new Set(models.filter((m) => !m.deleted_at).map((m) => m.name)),
     ],
     venues: venues.filter((v) => !v.deleted_at).map((v) => v.name),
     // 同じ撮影会に何度も申し込むので、過去に使った撮影会名を候補に出す
