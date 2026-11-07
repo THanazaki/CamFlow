@@ -4,12 +4,10 @@ import { useId, useState } from 'react'
 
 import { getRecaptchaToken, isRecaptchaConfigured, RECAPTCHA_ENABLED } from '@/lib/auth/recaptcha'
 import { applyLocalSession, applySession } from '@/lib/auth/session'
+import { TEST_ACCOUNT_ENABLED } from '@/lib/auth/test-account'
 import { Logo } from '@/components/layout/Logo'
 
 type Mode = 'signin' | 'signup'
-
-/** ビルド時に固定される。本番バンドルではテスト用の導線ごと落ちる */
-const IS_DEV = process.env.NODE_ENV !== 'production'
 
 export function LoginScreen() {
   const [mode, setMode] = useState<Mode>('signin')
@@ -46,7 +44,7 @@ export function LoginScreen() {
         setError(json.error ?? '処理に失敗しました')
         return
       }
-      // 開発用テストアカウント。Supabase を通さずローカルだけで入る
+      // テストアカウント。Supabase を通さずローカルだけで入る
       if (json.localUser) {
         await applyLocalSession(json.localUser.id, json.localUser.email)
         return
@@ -117,10 +115,13 @@ export function LoginScreen() {
               </label>
               <input
                 id={emailId}
-                // 開発ではテストアカウント（test）を打てるよう text にする。
-                // 本番はブラウザ側の形式チェックを効かせる
-                type={IS_DEV ? 'text' : 'email'}
+                // ブラウザ側のメールアドレス形式チェックはかけない（test のようなアカウント名でも送れるように）。
+                // 形式の確認は Supabase Auth に任せる。スマホではメール用のキーボードを出す
+                type="text"
                 inputMode="email"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
                 required
                 autoComplete="email"
                 value={email}
@@ -157,10 +158,11 @@ export function LoginScreen() {
             </button>
           </form>
 
-          {IS_DEV && (
+          {/* 本番でも出す。NEXT_PUBLIC_DISABLE_TEST_ACCOUNT=true でビルドすると消える */}
+          {TEST_ACCOUNT_ENABLED && (
             <div className="border-border mt-5 rounded-md border border-dashed p-3">
               <p className="text-muted text-xs">
-                開発用のテストアカウントで入れます（<code className="font-mono">test</code> /{' '}
+                テストアカウントで入れます（<code className="font-mono">test</code> /{' '}
                 <code className="font-mono">test</code>）。
                 Supabase を通さないため<strong>同期はされず</strong>、データはこの端末にのみ残ります。
               </p>

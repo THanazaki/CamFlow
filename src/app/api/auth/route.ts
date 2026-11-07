@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 
 import { RECAPTCHA_ENABLED } from '@/lib/auth/recaptcha'
+import { isTestAccountLogin, TEST_ACCOUNT_USER_ID } from '@/lib/auth/test-account'
 
 /**
  * サインイン / サインアップ。
@@ -24,21 +25,6 @@ const SCORE_THRESHOLD = Number(process.env.RECAPTCHA_SCORE_THRESHOLD ?? '0.5')
 
 type Action = 'signin' | 'signup'
 
-/**
- * 開発用テストアカウント（test / test）。
- *
- * Supabase も reCAPTCHA も用意せずに画面を触れるようにするためのもの。
- * Supabase のユーザーではないので**同期はされず、データはその端末だけ**に残る。
- *
- * 本番では無効。`NODE_ENV` はビルド時に固定されるため、`next build` した
- * 成果物にはこの分岐自体が通らない形で入る。
- */
-const DEV_TEST_USER_ID = '00000000-0000-4000-8000-000000000001'
-
-export function isDevTestLogin(email?: string, password?: string): boolean {
-  if (process.env.NODE_ENV === 'production') return false
-  return email?.trim().toLowerCase() === 'test' && password === 'test'
-}
 
 interface Body {
   action?: Action
@@ -111,11 +97,12 @@ export async function POST(request: Request) {
   const { action, email, password } = body
   if (action !== 'signin' && action !== 'signup') return bad('action が不正です')
 
-  // 開発用のテストアカウント。Supabase も reCAPTCHA も無しで画面を触れるようにする。
-  // 本番では絶対に通さない（ここを抜けると認証が意味をなさなくなる）
-  if (isDevTestLogin(email, password)) {
+  // テストアカウント。Supabase も reCAPTCHA も無しで画面を触れるようにする。
+  // 本番でも有効（NEXT_PUBLIC_DISABLE_TEST_ACCOUNT=true で無効）。入れるのは端末の中だけで、
+  // Supabase のセッションは発行しないので、サーバのデータには触れられない
+  if (isTestAccountLogin(email, password)) {
     return NextResponse.json({
-      localUser: { id: DEV_TEST_USER_ID, email: 'test' },
+      localUser: { id: TEST_ACCOUNT_USER_ID, email: 'test' },
       message: 'テストアカウントで入りました。データはこの端末にのみ保存され、同期はされません。',
     })
   }
