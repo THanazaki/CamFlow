@@ -1,4 +1,5 @@
 import { db } from '@/lib/db'
+import type { FeePaymentTiming } from '@/lib/fee-payment'
 import type { Enums } from '@/types/database'
 
 /** 予約スケジュール画面の1行 */
@@ -13,6 +14,12 @@ export interface ReservationRow {
   concept: string | null
   venueName: string | null
   title: string
+  /** 撮影料（円）。未入力は0 */
+  shootFee: number
+  paymentTiming: FeePaymentTiming | null
+  paymentDate: string | null
+  costumeOptions: string | null
+  shootingMethodOptions: string | null
 }
 
 /**
@@ -55,6 +62,10 @@ export async function loadReservationSchedule(): Promise<ReservationRow[]> {
     .map((s) => {
       const slotIds = slotsBySession.get(s.id) ?? []
       const names = [...new Set(slotIds.flatMap((id) => modelNamesBySlot.get(id) ?? []))]
+      // 予約の枠は1つ（確定撮影情報入力の候補と同じく枠番号の若い枠を見る）
+      const slot = slots
+        .filter((sl) => !sl.deleted_at && sl.session_id === s.id)
+        .sort((a, b) => a.slot_no - b.slot_no)[0]
       return {
         sessionId: s.id,
         bookingOpensAt: s.booking_opens_at,
@@ -65,6 +76,11 @@ export async function loadReservationSchedule(): Promise<ReservationRow[]> {
         concept: s.concept,
         venueName: s.venue_id ? (venueMap.get(s.venue_id)?.name ?? s.venue_name) : s.venue_name,
         title: s.title,
+        shootFee: Number(slot?.booking_fee ?? 0),
+        paymentTiming: slot?.fee_payment_timing ?? null,
+        paymentDate: slot?.fee_payment_date ?? null,
+        costumeOptions: slot?.costume_options ?? null,
+        shootingMethodOptions: slot?.shooting_method_options ?? null,
       }
     })
     .sort((a, b) => {

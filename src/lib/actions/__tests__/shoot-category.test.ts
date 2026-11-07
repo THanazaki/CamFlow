@@ -20,6 +20,11 @@ function reservation(overrides: Partial<ReservationInput> = {}): ReservationInpu
     bookingOpensAt: '2026-11-20T10:00',
     bookingMethod: 'page',
     bookingContact: 'https://example.com/booking',
+    shootFee: '',
+    costumeOptions: '',
+    shootingMethodOptions: '',
+    paymentTiming: null,
+    paymentDate: '',
     ...overrides,
   }
 }

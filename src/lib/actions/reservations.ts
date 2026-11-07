@@ -2,6 +2,13 @@ import { db } from '@/lib/db'
 import { categoryHasModel, fallbackShootTitle, type ShootCategory } from '@/lib/shoot-category'
 import { createRow } from '@/lib/sync/mutations'
 
+import {
+  toFeePaymentColumns,
+  toShootOptionColumns,
+  type ShootOptionsInput,
+  type ShootPaymentInput,
+} from './shoots'
+
 /**
  * 予約情報入力の書き込み。
  *
@@ -14,7 +21,7 @@ import { createRow } from '@/lib/sync/mutations'
 export type BookingMethod = 'page' | 'email' | 'dm'
 
 /** 入力順は画面と同じ（撮影会名 → 撮影区分 → モデル名 → … → 予約URL） */
-export interface ReservationInput {
+export interface ReservationInput extends ShootOptionsInput, ShootPaymentInput {
   /** 撮影会名。任意。未入力ならコンセプトやモデル名からタイトルを組み立てる */
   eventName: string
   shootCategory: ShootCategory
@@ -62,6 +69,9 @@ export async function createReservation(
     throw new Error('モデル名を入力してください')
   }
 
+  // モデルなどを作る前に検証する。途中で失敗して行だけ残らないように
+  const options = toShootOptionColumns(input)
+
   // モデルはマスタに実体が要る（slot_models.model_id は NOT NULL で
   // テキストのフォールバックが無い）。同名が無ければ作る
   let modelId: string | undefined
@@ -106,6 +116,8 @@ export async function createReservation(
     session_id: sessionId,
     slot_no: 1,
     start_at: placeholderStartAt(input.shootDate),
+    ...options,
+    ...toFeePaymentColumns(input),
     // サーバ既定の '{}' に合わせる（省くと undefined になり形が食い違う）
     storage_urls: [],
   })

@@ -1,12 +1,58 @@
 'use client'
 
+import { ChoicePicker } from '@/components/forms/ChoicePicker'
 import { Field, inputClass } from '@/components/forms/ShootDetailsFields'
-import type { ShootOptionsInput } from '@/lib/actions/shoots'
+import type { ShootOptionsInput, ShootPaymentInput } from '@/lib/actions/shoots'
+import { FEE_PAYMENT_TIMINGS, feePaymentHasDate } from '@/lib/fee-payment'
 
 export const EMPTY_SHOOT_OPTIONS: ShootOptionsInput = {
   shootFee: '',
   costumeOptions: '',
   shootingMethodOptions: '',
+}
+
+export const EMPTY_SHOOT_PAYMENT: ShootPaymentInput = {
+  paymentTiming: null,
+  paymentDate: '',
+}
+
+/** 支払方法と、事前のときの支払日。予約情報入力と確定撮影情報入力で共通 */
+export function ShootPaymentFields({
+  values,
+  onChange,
+}: {
+  values: ShootPaymentInput
+  onChange: <K extends keyof ShootPaymentInput>(key: K, value: ShootPaymentInput[K]) => void
+}) {
+  return (
+    <div className="space-y-4">
+      <Field label="支払方法">
+        {(p) => (
+          <ChoicePicker
+            id={p.id}
+            name="paymentTiming"
+            label="支払方法"
+            options={FEE_PAYMENT_TIMINGS}
+            value={values.paymentTiming}
+            onChange={(v) => onChange('paymentTiming', v)}
+          />
+        )}
+      </Field>
+      {feePaymentHasDate(values.paymentTiming) && (
+        <Field label="支払日">
+          {(p) => (
+            <input
+              {...p}
+              type="date"
+              value={values.paymentDate}
+              onChange={(e) => onChange('paymentDate', e.target.value)}
+              className={inputClass}
+            />
+          )}
+        </Field>
+      )}
+    </div>
+  )
 }
 
 /** 撮影料とオプションの入力欄。確定撮影情報入力と確定撮影情報で共通 */
@@ -17,7 +63,7 @@ export function ShootOptionsFields({
 }: {
   values: ShootOptionsInput
   onChange: <K extends keyof ShootOptionsInput>(key: K, value: ShootOptionsInput[K]) => void
-  /** 撮影料の隣に並べる欄。確定撮影情報入力の支払方法 */
+  /** 撮影料の隣に並べる欄（支払方法） */
   feeAside?: React.ReactNode
 }) {
   return (

@@ -46,6 +46,12 @@ export interface ConfirmableReservation {
   /** 予約時は仮置きなので、時刻が入っていれば初期値に使う */
   startTime: string
   endTime: string
+  /** 撮影料。入力欄の値の形。未入力は空 */
+  shootFee: string
+  costumeOptions: string
+  shootingMethodOptions: string
+  paymentTiming: FeePaymentTiming | null
+  paymentDate: string
 }
 
 function asRecord(value: unknown): Record<string, string> {
@@ -109,6 +115,11 @@ export async function loadConfirmableReservations(): Promise<ConfirmableReservat
         shootDate: session.session_date,
         startTime: hasRealTime ? start : '',
         endTime: end,
+        shootFee: slot?.booking_fee ? String(slot.booking_fee) : '',
+        costumeOptions: slot?.costume_options ?? '',
+        shootingMethodOptions: slot?.shooting_method_options ?? '',
+        paymentTiming: slot?.fee_payment_timing ?? null,
+        paymentDate: slot?.fee_payment_date ?? '',
       }
     })
     .sort((a, b) => a.shootDate.localeCompare(b.shootDate))

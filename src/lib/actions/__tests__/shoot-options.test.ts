@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 
 import { db } from '@/lib/db'
-import { loadConfirmedShoots } from '@/lib/queries/shoots'
+import { loadReservationSchedule } from '@/lib/queries/reservations'
+import { loadConfirmableReservations, loadConfirmedShoots } from '@/lib/queries/shoots'
 
-import { createReservation } from '../reservations'
+import { createReservation, type ReservationInput } from '../reservations'
 import { confirmShoot, saveShootOptions, type ShootConfirmInput } from '../shoots'
 
 const USER = '11111111-1111-4111-8111-111111111111'
@@ -34,6 +35,124 @@ function input(overrides: Partial<ShootConfirmInput> = {}): ShootConfirmInput {
 beforeEach(async () => {
   await db.delete()
   await db.open()
+})
+
+describe('予約情報入力の撮影料とオプション', () => {
+  function reservation(overrides: Partial<ReservationInput> = {}): ReservationInput {
+    return {
+      eventName: '',
+      shootCategory: 'solo',
+      modelName: '栞奈',
+      concept: '',
+      venueName: '',
+      shootDate: '2026-12-20',
+      bookingOpensAt: '2026-11-20T20:00',
+      bookingMethod: 'page',
+      bookingContact: 'https://example.com/booking',
+      shootFee: '',
+      costumeOptions: '',
+      shootingMethodOptions: '',
+      paymentTiming: null,
+      paymentDate: '',
+      ...overrides,
+    }
+  }
+
+  const filled = {
+    shootFee: '15000',
+    costumeOptions: '浴衣',
+    shootingMethodOptions: '動画撮影',
+    paymentTiming: 'in_advance',
+    paymentDate: '2026-12-01',
+  } as const
+
+  it('入力した内容を枠に保存し、スケジュールに出す', async () => {
+    await createReservation(USER, reservation(filled))
+
+    const [slot] = await db.slots.toArray()
+    expect(slot).toMatchObject({
+      booking_fee: 15000,
+      costume_options: '浴衣',
+      shooting_method_options: '動画撮影',
+      fee_payment_timing: 'in_advance',
+      fee_payment_date: '2026-12-01',
+    })
+    const [row] = await loadReservationSchedule()
+    expect(row).toMatchObject({
+      shootFee: 15000,
+      costumeOptions: '浴衣',
+      shootingMethodOptions: '動画撮影',
+      paymentTiming: 'in_advance',
+      paymentDate: '2026-12-01',
+    })
+  })
+
+  it('未入力でも登録でき、NOT NULL の撮影料は0で埋める', async () => {
+    await createReservation(USER, reservation())
+
+    const [slot] = await db.slots.toArray()
+    expect(slot).toMatchObject({
+      booking_fee: 0,
+      costume_options: null,
+      shooting_method_options: null,
+      fee_payment_timing: null,
+      fee_payment_date: null,
+    })
+    const [row] = await loadReservationSchedule()
+    expect(row).toMatchObject({ shootFee: 0, costumeOptions: null, paymentTiming: null })
+  })
+
+  it('事前以外なら入力済みの支払日を保存しない', async () => {
+    await createReservation(
+      USER,
+      reservation({ paymentTiming: 'on_the_day', paymentDate: '2026-12-01' }),
+    )
+
+    const [slot] = await db.slots.toArray()
+    expect(slot.fee_payment_date).toBeNull()
+  })
+
+  it('不正な撮影料はエラーにして何も作らない', async () => {
+    await expect(createReservation(USER, reservation({ shootFee: '-1' }))).rejects.toThrow('撮影料')
+
+    expect(await db.sessions.count()).toBe(0)
+    expect(await db.models.count()).toBe(0)
+  })
+
+  it('確定フォームの候補に入力内容を引き継ぐ', async () => {
+    const { sessionId } = await createReservation(USER, reservation(filled))
+
+    const [candidate] = await loadConfirmableReservations()
+    expect(candidate).toMatchObject({ sessionId, ...filled })
+  })
+
+  it('撮影料が未入力の予約は、候補でも空欄にする', async () => {
+    await createReservation(USER, reservation())
+
+    const [candidate] = await loadConfirmableReservations()
+    expect(candidate).toMatchObject({
+      shootFee: '',
+      costumeOptions: '',
+      shootingMethodOptions: '',
+      paymentTiming: null,
+      paymentDate: '',
+    })
+  })
+
+  it('引き継いだ内容で確定しても予約時の入力が残る', async () => {
+    const { sessionId } = await createReservation(USER, reservation(filled))
+
+    const { slotId } = await confirmShoot(USER, input({ fromSessionId: sessionId, ...filled }))
+
+    expect(await db.slots.get(slotId)).toMatchObject({
+      booking_fee: 15000,
+      costume_options: '浴衣',
+      shooting_method_options: '動画撮影',
+      fee_payment_timing: 'in_advance',
+      fee_payment_date: '2026-12-01',
+    })
+    expect(await db.slots.count()).toBe(1)
+  })
 })
 
 describe('撮影料とオプション', () => {
@@ -90,6 +209,11 @@ describe('撮影料とオプション', () => {
       bookingOpensAt: '2026-11-20T20:00',
       bookingMethod: 'page',
       bookingContact: 'https://example.com/booking',
+      shootFee: '',
+      costumeOptions: '',
+      shootingMethodOptions: '',
+      paymentTiming: null,
+      paymentDate: '',
     })
 
     const { slotId } = await confirmShoot(

@@ -6,15 +6,24 @@ import { useId, useState } from 'react'
 
 import { ShootCategoryPicker } from '@/components/forms/ShootCategoryPicker'
 import {
+  EMPTY_SHOOT_OPTIONS,
+  EMPTY_SHOOT_PAYMENT,
+  ShootOptionsFields,
+  ShootPaymentFields,
+} from '@/components/forms/ShootOptionsFields'
+import {
   createReservation,
   type BookingMethod,
   type ReservationInput,
 } from '@/lib/actions/reservations'
+import type { ShootOptionsInput, ShootPaymentInput } from '@/lib/actions/shoots'
 import { getActiveUserId } from '@/lib/auth/session'
 import { loadSuggestions } from '@/lib/queries/reservations'
 import { categoryHasModel, DEFAULT_SHOOT_CATEGORY } from '@/lib/shoot-category'
 
 const EMPTY: ReservationInput = {
+  ...EMPTY_SHOOT_OPTIONS,
+  ...EMPTY_SHOOT_PAYMENT,
   eventName: '',
   shootCategory: DEFAULT_SHOOT_CATEGORY,
   modelName: '',
@@ -70,6 +79,10 @@ export default function ReservationNewPage() {
   const hasModel = categoryHasModel(form.shootCategory)
 
   const set = <K extends keyof ReservationInput>(key: K, value: ReservationInput[K]) =>
+    setForm((f) => ({ ...f, [key]: value }))
+  const setOptions = <K extends keyof ShootOptionsInput>(key: K, value: ShootOptionsInput[K]) =>
+    setForm((f) => ({ ...f, [key]: value }))
+  const setPayment = <K extends keyof ShootPaymentInput>(key: K, value: ShootPaymentInput[K]) =>
     setForm((f) => ({ ...f, [key]: value }))
 
   const onSubmit = async (e: React.FormEvent) => {
@@ -280,6 +293,12 @@ export default function ReservationNewPage() {
             />
           )}
         </Field>
+
+        <ShootOptionsFields
+          values={form}
+          onChange={setOptions}
+          feeAside={<ShootPaymentFields values={form} onChange={setPayment} />}
+        />
 
         <div className="border-border flex flex-wrap items-center gap-3 border-t pt-4">
           <button

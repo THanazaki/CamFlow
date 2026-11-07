@@ -4,6 +4,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import Link from 'next/link'
 import { useSyncExternalStore } from 'react'
 
+import { feePaymentTimingLabel } from '@/lib/fee-payment'
 import { loadReservationSchedule, type ReservationRow } from '@/lib/queries/reservations'
 
 /**
@@ -75,6 +76,19 @@ function ReservationCard({ row, nowMs }: { row: ReservationRow; nowMs: number | 
               label="予約受付"
               value={row.bookingOpensAt ? formatDateTime(row.bookingOpensAt) : '未設定'}
             />
+            {row.shootFee > 0 && (
+              <Row label="撮影料" value={`${row.shootFee.toLocaleString('ja-JP')}円`} />
+            )}
+            {row.paymentTiming && (
+              <Row
+                label="支払方法"
+                value={`${feePaymentTimingLabel(row.paymentTiming)}${
+                  row.paymentDate ? `（支払日 ${row.paymentDate}）` : ''
+                }`}
+              />
+            )}
+            {row.costumeOptions && <Row label="衣装系" value={row.costumeOptions} />}
+            {row.shootingMethodOptions && <Row label="撮影方法" value={row.shootingMethodOptions} />}
           </dl>
           <BookingContact method={row.bookingMethod} contact={row.bookingContact} />
         </div>

@@ -40,7 +40,15 @@ export interface ShootOptionsInput {
 /** slots.booking_fee（numeric(10,0)）に入る上限 */
 const MAX_SHOOT_FEE = 9_999_999_999
 
-export interface ShootConfirmInput extends ShootDetailsInput, ShootOptionsInput {
+/** 撮影料の支払方法。予約情報入力と確定撮影情報入力で共通 */
+export interface ShootPaymentInput {
+  /** null は未選択 */
+  paymentTiming: FeePaymentTiming | null
+  /** 支払日（YYYY-MM-DD）。事前以外では無視する */
+  paymentDate: string
+}
+
+export interface ShootConfirmInput extends ShootDetailsInput, ShootOptionsInput, ShootPaymentInput {
   /** 予約から確定する場合はその session.id。新規なら空 */
   fromSessionId: string
   /** 集合時刻（HH:mm）。空欄可 */
@@ -48,10 +56,6 @@ export interface ShootConfirmInput extends ShootDetailsInput, ShootOptionsInput 
   /** 開始・終了時刻（HH:mm） */
   startTime: string
   endTime: string
-  /** 撮影料の支払方法。null は未選択 */
-  paymentTiming: FeePaymentTiming | null
-  /** 支払日（YYYY-MM-DD）。事前以外では無視する */
-  paymentDate: string
 }
 
 function normalize(name: string): string {
@@ -64,7 +68,7 @@ function toIso(date: string, time: string): string {
 }
 
 /** 入力を slots のカラムに変換する。撮影料が不正ならエラー */
-function toShootOptionColumns(input: ShootOptionsInput) {
+export function toShootOptionColumns(input: ShootOptionsInput) {
   const fee = input.shootFee.trim()
   if (fee && !/^\d+$/.test(fee)) {
     throw new Error('撮影料は0以上の整数で入力してください')
@@ -80,14 +84,20 @@ function toShootOptionColumns(input: ShootOptionsInput) {
   }
 }
 
+export function toFeePaymentColumns(input: ShootPaymentInput) {
+  return {
+    fee_payment_timing: input.paymentTiming,
+    // 欄を隠す前に入力した日付が残っていても、事前以外では使わない
+    fee_payment_date: feePaymentHasDate(input.paymentTiming) ? input.paymentDate || null : null,
+  }
+}
+
 /** 確定時に枠へ保存する、時刻以外の項目 */
 function toSlotDetailColumns(input: ShootConfirmInput) {
   return {
     ...toShootOptionColumns(input),
+    ...toFeePaymentColumns(input),
     meeting_at: input.meetingTime ? toIso(input.shootDate, input.meetingTime) : null,
-    fee_payment_timing: input.paymentTiming,
-    // 欄を隠す前に入力した日付が残っていても、事前以外では使わない
-    fee_payment_date: feePaymentHasDate(input.paymentTiming) ? input.paymentDate || null : null,
   }
 }
 

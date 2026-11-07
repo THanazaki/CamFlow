@@ -10,27 +10,30 @@ import {
   inputClass,
   ShootDetailsFields,
 } from '@/components/forms/ShootDetailsFields'
-import { ChoicePicker } from '@/components/forms/ChoicePicker'
-import { EMPTY_SHOOT_OPTIONS, ShootOptionsFields } from '@/components/forms/ShootOptionsFields'
+import {
+  EMPTY_SHOOT_OPTIONS,
+  EMPTY_SHOOT_PAYMENT,
+  ShootOptionsFields,
+  ShootPaymentFields,
+} from '@/components/forms/ShootOptionsFields'
 import {
   confirmShoot,
   type ShootConfirmInput,
   type ShootDetailsInput,
   type ShootOptionsInput,
+  type ShootPaymentInput,
 } from '@/lib/actions/shoots'
 import { getActiveUserId } from '@/lib/auth/session'
-import { FEE_PAYMENT_TIMINGS, feePaymentHasDate } from '@/lib/fee-payment'
 import { loadConfirmableReservations } from '@/lib/queries/shoots'
 
 const EMPTY: ShootConfirmInput = {
   ...EMPTY_SHOOT_DETAILS,
   ...EMPTY_SHOOT_OPTIONS,
+  ...EMPTY_SHOOT_PAYMENT,
   fromSessionId: '',
   meetingTime: '',
   startTime: '',
   endTime: '',
-  paymentTiming: null,
-  paymentDate: '',
 }
 
 export default function ShootConfirmPage() {
@@ -48,6 +51,8 @@ export default function ShootConfirmPage() {
   const setDetails = <K extends keyof ShootDetailsInput>(key: K, value: ShootDetailsInput[K]) =>
     setForm((f) => ({ ...f, [key]: value }))
   const setOptions = <K extends keyof ShootOptionsInput>(key: K, value: ShootOptionsInput[K]) =>
+    setForm((f) => ({ ...f, [key]: value }))
+  const setPayment = <K extends keyof ShootPaymentInput>(key: K, value: ShootPaymentInput[K]) =>
     setForm((f) => ({ ...f, [key]: value }))
 
   /** 予約を選んだら、その内容で埋める */
@@ -69,6 +74,12 @@ export default function ShootConfirmPage() {
       shootDate: r.shootDate,
       startTime: r.startTime || f.startTime,
       endTime: r.endTime || f.endTime,
+      // 確定時はフォームの値で枠を更新するので、引き継がないと予約時の入力が消える
+      shootFee: r.shootFee,
+      costumeOptions: r.costumeOptions,
+      shootingMethodOptions: r.shootingMethodOptions,
+      paymentTiming: r.paymentTiming,
+      paymentDate: r.paymentDate,
     }))
   }
 
@@ -177,35 +188,7 @@ export default function ShootConfirmPage() {
           <ShootOptionsFields
             values={form}
             onChange={setOptions}
-            feeAside={
-              <div className="space-y-4">
-                <Field label="支払方法">
-                  {(p) => (
-                    <ChoicePicker
-                      id={p.id}
-                      name="paymentTiming"
-                      label="支払方法"
-                      options={FEE_PAYMENT_TIMINGS}
-                      value={form.paymentTiming}
-                      onChange={(v) => set('paymentTiming', v)}
-                    />
-                  )}
-                </Field>
-                {feePaymentHasDate(form.paymentTiming) && (
-                  <Field label="支払日">
-                    {(p) => (
-                      <input
-                        {...p}
-                        type="date"
-                        value={form.paymentDate}
-                        onChange={(e) => set('paymentDate', e.target.value)}
-                        className={inputClass}
-                      />
-                    )}
-                  </Field>
-                )}
-              </div>
-            }
+            feeAside={<ShootPaymentFields values={form} onChange={setPayment} />}
           />
         </section>
 
