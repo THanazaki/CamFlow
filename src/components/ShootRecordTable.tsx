@@ -25,7 +25,7 @@ function ShootRecordCards({ rows }: { rows: ShootRecord[] }) {
       {rows.map((row) => (
         <li key={`${row.source}:${row.id}`} className="bg-surface border-border rounded-lg border p-4">
           <p className="text-muted text-xs tabular-nums">{row.shootDate}</p>
-          <h3 className="mt-0.5 font-medium break-words">{row.title}</h3>
+          <h3 className="mt-0.5 font-medium break-words">{row.eventName ?? '—'}</h3>
           <p className="text-muted mt-0.5 text-sm break-words">
             {row.modelNames.join('・') || 'モデルなし'}
           </p>
@@ -83,7 +83,7 @@ function ShootRecordGrid({ rows }: { rows: ShootRecord[] }) {
             <tr key={`${row.source}:${row.id}`} className="align-top">
               <td className="px-4 py-3 whitespace-nowrap tabular-nums">{row.shootDate}</td>
               <td className="px-4 py-3 break-words">{row.modelNames.join('・') || '—'}</td>
-              <td className="px-4 py-3 break-words">{row.title}</td>
+              <td className="px-4 py-3 break-words">{row.eventName ?? '—'}</td>
               <td className="px-4 py-3">
                 <StorageUrlList urls={row.storageUrls} />
               </td>

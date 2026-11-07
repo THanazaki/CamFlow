@@ -6,6 +6,7 @@ import { confirmShoot, updateConfirmedShoot, type ShootConfirmInput } from '@/li
 import { db } from '@/lib/db'
 import {
   EMPTY_SHOOT_SEARCH,
+  eventNameOf,
   filterShootArchive,
   loadShootArchive,
   loadShootRecord,
@@ -129,6 +130,46 @@ describe('撮影情報検索の対象', () => {
     await db.venues.update(venueId, { name: 'スタジオA改' })
 
     expect((await loadShootArchive(NOW))[0].venueName).toBe('スタジオA改')
+  })
+})
+
+describe('一覧の撮影会名', () => {
+  const byTitle = async () =>
+    Object.fromEntries((await loadShootArchive(NOW)).map((r) => [r.title, r.eventName]))
+
+  it('撮影会名を入力した撮影は撮影会名、空にした撮影は null', async () => {
+    await createShootHistory(USER, history({ eventName: '秋の撮影会' }))
+    await createShootHistory(USER, history({ eventName: '', modelName: '葵' }))
+    await createShootHistory(USER, history({ eventName: '', modelName: '栞奈', concept: '夏の浴衣' }))
+    await createShootHistory(USER, history({ eventName: '', shootCategory: 'large', modelName: '' }))
+    await confirmShoot(USER, confirmation({ eventName: '', modelName: '凛' }))
+
+    expect(await byTitle()).toEqual({
+      秋の撮影会: '秋の撮影会',
+      '葵 撮影': null,
+      夏の浴衣: null,
+      大撮: null,
+      '凛 撮影': null,
+    })
+  })
+
+  it('撮影会マスタに紐づかない古い行でも、自動のタイトルでなければ撮影会名として出す', () => {
+    const row = { concept: null, shootCategory: null, modelNames: ['葵'], organizerId: null }
+
+    expect(eventNameOf({ ...row, title: '昔の撮影会' })).toBe('昔の撮影会')
+    expect(eventNameOf({ ...row, title: '葵 撮影' })).toBeNull()
+  })
+
+  it('撮影会マスタに紐づいていれば、自動のタイトルと同じ名前でも撮影会名として出す', () => {
+    expect(
+      eventNameOf({
+        title: '葵 撮影',
+        concept: null,
+        shootCategory: 'solo',
+        modelNames: ['葵'],
+        organizerId: 'org',
+      }),
+    ).toBe('葵 撮影')
   })
 })
 

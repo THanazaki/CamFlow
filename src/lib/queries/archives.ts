@@ -2,7 +2,7 @@ import { db } from '@/lib/db'
 import type { LocalShootHistory, LocalSession, LocalSlot, LocalVenue } from '@/lib/db/types'
 import type { FeePaymentTiming } from '@/lib/fee-payment'
 import type { PlaceCategory } from '@/lib/place-category'
-import type { ShootCategory } from '@/lib/shoot-category'
+import { DEFAULT_SHOOT_CATEGORY, fallbackShootTitle, type ShootCategory } from '@/lib/shoot-category'
 import { isSlotFinished } from '@/lib/slot-time'
 
 import { toTime } from './shoots'
@@ -19,6 +19,8 @@ export interface ShootRecord {
   id: string
   shootDate: string
   title: string
+  /** 撮影会名。撮影会名を空にして登録した撮影は null（title は自動で付いたもの） */
+  eventName: string | null
   memo: string | null
   shootCategory: ShootCategory | null
   concept: string | null
@@ -108,6 +110,26 @@ function venueNameOf(
   return row.venue_id ? (venues.get(row.venue_id)?.name ?? row.venue_name) : row.venue_name
 }
 
+/**
+ * 撮影会名。撮影会名を空にして登録すると、タイトルにはコンセプトか「葵 撮影」のような自動の名前が入る
+ * （`title = 撮影会名 || コンセプト || fallbackShootTitle`）。
+ * - 撮影会マスタに紐づいていれば、撮影会名を入力している
+ * - 紐づいていなければ（撮影会名が空か、撮影会の自動登録より前の行）、タイトルがコンセプトか
+ *   自動の名前と同じときだけ撮影会名は空だったとみなす
+ */
+export function eventNameOf(row: {
+  title: string
+  concept: string | null
+  shootCategory: ShootCategory | null
+  modelNames: string[]
+  organizerId: string | null
+}): string | null {
+  if (row.organizerId) return row.title
+  const auto = fallbackShootTitle(row.shootCategory ?? DEFAULT_SHOOT_CATEGORY, row.modelNames[0] ?? '')
+  if (row.title === auto || (row.concept && row.title === row.concept)) return null
+  return row.title
+}
+
 function fromSlot(
   slot: LocalSlot,
   session: LocalSession,
@@ -118,7 +140,7 @@ function fromSlot(
   // 補わないと toISOString が例外を投げ、この1件のために検索全体が止まる
   const minutes = slot.planned_minutes ?? 30
   const end = new Date(new Date(slot.start_at).getTime() + minutes * 60_000)
-  return {
+  const record: Omit<ShootRecord, 'eventName'> = {
     source: 'slot',
     id: slot.id,
     shootDate: session.session_date,
@@ -146,6 +168,7 @@ function fromSlot(
     costumeOptions: slot.costume_options ?? null,
     shootingMethodOptions: slot.shooting_method_options ?? null,
   }
+  return { ...record, eventName: eventNameOf(record) }
 }
 
 function fromHistory(
@@ -153,7 +176,7 @@ function fromHistory(
   models: RecordModel[],
   venues: Map<string, LocalVenue>,
 ): ShootRecord {
-  return {
+  const record: Omit<ShootRecord, 'eventName'> = {
     source: 'history',
     id: history.id,
     shootDate: history.shoot_date,
@@ -180,6 +203,7 @@ function fromHistory(
     costumeOptions: null,
     shootingMethodOptions: null,
   }
+  return { ...record, eventName: eventNameOf(record) }
 }
 
 /** 詳細・編集の対象になる枠か。予約段階のものと、中止・不参加は扱わない */
