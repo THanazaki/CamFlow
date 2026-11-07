@@ -53,7 +53,7 @@ export const NAV_ITEMS: NavItem[] = [
     label: 'マスタ管理',
     ready: false,
     children: [
-      { href: '/masters/models', label: 'モデルマスタ', ready: false },
+      { href: '/masters/models', label: 'モデルマスタ', ready: true },
       { href: '/masters/organizers', label: '撮影会マスタ', ready: false },
       { href: '/masters/venues', label: 'ロケ地・スタジオマスタ', ready: false },
     ],
