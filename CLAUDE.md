@@ -54,6 +54,7 @@
 - **サブメニューを持つ項目は親自体がページを持たない**（開閉トグル）。
   `/reservations` `/shoots` `/archives` `/stats` `/masters` `/settings` に対応するページは作らない。
 - 未実装の画面は「準備中」としてグレーアウトし、リンクにしない。
+- **画面の操作を変えたら `src/app/settings/guide/page.tsx`（使い方ガイド）の説明も直すこと。**
 
 ### 業務フロー
 

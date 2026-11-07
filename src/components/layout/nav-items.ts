@@ -65,7 +65,7 @@ export const NAV_ITEMS: NavItem[] = [
     children: [
       { href: '/settings/notifications', label: '通知設定', ready: false },
       { href: '/settings/account', label: 'アカウント設定', ready: false },
-      { href: '/settings/guide', label: '使い方ガイド', ready: false },
+      { href: '/settings/guide', label: '使い方ガイド', ready: true },
     ],
   },
 ]
