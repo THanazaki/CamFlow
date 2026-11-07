@@ -121,6 +121,7 @@ async function prepareShoot(
   userId: string,
   input: ShootFormInput,
   current?: EventOrganizerRow,
+  currentModelIds: string[] = [],
 ) {
   const hasModel = categoryHasModel(input.shootCategory)
   // 欄を隠す前に入力した名前が残っていても、モデルを指定しない区分では使わない
@@ -145,17 +146,18 @@ async function prepareShoot(
   // モデルなどを作る前に検証する。途中で失敗して行だけ残らないように
   const options = toSlotDetailColumns(input)
 
-  // ── モデル ───────────────────────────────────────────────
-  const modelId = hasModel ? await resolveModel(userId, modelName) : null
+  // ── モデル・撮影会 ───────────────────────────────────────
+  const event = await resolveShootEvent(userId, eventName, current)
+  const model = hasModel
+    ? await resolveShootModel(userId, modelName, event, currentModelIds)
+    : null
 
   // ── 場所 ─────────────────────────────────────────────────
   const venue = await findVenue(venueName)
 
-  const organizerId = await resolveEventOrganizer(userId, eventName, current)
-
   const sessionValues = {
     title: eventName || concept || fallbackShootTitle(input.shootCategory, modelName),
-    organizer_id: organizerId,
+    organizer_id: event.organizerId,
     session_date: input.shootDate,
     shoot_category: input.shootCategory,
     concept: concept || null,
@@ -166,7 +168,8 @@ async function prepareShoot(
   }
 
   return {
-    modelId,
+    modelId: model?.id ?? null,
+    newModelId: model?.created ? model.id : null,
     sessionValues,
     startAt: toIso(input.shootDate, input.startTime),
     minutes,
@@ -177,10 +180,20 @@ async function prepareShoot(
 export async function confirmShoot(
   userId: string,
   input: ShootConfirmInput,
-): Promise<{ sessionId: string; slotId: string }> {
+): Promise<{ sessionId: string; slotId: string; newModelId: string | null }> {
   const reservation = input.fromSessionId ? await db.sessions.get(input.fromSessionId) : undefined
-  const prepared = await prepareShoot(userId, input, reservation)
-  const { modelId, startAt, minutes, options } = prepared
+  const reservationSlot = reservation
+    ? (await db.slots.where('session_id').equals(reservation.id).toArray())
+        .filter((s) => !s.deleted_at)
+        .sort((a, b) => a.slot_no - b.slot_no)[0]
+    : undefined
+  const prepared = await prepareShoot(
+    userId,
+    input,
+    reservation,
+    reservationSlot ? await slotModelIds(reservationSlot.id) : [],
+  )
+  const { modelId, newModelId, startAt, minutes, options } = prepared
   const sessionValues = {
     ...prepared.sessionValues,
     // 予約が通った、または予約を通さず確定した撮影
@@ -193,15 +206,12 @@ export async function confirmShoot(
     await updateRow('sessions', sessionId, sessionValues)
 
     // 予約時に仮置きした枠を実際の時刻に直す
-    const slots = await db.slots.toArray()
-    const slot = slots
-      .filter((s) => !s.deleted_at && s.session_id === sessionId)
-      .sort((a, b) => a.slot_no - b.slot_no)[0]
+    const slot = reservationSlot
 
     if (!slot) {
       const slotId = await createSlot(userId, sessionId, startAt, minutes, options)
       if (modelId) await ensureSlotModel(userId, slotId, modelId)
-      return { sessionId, slotId }
+      return { sessionId, slotId, newModelId }
     }
 
     await updateRow('slots', slot.id, {
@@ -209,20 +219,38 @@ export async function confirmShoot(
       planned_minutes: minutes,
       ...options,
     })
-    if (modelId) {
-      await ensureSlotModel(userId, slot.id, modelId)
-    } else {
-      // 予約時はモデルありの区分だったものを、確定時に変更した場合
-      await removeSlotModels(slot.id)
-    }
-    return { sessionId, slotId: slot.id }
+    // 予約時のモデルから変えた場合は付け替える。モデルなしの区分に変えた場合は外す
+    await linkSlotModel(userId, slot.id, modelId)
+    return { sessionId, slotId: slot.id, newModelId }
   }
 
   // ── 予約を通さず直接登録する ─────────────────────────────
   const sessionId = await createRow('sessions', { user_id: userId, ...sessionValues })
   const slotId = await createSlot(userId, sessionId, startAt, minutes, options)
   if (modelId) await ensureSlotModel(userId, slotId, modelId)
-  return { sessionId, slotId }
+  return { sessionId, slotId, newModelId }
+}
+
+async function slotModelIds(slotId: string): Promise<string[]> {
+  return (await db.slot_models.where('slot_id').equals(slotId).toArray()).map((l) => l.model_id)
+}
+
+/**
+ * 枠のモデルを指定のモデルにする。
+ * 1人だけ紐づいていれば付け替える（作り直すとモデル料や納品の記録が消える）。
+ * 複数紐づいていて、そのどれでもなければ追加する。null なら全て外す。
+ */
+async function linkSlotModel(userId: string, slotId: string, modelId: string | null): Promise<void> {
+  const links = await db.slot_models.where('slot_id').equals(slotId).toArray()
+  if (!modelId) {
+    await removeSlotModels(slotId)
+  } else if (links.some((l) => l.model_id === modelId)) {
+    return
+  } else if (links.length === 1) {
+    await updateRow('slot_models', links[0].id, { model_id: modelId })
+  } else {
+    await ensureSlotModel(userId, slotId, modelId)
+  }
 }
 
 /** 同名の場所マスタを探す。無ければ名前だけのテキストとして残す */
@@ -231,20 +259,97 @@ export async function findVenue(venueName: string) {
   return venues.find((v) => !v.deleted_at && normalize(v.name) === normalize(venueName))
 }
 
-/** モデルマスタの行を返す。同名が無ければ作る */
-export async function resolveModel(userId: string, modelName: string): Promise<string> {
-  const models = await db.models.toArray()
-  const existingModel = models.find(
+/** 撮影会名が空のまま登録したモデルの所属 */
+export const FREE_AFFILIATION = 'フリー'
+
+/**
+ * モデルマスタの行を、モデル名と撮影会名の組み合わせで探す。無ければ作る。
+ *
+ * 撮影会ごとに同じ名前の別人がいるので、組み合わせでモデルを見分ける。
+ * 新しく作るときは撮影会名を所属（affiliation）に入れる。撮影会名が空なら「フリー」にする。
+ * 撮影会名が空のときは、所属が「フリー」か未設定（この仕組みの前に作った行）の同名モデルを使う。
+ *
+ * anyAffiliation は名前だけで照合する（撮影希望）。同名が複数あれば「フリー」、所属なし、その他の順。
+ */
+export async function resolveModel(
+  userId: string,
+  modelName: string,
+  eventName: string,
+  { anyAffiliation = false }: { anyAffiliation?: boolean } = {},
+): Promise<{ id: string; created: boolean }> {
+  const models = (await db.models.toArray()).filter(
     (m) => !m.deleted_at && normalize(m.name) === normalize(modelName),
   )
-  if (existingModel) return existingModel.id
+  const affiliation = eventName.trim() || FREE_AFFILIATION
+  const isFree = !eventName.trim()
 
-  return createRow('models', {
+  const sameAffiliation = models.find(
+    (m) => normalize(m.affiliation ?? '') === normalize(affiliation),
+  )
+  const unset = models.find((m) => !m.affiliation)
+  const existing = anyAffiliation
+    ? (sameAffiliation ?? unset ?? models[0])
+    : (sameAffiliation ?? (isFree ? unset : undefined))
+  if (existing) return { id: existing.id, created: false }
+
+  const id = await createRow('models', {
     user_id: userId,
     name: modelName,
+    affiliation,
     // サーバ側の既定は '{}'。ローカルで省くと pull で入るサーバ行と形が食い違う
     sns_links: {},
   })
+  return { id, created: true }
+}
+
+/** 撮影の入力から見た撮影会。モデルの照合と撮影会マスタの紐づけに使う */
+export interface ShootEvent {
+  /** モデルの照合に使う撮影会名。撮影会名が未入力なら空 */
+  name: string
+  organizerId: string | null
+  /** 既存の撮影の撮影会名を変えていないか */
+  unchanged: boolean
+}
+
+/**
+ * 撮影の入力に対応する撮影会を返す。
+ *
+ * 予約の選択や編集ではフォームに既存のタイトルが入る。撮影会名が未入力の撮影は
+ * 「葵 撮影」のような自動のタイトルなので、変更が無いときはマスタに登録せず、今の紐づけを保つ。
+ */
+export async function resolveShootEvent(
+  userId: string,
+  eventName: string,
+  current?: EventOrganizerRow,
+): Promise<ShootEvent> {
+  if (current && eventName === current.title) {
+    const organizer = current.organizer_id ? await db.organizers.get(current.organizer_id) : undefined
+    return { name: organizer?.name ?? '', organizerId: current.organizer_id ?? null, unchanged: true }
+  }
+  return {
+    name: eventName,
+    organizerId: await resolveOrganizer(userId, eventName),
+    unchanged: false,
+  }
+}
+
+/**
+ * 撮影のモデルを返す。撮影会名を変えていない更新で、今のモデルと同じ名前なら今のモデルを使う。
+ * 所属を手で変えたモデルが、更新のたびに別のモデルとして作られるのを防ぐため。
+ */
+export async function resolveShootModel(
+  userId: string,
+  modelName: string,
+  event: ShootEvent,
+  currentModelIds: string[],
+): Promise<{ id: string; created: boolean }> {
+  if (event.unchanged) {
+    const current = (await db.models.bulkGet(currentModelIds)).find(
+      (m) => m && !m.deleted_at && normalize(m.name) === normalize(modelName),
+    )
+    if (current) return { id: current.id, created: false }
+  }
+  return resolveModel(userId, modelName, event.name)
 }
 
 /** 撮影会マスタの行を返す。空なら null。同名が無ければ作る */
@@ -267,20 +372,6 @@ export interface EventOrganizerRow {
   organizer_id: string | null
 }
 
-/**
- * 撮影の入力に対応する撮影会を返す。
- *
- * 予約の選択や編集ではフォームに既存のタイトルが入る。撮影会名が未入力の撮影は
- * 「葵 撮影」のような自動のタイトルなので、変更が無いときはマスタに登録しない。
- */
-export async function resolveEventOrganizer(
-  userId: string,
-  eventName: string,
-  current?: EventOrganizerRow,
-): Promise<string | null> {
-  if (current && eventName === current.title) return current.organizer_id ?? null
-  return resolveOrganizer(userId, eventName)
-}
 
 async function removeSlotModels(slotId: string): Promise<void> {
   const rows = await db.slot_models.where('slot_id').equals(slotId).toArray()
@@ -351,6 +442,7 @@ export async function updateConfirmedShoot(
     userId,
     input,
     session,
+    await slotModelIds(slotId),
   )
 
   await updateRow('sessions', slot.session_id, sessionValues)
@@ -361,15 +453,7 @@ export async function updateConfirmedShoot(
     ...options,
   })
 
-  const links = await db.slot_models.where('slot_id').equals(slotId).toArray()
-  if (!modelId) {
-    await removeSlotModels(slotId)
-  } else if (links.length === 1 && links[0].model_id !== modelId) {
-    // 紐づけを付け替える。作り直すとモデル料や納品の記録が消える
-    await updateRow('slot_models', links[0].id, { model_id: modelId })
-  } else {
-    await ensureSlotModel(userId, slotId, modelId)
-  }
+  await linkSlotModel(userId, slotId, modelId)
 }
 
 /** 撮影料とオプションの更新。確定撮影情報画面から呼ぶ */

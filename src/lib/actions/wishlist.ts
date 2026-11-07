@@ -24,7 +24,9 @@ export async function createWishlistModel(userId: string, input: WishlistInput):
     throw new Error('モデル名を入力してください')
   }
 
-  const modelId = await resolveModel(userId, modelName)
+  // 撮影希望は名前だけで照合する（撮影会名との組み合わせで見分けるのは予約・確定・過去撮影の入力）。
+  // 新しく作るときの所属は「フリー」
+  const { id: modelId } = await resolveModel(userId, modelName, '', { anyAffiliation: true })
   await saveModelAccounts(modelId, input)
   // 撮影希望には日付も枠も無いので撮影会への紐づけは持たず、マスタへの登録だけ行う
   await resolveOrganizer(userId, input.eventName)

@@ -19,6 +19,7 @@ import {
 import type { ShootOptionsInput, ShootPaymentInput } from '@/lib/actions/shoots'
 import { getActiveUserId } from '@/lib/auth/session'
 import { RESERVATION_FEE_PAYMENT_TIMINGS } from '@/lib/fee-payment'
+import { nextPathAfterSave } from '@/lib/new-model-prompt'
 import { loadSuggestions } from '@/lib/queries/reservations'
 import { categoryHasModel, DEFAULT_SHOOT_CATEGORY } from '@/lib/shoot-category'
 
@@ -99,9 +100,9 @@ export default function ReservationNewPage() {
         )
         return
       }
-      await createReservation(userId, form)
+      const { newModelId } = await createReservation(userId, form)
       setForm(EMPTY)
-      router.push('/reservations/schedule')
+      router.push(nextPathAfterSave(newModelId, '/reservations/schedule'))
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {

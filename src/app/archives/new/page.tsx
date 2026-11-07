@@ -8,6 +8,7 @@ import { StorageUrlsField } from '@/components/forms/StorageUrlsField'
 import { createShootHistory, localToday } from '@/lib/actions/archives'
 import type { ShootDetailsInput } from '@/lib/actions/shoots'
 import { getActiveUserId } from '@/lib/auth/session'
+import { nextPathAfterSave } from '@/lib/new-model-prompt'
 import { MAX_STORAGE_URLS } from '@/lib/storage-urls'
 
 /** 入力欄は最初から1つ出しておく */
@@ -40,9 +41,9 @@ export default function ArchiveNewPage() {
         )
         return
       }
-      await createShootHistory(userId, { ...details, storageUrls })
+      const { newModelId } = await createShootHistory(userId, { ...details, storageUrls })
       clear()
-      router.push('/')
+      router.push(nextPathAfterSave(newModelId, '/'))
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {

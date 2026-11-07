@@ -56,13 +56,20 @@ export async function updateModel(modelId: string, input: ModelInput): Promise<v
   }
   const rating = parseRating(input.rating)
 
-  // サーバの一意制約（論理削除を除く）と同じ条件。ここで止めないと同期で初めて失敗する
+  // サーバの一意制約（名前 + 所属。論理削除を除く）と同じ条件。ここで止めないと同期で初めて失敗する
+  const affiliation = input.affiliation.trim()
   const models = await db.models.toArray()
   const duplicated = models.some(
-    (m) => m.id !== modelId && !m.deleted_at && normalize(m.name) === normalize(name),
+    (m) =>
+      m.id !== modelId &&
+      !m.deleted_at &&
+      normalize(m.name) === normalize(name) &&
+      normalize(m.affiliation ?? '') === normalize(affiliation),
   )
   if (duplicated) {
-    throw new Error(`「${name}」は既に登録されています`)
+    throw new Error(
+      `「${name}」（所属：${affiliation || 'なし'}）は既に登録されています`,
+    )
   }
 
   // X / Instagram 以外の SNS は画面に欄が無いので、そのまま残す
@@ -83,7 +90,7 @@ export async function updateModel(modelId: string, input: ModelInput): Promise<v
     sns_links: snsLinks as Json,
     contact_method: input.contactMethod.trim() || null,
     contact_value: input.contactValue.trim() || null,
-    affiliation: input.affiliation.trim() || null,
+    affiliation: affiliation || null,
     tags: parseTags(input.tags),
     rating,
     is_favorite: input.isFavorite,

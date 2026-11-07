@@ -201,7 +201,10 @@ function ModelEditForm({ model }: { model: ModelDetail }) {
             </Field>
           </div>
 
-          <Field label="所属">
+          <Field
+            label="所属"
+            hint="予約などの入力では、モデル名と撮影会名の組み合わせをこの所属と照らし合わせてモデルを見分けます"
+          >
             {(p) => (
               <input
                 {...p}

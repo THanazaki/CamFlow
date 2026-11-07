@@ -81,7 +81,8 @@
 | 遡及登録 | `shoot_history` / `shoot_history_models` | 過去撮影登録 |
 
 ### マスタ（4種）
-- `models`: モデルマスタ
+- `models`: モデルマスタ。**モデル名と所属（撮影会名）の組み合わせで見分ける**（撮影会ごとに同名の別人がいる）。
+  予約・確定・過去撮影の入力で組み合わせが新しければ自動で登録する（`resolveModel`、`docs/仕様書.md` 8.12.2）
   - `model_former_names`: モデルの旧名義（子テーブル）。現在の活動名は `models.name`
 - `venues`: スタジオ / ロケ地マスタ。**`kind` カラムで区別**し、テーブルは分けていない
   （持つ項目が共通なため。分けると `sessions.venue_id` の参照先が2つになる）
@@ -156,7 +157,7 @@
 - **開発サーバー起動**: `npm run dev`
 - **ビルド確認**: `npm run build`（Service Worker の生成を含む）
 - **オフライン動作確認**: `npm run build && npm start`（dev では SW が無効）
-- **テスト**: `npm test`（単体テスト191項目） / `npm run test:schema`（DBスキーマ122項目）
+- **テスト**: `npm test`（単体テスト209項目） / `npm run test:schema`（DBスキーマ125項目）
 - **型生成**: `npm run db:types`（要 Supabase ローカルスタック）
 
 ### 環境メモ

@@ -153,8 +153,10 @@ await mustFail('他ユーザーの organizer を参照する session',
    values ('${UB}', 'NG', current_date, 'e0000000-0000-4000-8000-000000000001')`)
 await mustFail('organizers の同名重複登録',
   `insert into public.organizers (user_id, name) values ('${UA}', 'ポートレート撮影会 秋の回')`)
-await mustFail('models の同名重複登録',
-  `insert into public.models (user_id, name) values ('${UA}', '栞奈')`)
+await mustFail('models の同名・同所属の重複登録（大文字小文字違いも）',
+  `insert into public.models (user_id, name, affiliation) values ('${UA}', '栞奈', 'ふりー'), ('${UA}', '栞奈', 'フリー')`)
+await mustFail('models の所属なしどうしの同名重複登録',
+  `insert into public.models (user_id, name) values ('${UA}', '所属なし'), ('${UA}', '所属なし')`)
 await mustFail('負の金額',
   `insert into public.sessions (user_id, title, session_date, studio_cost)
    values ('${UA}', 'NG', current_date, -1)`)
@@ -170,6 +172,9 @@ console.log('\n[6b] 許可されるべき書き込み')
 const mustPass = async (name, sql) => {
   try { await db.exec(sql); ok(name) } catch (e) { bad(name, e) }
 }
+await mustPass('models は所属が違えば同名を登録できる',
+  `insert into public.models (user_id, name, affiliation) values ('${UA}', '栞奈', '別の撮影会');
+   delete from public.models where name = '栞奈' and affiliation = '別の撮影会'`)
 await mustPass('撮影区分 4種を登録できる',
   `begin;
    insert into public.sessions (user_id, title, session_date, shoot_category)

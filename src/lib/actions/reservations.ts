@@ -3,6 +3,7 @@ import { categoryHasModel, fallbackShootTitle, type ShootCategory } from '@/lib/
 import { createRow } from '@/lib/sync/mutations'
 
 import {
+  resolveModel,
   resolveOrganizer,
   toFeePaymentColumns,
   toShootOptionColumns,
@@ -43,8 +44,8 @@ export interface ReservationInput extends ShootOptionsInput, ShootPaymentInput {
 
 export interface ReservationResult {
   sessionId: string
-  /** 新しくモデルマスタに登録したか */
-  createdModel: boolean
+  /** 新しくモデルマスタに登録したモデル。登録しなければ null */
+  newModelId: string | null
 }
 
 /** 予約段階では枠の時刻が未定なので、撮影日の 0 時を仮置きする */
@@ -74,17 +75,10 @@ export async function createReservation(
   const options = toShootOptionColumns(input)
 
   // モデルはマスタに実体が要る（slot_models.model_id は NOT NULL で
-  // テキストのフォールバックが無い）。同名が無ければ作る
-  let modelId: string | undefined
-  let createdModel = false
-  if (hasModel) {
-    const models = await db.models.toArray()
-    modelId = models.find((m) => !m.deleted_at && normalize(m.name) === normalize(modelName))?.id
-    if (!modelId) {
-      modelId = await createRow('models', { user_id: userId, name: modelName })
-      createdModel = true
-    }
-  }
+  // テキストのフォールバックが無い）。モデル名と撮影会名の組み合わせが無ければ作る
+  const eventName = input.eventName.trim()
+  const model = hasModel ? await resolveModel(userId, modelName, eventName) : null
+  const modelId = model?.id
 
   // 場所は venue_name のフォールバックがあるので、マスタに無ければ作らない。
   // 予約段階で場所マスタが増え続けるのを避ける
@@ -94,7 +88,6 @@ export async function createReservation(
   )
 
   // 撮影会名があればそれがタイトル。無ければコンセプト、どちらも無ければモデル名か区分名から組む
-  const eventName = input.eventName.trim()
   const title = eventName || concept || fallbackShootTitle(input.shootCategory, modelName)
   const organizerId = await resolveOrganizer(userId, eventName)
 
@@ -133,7 +126,7 @@ export async function createReservation(
     })
   }
 
-  return { sessionId, createdModel }
+  return { sessionId, newModelId: model?.created ? model.id : null }
 }
 
 export const reservationInternals = { placeholderStartAt, normalize }

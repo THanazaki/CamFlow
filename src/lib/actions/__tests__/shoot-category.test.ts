@@ -69,7 +69,7 @@ describe('予約情報入力の撮影区分', () => {
     ['session', 'セッション'],
     ['large', '大撮'],
   ])('%s はモデルなしで登録でき、タイトルは区分名になる', async (shootCategory, title) => {
-    const { sessionId, createdModel } = await createReservation(
+    const { sessionId, newModelId } = await createReservation(
       USER,
       reservation({ shootCategory, modelName: '' }),
     )
@@ -77,7 +77,7 @@ describe('予約情報入力の撮影区分', () => {
     const session = await db.sessions.get(sessionId)
     expect(session?.shoot_category).toBe(shootCategory)
     expect(session?.title).toBe(title)
-    expect(createdModel).toBe(false)
+    expect(newModelId).toBeNull()
     expect(await db.slots.count()).toBe(1)
     expect(await db.slot_models.count()).toBe(0)
     expect(await db.models.count()).toBe(0)

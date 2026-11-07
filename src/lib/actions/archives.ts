@@ -5,8 +5,8 @@ import { createRow, deleteRow, updateRow } from '@/lib/sync/mutations'
 
 import {
   findVenue,
-  resolveEventOrganizer,
-  resolveModel,
+  resolveShootEvent,
+  resolveShootModel,
   type EventOrganizerRow,
   type ShootDetailsInput,
 } from './shoots'
@@ -38,6 +38,7 @@ async function prepareShootHistory(
   userId: string,
   input: ShootHistoryInput,
   current?: EventOrganizerRow,
+  currentModelIds: string[] = [],
 ) {
   const hasModel = categoryHasModel(input.shootCategory)
   // 欄を隠す前の入力が残っていても、モデルを指定しない区分では使わない
@@ -55,16 +56,19 @@ async function prepareShootHistory(
     throw new Error('撮影日には今日以前の日付を入力してください')
   }
 
-  const modelId = hasModel ? await resolveModel(userId, modelName) : null
+  const event = await resolveShootEvent(userId, eventName, current)
+  const model = hasModel
+    ? await resolveShootModel(userId, modelName, event, currentModelIds)
+    : null
   const venue = await findVenue(venueName)
-  const organizerId = await resolveEventOrganizer(userId, eventName, current)
 
   return {
-    modelId,
+    modelId: model?.id ?? null,
+    newModelId: model?.created ? model.id : null,
     values: {
       shoot_date: input.shootDate,
       title: eventName || concept || fallbackShootTitle(input.shootCategory, modelName),
-      organizer_id: organizerId,
+      organizer_id: event.organizerId,
       shoot_category: input.shootCategory,
       concept: concept || null,
       place_category: input.placeCategory,
@@ -78,8 +82,8 @@ async function prepareShootHistory(
 export async function createShootHistory(
   userId: string,
   input: ShootHistoryInput,
-): Promise<{ historyId: string }> {
-  const { modelId, values } = await prepareShootHistory(userId, input)
+): Promise<{ historyId: string; newModelId: string | null }> {
+  const { modelId, newModelId, values } = await prepareShootHistory(userId, input)
 
   const historyId = await createRow('shoot_history', {
     user_id: userId,
@@ -98,7 +102,7 @@ export async function createShootHistory(
     await addHistoryModel(userId, historyId, modelId)
   }
 
-  return { historyId }
+  return { historyId, newModelId }
 }
 
 /** 過去撮影の編集。撮影情報検索の編集画面から呼ぶ */
@@ -111,11 +115,16 @@ export async function updateShootHistory(
   if (!history) {
     throw new Error('撮影が見つかりませんでした')
   }
-  const { modelId, values } = await prepareShootHistory(userId, input, history)
+  const links = await db.shoot_history_models.where('shoot_history_id').equals(historyId).toArray()
+  const { modelId, values } = await prepareShootHistory(
+    userId,
+    input,
+    history,
+    links.map((l) => l.model_id),
+  )
 
   await updateRow('shoot_history', historyId, values)
 
-  const links = await db.shoot_history_models.where('shoot_history_id').equals(historyId).toArray()
   if (!modelId) {
     for (const link of links) {
       await deleteRow('shoot_history_models', link.id)

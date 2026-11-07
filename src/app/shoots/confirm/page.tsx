@@ -24,6 +24,7 @@ import {
   type ShootPaymentInput,
 } from '@/lib/actions/shoots'
 import { getActiveUserId } from '@/lib/auth/session'
+import { nextPathAfterSave } from '@/lib/new-model-prompt'
 import { loadConfirmableReservations } from '@/lib/queries/shoots'
 
 const EMPTY: ShootConfirmInput = {
@@ -95,9 +96,9 @@ export default function ShootConfirmPage() {
         )
         return
       }
-      await confirmShoot(userId, form)
+      const { newModelId } = await confirmShoot(userId, form)
       setForm(EMPTY)
-      router.push('/')
+      router.push(nextPathAfterSave(newModelId, '/'))
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
