@@ -737,6 +737,23 @@ console.log('\n[17] models.sns_accounts / model_former_names.name_kana')
     `insert into public.model_former_names (user_id, model_id, name) values ('${UA}', '${r.id}', '旧名2')`)
 }
 
+// ── 18. 撮影会のアカウント ───────────────────────────────────────────
+console.log('\n[18] organizers.sns_accounts')
+{
+  const r = (await db.query(`
+    insert into public.organizers (user_id, name) values ('${UA}', 'アカウント撮影会')
+    returning id, sns_accounts`)).rows[0]
+  Array.isArray(r?.sns_accounts) && r.sns_accounts.length === 0
+    ? ok('既定は空の配列') : bad('organizers.sns_accounts の既定', JSON.stringify(r))
+  await mustPass('同じ種類のアカウントを複数保存できる',
+    `update public.organizers set sns_accounts = '[{"service":"x","value":"@a"},{"service":"x","value":"@b"}]'
+     where id = '${r.id}'`)
+  await mustFail('配列以外は入らない',
+    `update public.organizers set sns_accounts = '{"x":"@a"}' where id = '${r.id}'`)
+  await mustFail('NULL にはできない',
+    `update public.organizers set sns_accounts = null where id = '${r.id}'`)
+}
+
 // マイグレーションの移し替え: sns_links の内容を sns_accounts へ（X → Instagram → その他の順）
 {
   const fresh = await PGlite.create()

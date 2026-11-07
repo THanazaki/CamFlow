@@ -1,6 +1,8 @@
 import { db } from '@/lib/db'
 import type { LocalModel } from '@/lib/db/types'
+import { cleanAccounts, type ModelAccountEntry } from '@/lib/model-accounts'
 import { updateRow } from '@/lib/sync/mutations'
+import type { Json } from '@/types/database'
 
 import { affiliationKeys } from './models'
 
@@ -10,6 +12,8 @@ export interface OrganizerInput {
   nameKana: string
   baseLocation: string
   url: string
+  /** X / Instagram などのアカウント。空欄は無視する */
+  accounts: ModelAccountEntry[]
   contact: string
   notes: string
   isFavorite: boolean
@@ -113,6 +117,7 @@ export async function updateOrganizer(organizerId: string, input: OrganizerInput
     name_kana: input.nameKana.trim() || null,
     base_location: input.baseLocation.trim() || null,
     url: input.url.trim() || null,
+    sns_accounts: cleanAccounts(input.accounts) as unknown as Json,
     contact: input.contact.trim() || null,
     notes: input.notes.trim() || null,
     is_favorite: input.isFavorite,

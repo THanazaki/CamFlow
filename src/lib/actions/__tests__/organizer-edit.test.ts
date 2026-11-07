@@ -15,6 +15,7 @@ function input(overrides: Partial<OrganizerInput> = {}): OrganizerInput {
     nameKana: '',
     baseLocation: '',
     url: '',
+    accounts: [],
     contact: '',
     notes: '',
     isFavorite: false,
@@ -57,6 +58,48 @@ describe('撮影会の編集', () => {
       notes: '1行目\n2行目',
       is_favorite: true,
     })
+  })
+
+  it('アカウントを複数保存し、空欄と重複は除く。詳細に登録順で出す', async () => {
+    const id = await addOrganizer()
+
+    await updateOrganizer(
+      id,
+      input({
+        accounts: [
+          { service: 'x', value: ' @aki ' },
+          { service: 'instagram', value: '@aki_ig' },
+          { service: 'x', value: '' },
+          { service: 'x', value: '@AKI' },
+          { service: 'x', value: '@aki_info' },
+        ],
+      }),
+    )
+
+    const expected = [
+      { service: 'x', value: '@aki' },
+      { service: 'instagram', value: '@aki_ig' },
+      { service: 'x', value: '@aki_info' },
+    ]
+    expect((await db.organizers.get(id))?.sns_accounts).toEqual(expected)
+    expect((await loadOrganizerDetail(id))?.accounts).toEqual(expected)
+  })
+
+  it('アカウントは全部消せる。カラムの無い古い行は空として読む', async () => {
+    const id = await addOrganizer('秋の撮影会', { sns_accounts: [{ service: 'x', value: '@a' }] })
+    const old = await addOrganizer('春の撮影会')
+
+    await updateOrganizer(id, input({ accounts: [] }))
+
+    expect((await loadOrganizerDetail(id))?.accounts).toEqual([])
+    expect((await loadOrganizerDetail(old))?.accounts).toEqual([])
+  })
+
+  it('入力から自動で作る撮影会の sns_accounts は空の配列', async () => {
+    const { resolveOrganizer } = await import('../shoots')
+    const id = await resolveOrganizer(USER, '冬の撮影会')
+
+    expect((await db.organizers.get(id!))?.sns_accounts).toEqual([])
   })
 
   it('拠点は一覧に反映される', async () => {

@@ -91,7 +91,7 @@
   - `model_former_names`: モデルの別名義（子テーブル。画面では「別名義」）。読み（`name_kana`）を持つ。現在の活動名は `models.name`
 - `venues`: スタジオ / ロケ地マスタ。**`kind` カラムで区別**し、テーブルは分けていない
   （持つ項目が共通なため。分けると `sessions.venue_id` の参照先が2つになる）
-- `organizers`: 団体マスタ（撮影会の主催団体）
+- `organizers`: 団体マスタ（撮影会の主催団体）。アカウントはモデルと同じ形の `sns_accounts`
 - `profiles`: ユーザー基本情報・既定値
 
 ### トランザクション
@@ -166,7 +166,7 @@
 - **開発サーバー起動**: `npm run dev`
 - **ビルド確認**: `npm run build`（Service Worker の生成を含む）
 - **オフライン動作確認**: `npm run build && npm start`（dev では SW が無効）
-- **テスト**: `npm test`（単体テスト274項目） / `npm run test:schema`（DBスキーマ137項目）
+- **テスト**: `npm test`（単体テスト277項目） / `npm run test:schema`（DBスキーマ142項目）
 - **型生成**: `npm run db:types`（要 Supabase ローカルスタック）
 
 ### 環境メモ

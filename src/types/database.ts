@@ -117,6 +117,7 @@ export type Database = {
           contact: string | null
           notes: string | null
           base_location: string | null
+          sns_accounts: Json
           is_favorite: boolean
           created_at: string
           updated_at: string
@@ -128,6 +129,7 @@ export type Database = {
           name: string
           name_kana?: string | null
           base_location?: string | null
+          sns_accounts?: Json
           url?: string | null
           contact?: string | null
           notes?: string | null
@@ -142,6 +144,7 @@ export type Database = {
           name?: string
           name_kana?: string | null
           base_location?: string | null
+          sns_accounts?: Json
           url?: string | null
           contact?: string | null
           notes?: string | null

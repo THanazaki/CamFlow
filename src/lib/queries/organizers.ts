@@ -1,4 +1,5 @@
 import { db } from '@/lib/db'
+import { readModelAccounts, type ModelAccountEntry } from '@/lib/model-accounts'
 
 /** 撮影会マスタの詳細・編集の1件。カラムと同じ項目を持つ */
 export interface OrganizerDetail {
@@ -8,6 +9,8 @@ export interface OrganizerDetail {
   nameKana: string | null
   baseLocation: string | null
   url: string | null
+  /** X / Instagram などのアカウント。登録した順 */
+  accounts: ModelAccountEntry[]
   contact: string | null
   notes: string | null
   isFavorite: boolean
@@ -30,6 +33,7 @@ export async function loadOrganizerDetail(id: string): Promise<OrganizerDetail |
     nameKana: o.name_kana ?? null,
     baseLocation: o.base_location ?? null,
     url: o.url ?? null,
+    accounts: readModelAccounts(o),
     contact: o.contact ?? null,
     notes: o.notes ?? null,
     isFavorite: o.is_favorite ?? false,

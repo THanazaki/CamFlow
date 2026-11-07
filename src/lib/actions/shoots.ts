@@ -371,7 +371,13 @@ export async function resolveOrganizer(userId: string, name: string): Promise<st
   )
   if (existing) return existing.id
 
-  return createRow('organizers', { user_id: userId, name: organizerName, is_favorite: false })
+  return createRow('organizers', {
+    user_id: userId,
+    name: organizerName,
+    is_favorite: false,
+    // サーバ側の既定は '[]'。ローカルで省くと pull で入るサーバ行と形が食い違う
+    sns_accounts: [],
+  })
 }
 
 /** 撮影会名を持つ既存の行（sessions / shoot_history） */

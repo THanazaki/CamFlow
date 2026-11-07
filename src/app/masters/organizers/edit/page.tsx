@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Suspense, useState } from 'react'
 
+import { AccountsField, toAccountRows } from '@/components/forms/AccountsField'
 import { Field, inputClass } from '@/components/forms/ShootDetailsFields'
 import { updateOrganizer, type OrganizerInput } from '@/lib/actions/organizers'
 import { loadOrganizerDetail, type OrganizerDetail } from '@/lib/queries/organizers'
@@ -47,6 +48,7 @@ function toFormValues(organizer: OrganizerDetail): OrganizerInput {
     nameKana: organizer.nameKana ?? '',
     baseLocation: organizer.baseLocation ?? '',
     url: organizer.url ?? '',
+    accounts: toAccountRows(organizer.accounts),
     contact: organizer.contact ?? '',
     notes: organizer.notes ?? '',
     isFavorite: organizer.isFavorite,
@@ -158,6 +160,12 @@ function OrganizerEditForm({ organizer }: { organizer: OrganizerDetail }) {
               />
             )}
           </Field>
+
+          <AccountsField
+            label="アカウント"
+            accounts={form.accounts}
+            onChange={(accounts) => set('accounts', accounts)}
+          />
 
           <Field label="連絡先" hint="メール、DM、電話など">
             {(p) => (

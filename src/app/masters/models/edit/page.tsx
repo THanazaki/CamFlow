@@ -5,15 +5,12 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Suspense, useState } from 'react'
 
+import { AccountsField, toAccountRows } from '@/components/forms/AccountsField'
 import { ChoicePicker } from '@/components/forms/ChoicePicker'
 import { Field, inputClass } from '@/components/forms/ShootDetailsFields'
 import { updateModel, type ModelInput } from '@/lib/actions/models'
-import { ACCOUNT_SERVICES, type ModelAccountEntry } from '@/lib/model-accounts'
 import { MODEL_STATUSES } from '@/lib/model-status'
 import { loadModelDetail, type ModelDetail } from '@/lib/queries/models'
-
-/** inputClass の w-full を外したもの。幅を指定して並べる select 用 */
-const SELECT_CLASS = inputClass.replace('w-full', '')
 
 const SMALL_BUTTON =
   'border-border hover:bg-navy-50 shrink-0 rounded-md border px-3 py-2 text-sm dark:hover:bg-white/5'
@@ -57,8 +54,7 @@ function toFormValues(model: ModelDetail): ModelInput {
   return {
     name: model.name,
     nameKana: model.nameKana ?? '',
-    // 欄が1つも無いと入力できないので、空なら X の空欄を1つ出す
-    accounts: model.accounts.length > 0 ? model.accounts : [{ service: 'x', value: '' }],
+    accounts: toAccountRows(model.accounts),
     contactMethod: model.contactMethod ?? '',
     contactValue: model.contactValue ?? '',
     // 欄が1つも無いと入力できないので、空なら空欄を1つ出す
@@ -96,12 +92,6 @@ function ModelEditForm({ model }: { model: ModelDetail }) {
     setForm((f) => ({
       ...f,
       aliases: f.aliases.map((a, i) => (i === index ? { ...a, ...patch } : a)),
-    }))
-
-  const setAccount = (index: number, patch: Partial<ModelAccountEntry>) =>
-    setForm((f) => ({
-      ...f,
-      accounts: f.accounts.map((a, i) => (i === index ? { ...a, ...patch } : a)),
     }))
 
   const onSubmit = async (e: React.FormEvent) => {
@@ -271,57 +261,11 @@ function ModelEditForm({ model }: { model: ModelDetail }) {
             </button>
           </fieldset>
 
-          <fieldset>
-            <legend className="text-sm font-medium">モデルアカウント</legend>
-            <p className="text-muted mt-0.5 text-xs">
-              URL か @ハンドルを入力します。同じ種類のアカウントも複数登録できます
-            </p>
-            <div className="mt-1.5 space-y-2">
-              {form.accounts.map((account, i) => (
-                <div key={i} className="flex items-center gap-2">
-                  <select
-                    value={account.service}
-                    onChange={(e) => setAccount(i, { service: e.target.value })}
-                    aria-label={`アカウント ${i + 1} の種類`}
-                    className={`${SELECT_CLASS} w-28 shrink-0 sm:w-32`}
-                  >
-                    {ACCOUNT_SERVICES.map((s) => (
-                      <option key={s.value} value={s.value}>
-                        {s.label}
-                      </option>
-                    ))}
-                    {/* 移行前のデータにある種類（tiktok など）も選んだままにできるように */}
-                    {!ACCOUNT_SERVICES.some((s) => s.value === account.service) && (
-                      <option value={account.service}>{account.service}</option>
-                    )}
-                  </select>
-                  <input
-                    type="text"
-                    value={account.value}
-                    onChange={(e) => setAccount(i, { value: e.target.value })}
-                    placeholder="@example"
-                    aria-label={`アカウント ${i + 1}`}
-                    className={`${inputClass} min-w-0`}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => set('accounts', form.accounts.filter((_, j) => j !== i))}
-                    aria-label={`アカウント ${i + 1} を削除`}
-                    className={SMALL_BUTTON}
-                  >
-                    削除
-                  </button>
-                </div>
-              ))}
-            </div>
-            <button
-              type="button"
-              onClick={() => set('accounts', [...form.accounts, { service: 'x', value: '' }])}
-              className={`${SMALL_BUTTON} mt-2 py-1.5`}
-            >
-              アカウントを追加
-            </button>
-          </fieldset>
+          <AccountsField
+            label="モデルアカウント"
+            accounts={form.accounts}
+            onChange={(accounts) => set('accounts', accounts)}
+          />
 
           <div className="grid gap-5 sm:grid-cols-2">
             <Field label="連絡手段">

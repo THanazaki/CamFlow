@@ -5,7 +5,9 @@ import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { Suspense } from 'react'
 
+import { ModelAccount } from '@/components/ModelAccount'
 import { StorageUrlList } from '@/components/StorageUrlList'
+import { accountLabel } from '@/lib/model-accounts'
 import { loadOrganizerDetail } from '@/lib/queries/organizers'
 
 export default function OrganizerDetailPage() {
@@ -76,6 +78,17 @@ function OrganizerDetailView() {
         <Row label="拠点">{organizer.baseLocation}</Row>
         <Row label="URL">
           {organizer.url ? <StorageUrlList urls={[organizer.url]} /> : null}
+        </Row>
+        <Row label="アカウント">
+          {organizer.accounts.length > 0 ? (
+            <ul className="space-y-0.5">
+              {organizer.accounts.map((a, i) => (
+                <li key={`${a.service}-${i}`}>
+                  <ModelAccount href={a.value} label={accountLabel(a.service)} />
+                </li>
+              ))}
+            </ul>
+          ) : null}
         </Row>
         <Row label="連絡先">{organizer.contact}</Row>
         <Row label="メモ">
