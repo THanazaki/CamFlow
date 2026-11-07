@@ -44,7 +44,7 @@ export const NAV_ITEMS: NavItem[] = [
     ready: false,
     children: [
       { href: '/stats/availability', label: '予約可否情報', ready: false },
-      { href: '/stats/history', label: '過去撮影情報', ready: false },
+      { href: '/stats/history', label: '過去撮影情報', ready: true },
       { href: '/stats/fees', label: '撮影料積算', ready: false },
     ],
   },

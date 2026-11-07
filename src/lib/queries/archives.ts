@@ -23,6 +23,12 @@ export interface ShootRecord {
   placeCategory: PlaceCategory | null
   venueName: string | null
   modelNames: string[]
+  /** modelNames と同じ順 */
+  modelIds: string[]
+  /** 撮影会マスタへの紐づけ。撮影会名が未入力の撮影は null */
+  organizerId: string | null
+  /** 撮影イベントの単位。同じ session の枠は同じ値になる */
+  eventKey: string
   storageUrls: string[]
   /** 物理的な保管先。この画面からは入力しない */
   storagePath: string | null
@@ -70,18 +76,23 @@ async function loadTables() {
 
 type Tables = Awaited<ReturnType<typeof loadTables>>
 
-/** 紐づく行からモデル名を引くための表。削除済みのモデルも過去の記録として名前を出す */
-function modelNamesBy<K extends string>(
+interface RecordModel {
+  id: string
+  name: string
+}
+
+/** 紐づく行からモデルを引くための表。削除済みのモデルも過去の記録として名前を出す */
+function modelsBy<K extends string>(
   links: ({ model_id: string } & Record<K, string>)[],
   key: K,
   models: Tables['models'],
-): Map<string, string[]> {
+): Map<string, RecordModel[]> {
   const nameById = new Map(models.map((m) => [m.id, m.name]))
-  const result = new Map<string, string[]>()
+  const result = new Map<string, RecordModel[]>()
   for (const link of links) {
     const name = nameById.get(link.model_id)
     if (!name) continue
-    result.set(link[key], [...(result.get(link[key]) ?? []), name])
+    result.set(link[key], [...(result.get(link[key]) ?? []), { id: link.model_id, name }])
   }
   return result
 }
@@ -96,10 +107,13 @@ function venueNameOf(
 function fromSlot(
   slot: LocalSlot,
   session: LocalSession,
-  modelNames: string[],
+  models: RecordModel[],
   venues: Map<string, LocalVenue>,
 ): ShootRecord {
-  const end = new Date(new Date(slot.start_at).getTime() + slot.planned_minutes * 60_000)
+  // 予約から作った枠のローカル行には planned_minutes が無いことがある。サーバの既定値で補う。
+  // 補わないと toISOString が例外を投げ、この1件のために検索全体が止まる
+  const minutes = slot.planned_minutes ?? 30
+  const end = new Date(new Date(slot.start_at).getTime() + minutes * 60_000)
   return {
     source: 'slot',
     id: slot.id,
@@ -109,7 +123,10 @@ function fromSlot(
     concept: session.concept ?? null,
     placeCategory: session.place_category ?? null,
     venueName: venueNameOf(session, venues),
-    modelNames,
+    modelNames: models.map((m) => m.name),
+    modelIds: models.map((m) => m.id),
+    organizerId: session.organizer_id ?? null,
+    eventKey: `session:${session.id}`,
     storageUrls: slot.storage_urls ?? [],
     storagePath: slot.storage_path ?? null,
     meetingPoint: session.meeting_point ?? null,
@@ -127,7 +144,7 @@ function fromSlot(
 
 function fromHistory(
   history: LocalShootHistory,
-  modelNames: string[],
+  models: RecordModel[],
   venues: Map<string, LocalVenue>,
 ): ShootRecord {
   return {
@@ -139,7 +156,10 @@ function fromHistory(
     concept: history.concept ?? null,
     placeCategory: history.place_category ?? null,
     venueName: venueNameOf(history, venues),
-    modelNames,
+    modelNames: models.map((m) => m.name),
+    modelIds: models.map((m) => m.id),
+    organizerId: history.organizer_id ?? null,
+    eventKey: `history:${history.id}`,
     storageUrls: history.storage_urls ?? [],
     storagePath: history.storage_path ?? null,
     meetingPoint: null,
@@ -174,19 +194,19 @@ export async function loadShootArchive(now: Date = new Date()): Promise<ShootRec
   const t = await loadTables()
   const sessionMap = new Map(t.sessions.map((s) => [s.id, s]))
   const venueMap = new Map(t.venues.map((v) => [v.id, v]))
-  const namesBySlot = modelNamesBy(t.slotModels, 'slot_id', t.models)
-  const namesByHistory = modelNamesBy(t.historyModels, 'shoot_history_id', t.models)
+  const modelsBySlot = modelsBy(t.slotModels, 'slot_id', t.models)
+  const modelsByHistory = modelsBy(t.historyModels, 'shoot_history_id', t.models)
   const nowIso = now.toISOString()
 
   const slotRecords = t.slots.flatMap((slot) => {
     const session = sessionMap.get(slot.session_id)
     if (!session || !isConfirmedSlot(slot, session)) return []
     if (slot.shoot_status !== 'shot' && slot.start_at >= nowIso) return []
-    return [fromSlot(slot, session, namesBySlot.get(slot.id) ?? [], venueMap)]
+    return [fromSlot(slot, session, modelsBySlot.get(slot.id) ?? [], venueMap)]
   })
   const historyRecords = t.histories
     .filter((h) => !h.deleted_at)
-    .map((h) => fromHistory(h, namesByHistory.get(h.id) ?? [], venueMap))
+    .map((h) => fromHistory(h, modelsByHistory.get(h.id) ?? [], venueMap))
 
   return [...slotRecords, ...historyRecords].sort((a, b) => {
     const byDate = b.shootDate.localeCompare(a.shootDate)
@@ -204,7 +224,7 @@ export async function loadShootRecord(source: ShootSource, id: string): Promise<
     if (!history) return null
     return fromHistory(
       history,
-      modelNamesBy(t.historyModels, 'shoot_history_id', t.models).get(id) ?? [],
+      modelsBy(t.historyModels, 'shoot_history_id', t.models).get(id) ?? [],
       venueMap,
     )
   }
@@ -212,7 +232,7 @@ export async function loadShootRecord(source: ShootSource, id: string): Promise<
   const slot = t.slots.find((s) => s.id === id)
   const session = slot && t.sessions.find((s) => s.id === slot.session_id)
   if (!slot || !session || !isConfirmedSlot(slot, session)) return null
-  return fromSlot(slot, session, modelNamesBy(t.slotModels, 'slot_id', t.models).get(id) ?? [], venueMap)
+  return fromSlot(slot, session, modelsBy(t.slotModels, 'slot_id', t.models).get(id) ?? [], venueMap)
 }
 
 function includes(value: string | null, keyword: string): boolean {

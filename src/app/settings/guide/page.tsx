@@ -15,6 +15,7 @@ const SECTIONS = [
   { id: 'data', title: '撮影後にデータを登録する' },
   { id: 'archive', title: '過去の撮影を登録する' },
   { id: 'search', title: '撮影を検索・編集する' },
+  { id: 'stats', title: '過去の撮影実績を見る' },
   { id: 'models', title: 'モデルと撮影会を確認する' },
   { id: 'sync', title: 'オフラインと同期' },
   { id: 'limits', title: '現在できないこと' },
@@ -255,6 +256,20 @@ export default function GuidePage() {
         </ul>
       </Section>
 
+      <Section id="stats">
+        <p>
+          <ScreenLink href="/stats/history">過去撮影情報</ScreenLink>
+          では、撮影情報検索で探せる撮影の実績を集計して確認できます。
+        </p>
+        <Definitions
+          items={[
+            ['モデル別情報', 'モデル名、撮影会数、初撮影日、最新撮影日'],
+            ['撮影会別情報', '撮影会名、撮影モデル数、初利用日、最新利用日'],
+          ]}
+        />
+        <p>撮影会別情報には、撮影会名を入力した撮影だけが集計されます。</p>
+      </Section>
+
       <Section id="models">
         <p>
           <ScreenLink href="/masters/models">モデルマスタ</ScreenLink>
@@ -296,7 +311,7 @@ export default function GuidePage() {
           <li>モデルマスタでの登録・編集（所属の入力を含む）</li>
           <li>撮影会マスタでの登録・編集（拠点の入力を含む）</li>
           <li>
-            メニューで「準備中」と表示されている画面の利用（予約成否分析、統計情報、ロケ地・スタジオマスタ、通知設定、アカウント設定）
+            メニューで「準備中」と表示されている画面の利用（予約成否分析、予約可否情報、撮影料積算、ロケ地・スタジオマスタ、通知設定、アカウント設定）
           </li>
         </ul>
         <Note>
