@@ -35,6 +35,7 @@
   撮影情報                  /shoots/info
 過去撮影データ管理 ▾
   過去撮影登録              /archives/new
+  過去撮影一覧              /archives/list
   撮影情報検索              /archives/search
 統計情報 ▾
   予約可否情報              /stats/availability

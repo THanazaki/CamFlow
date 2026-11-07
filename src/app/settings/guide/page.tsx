@@ -14,7 +14,7 @@ const SECTIONS = [
   { id: 'shoot', title: '撮影を確定する' },
   { id: 'data', title: '撮影後にデータを登録する' },
   { id: 'archive', title: '過去の撮影を登録する' },
-  { id: 'search', title: '撮影を検索・編集する' },
+  { id: 'search', title: '過去の撮影を一覧・検索・編集する' },
   { id: 'stats', title: '過去の撮影実績を見る' },
   { id: 'models', title: 'モデルと撮影会を確認する' },
   { id: 'sync', title: 'オフラインと同期' },
@@ -248,8 +248,12 @@ export default function GuidePage() {
 
       <Section id="search">
         <p>
+          <ScreenLink href="/archives/list">過去撮影一覧</ScreenLink>
+          では、撮影日を過ぎた確定済みの撮影と、過去撮影登録で登録した撮影を、撮影日の新しい順にすべて確認できます。
+        </p>
+        <p>
           <ScreenLink href="/archives/search">撮影情報検索</ScreenLink>
-          では、撮影日を過ぎた確定済みの撮影と、過去撮影登録で登録した撮影を探せます。
+          では、同じ撮影を条件で絞り込んで探せます。
         </p>
         <ul className="list-disc space-y-1 pl-5">
           <li>
