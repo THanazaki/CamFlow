@@ -6,7 +6,6 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { Suspense } from 'react'
 
 import { ModelAccount } from '@/components/ModelAccount'
-import { StorageUrlList } from '@/components/StorageUrlList'
 import { modelStatusLabel } from '@/lib/model-status'
 import { loadModelDetail } from '@/lib/queries/models'
 
@@ -24,7 +23,7 @@ function formatDateTime(iso: string): string {
 
 const SNS_LABELS: Record<string, string> = { x: 'X', instagram: 'Instagram' }
 
-/** モデルマスタの詳細。全カラムの値を表示する */
+/** モデルマスタの詳細 */
 function ModelDetailView() {
   const router = useRouter()
   const id = useSearchParams().get('id') ?? ''
@@ -84,9 +83,9 @@ function ModelDetailView() {
         </Row>
         <Row label="モデル名">{model.name}</Row>
         <Row label="読み">{model.nameKana}</Row>
-        <Row label="アバターURL">
-          {model.avatarUrl ? <StorageUrlList urls={[model.avatarUrl]} /> : null}
-        </Row>
+        <Row label="別名義">{model.aliases.join('、')}</Row>
+        <Row label="所属（メイン）">{model.affiliation}</Row>
+        <Row label="その他の所属">{model.subAffiliations.join('、')}</Row>
         {snsEntries.map((key) => (
           <Row key={key} label={SNS_LABELS[key] ?? `SNS（${key}）`}>
             {model.snsLinks[key] ? (
@@ -96,9 +95,6 @@ function ModelDetailView() {
         ))}
         <Row label="連絡手段">{model.contactMethod}</Row>
         <Row label="連絡先">{model.contactValue}</Row>
-        <Row label="所属">{model.affiliation}</Row>
-        <Row label="タグ">{model.tags.join('、')}</Row>
-        <Row label="評価">{model.rating}</Row>
         <Row label="お気に入り">{model.isFavorite ? 'はい' : 'いいえ'}</Row>
         <Row label="ステータス">{modelStatusLabel(model.status)}</Row>
         <Row label="メモ">

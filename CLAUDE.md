@@ -82,8 +82,9 @@
 
 ### マスタ（4種）
 - `models`: モデルマスタ。**モデル名と所属（撮影会名）の組み合わせで見分ける**（撮影会ごとに同名の別人がいる）。
-  予約・確定・過去撮影の入力で組み合わせが新しければ自動で登録する（`resolveModel`、`docs/仕様書.md` 8.12.2）
-  - `model_former_names`: モデルの旧名義（子テーブル）。現在の活動名は `models.name`
+  予約・確定・過去撮影の入力で組み合わせが新しければ自動で登録する（`resolveModel`、`docs/仕様書.md` 8.12.2）。
+  所属はメイン（`affiliation`）とそれ以外（`sub_affiliations`）があり、照合ではどちらも見る
+  - `model_former_names`: モデルの別名義（子テーブル。画面では「別名義」）。現在の活動名は `models.name`
 - `venues`: スタジオ / ロケ地マスタ。**`kind` カラムで区別**し、テーブルは分けていない
   （持つ項目が共通なため。分けると `sessions.venue_id` の参照先が2つになる）
 - `organizers`: 団体マスタ（撮影会の主催団体）
@@ -157,7 +158,7 @@
 - **開発サーバー起動**: `npm run dev`
 - **ビルド確認**: `npm run build`（Service Worker の生成を含む）
 - **オフライン動作確認**: `npm run build && npm start`（dev では SW が無効）
-- **テスト**: `npm test`（単体テスト220項目） / `npm run test:schema`（DBスキーマ125項目）
+- **テスト**: `npm test`（単体テスト225項目） / `npm run test:schema`（DBスキーマ129項目）
 - **型生成**: `npm run db:types`（要 Supabase ローカルスタック）
 
 ### 環境メモ

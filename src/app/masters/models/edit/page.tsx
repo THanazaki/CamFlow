@@ -11,6 +11,9 @@ import { updateModel, type ModelInput } from '@/lib/actions/models'
 import { MODEL_STATUSES } from '@/lib/model-status'
 import { loadModelDetail, type ModelDetail } from '@/lib/queries/models'
 
+const SMALL_BUTTON =
+  'border-border hover:bg-navy-50 shrink-0 rounded-md border px-3 py-2 text-sm dark:hover:bg-white/5'
+
 export default function ModelEditPage() {
   return (
     <Suspense fallback={<p className="text-muted text-sm">読み込み中…</p>}>
@@ -44,17 +47,20 @@ function ModelEdit() {
 }
 
 function toFormValues(model: ModelDetail): ModelInput {
+  const affiliations = [model.affiliation, ...model.subAffiliations].filter(
+    (a): a is string => Boolean(a),
+  )
   return {
     name: model.name,
     nameKana: model.nameKana ?? '',
-    avatarUrl: model.avatarUrl ?? '',
     x: model.snsLinks.x ?? '',
     instagram: model.snsLinks.instagram ?? '',
     contactMethod: model.contactMethod ?? '',
     contactValue: model.contactValue ?? '',
-    affiliation: model.affiliation ?? '',
-    tags: model.tags.join('、'),
-    rating: model.rating === null ? '' : String(model.rating),
+    // 欄が1つも無いと入力できないので、空なら空欄を1つ出す
+    affiliations: affiliations.length > 0 ? affiliations : [''],
+    mainAffiliation: 0,
+    aliases: model.aliases,
     isFavorite: model.isFavorite,
     status: model.status,
     notes: model.notes ?? '',
@@ -69,6 +75,21 @@ function ModelEditForm({ model }: { model: ModelDetail }) {
 
   const set = <K extends keyof ModelInput>(key: K, value: ModelInput[K]) =>
     setForm((f) => ({ ...f, [key]: value }))
+
+  const setAffiliation = (index: number, value: string) =>
+    setForm((f) => ({ ...f, affiliations: f.affiliations.map((a, i) => (i === index ? value : a)) }))
+
+  /** 消した欄より後ろにあるメインは、位置が1つ前にずれる */
+  const removeAffiliation = (index: number) =>
+    setForm((f) => ({
+      ...f,
+      affiliations: f.affiliations.filter((_, i) => i !== index),
+      mainAffiliation:
+        index === f.mainAffiliation ? 0 : index < f.mainAffiliation ? f.mainAffiliation - 1 : f.mainAffiliation,
+    }))
+
+  const setAlias = (index: number, value: string) =>
+    setForm((f) => ({ ...f, aliases: f.aliases.map((a, i) => (i === index ? value : a)) }))
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -138,18 +159,86 @@ function ModelEditForm({ model }: { model: ModelDetail }) {
             )}
           </Field>
 
-          <Field label="アバターURL">
-            {(p) => (
-              <input
-                {...p}
-                type="url"
-                value={form.avatarUrl}
-                onChange={(e) => set('avatarUrl', e.target.value)}
-                placeholder="https://example.com/avatar.jpg"
-                className={inputClass}
-              />
-            )}
-          </Field>
+          <fieldset>
+            <legend className="text-sm font-medium">別名義</legend>
+            <p className="text-muted mt-0.5 text-xs">改名前の名前や、別の活動名を登録します</p>
+            <div className="mt-1.5 space-y-2">
+              {form.aliases.map((alias, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={alias}
+                    onChange={(e) => setAlias(i, e.target.value)}
+                    aria-label={`別名義 ${i + 1}`}
+                    className={inputClass}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => set('aliases', form.aliases.filter((_, j) => j !== i))}
+                    aria-label={`別名義 ${i + 1} を削除`}
+                    className={SMALL_BUTTON}
+                  >
+                    削除
+                  </button>
+                </div>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => set('aliases', [...form.aliases, ''])}
+              className={`${SMALL_BUTTON} mt-2 py-1.5`}
+            >
+              別名義を追加
+            </button>
+          </fieldset>
+
+          <fieldset>
+            <legend className="text-sm font-medium">所属</legend>
+            <p className="text-muted mt-0.5 text-xs">
+              予約などの入力では、撮影会名がどれかの所属と一致すれば、このモデルとして扱います。メインの所属は一覧に表示されます
+            </p>
+            <div className="mt-1.5 space-y-2" role="radiogroup" aria-label="メインの所属">
+              {form.affiliations.map((affiliation, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <label className="flex shrink-0 items-center gap-1 text-xs whitespace-nowrap">
+                    <input
+                      type="radio"
+                      name="mainAffiliation"
+                      checked={form.mainAffiliation === i}
+                      onChange={() => set('mainAffiliation', i)}
+                      aria-label={`所属 ${i + 1} をメインにする`}
+                    />
+                    メイン
+                  </label>
+                  <input
+                    type="text"
+                    value={affiliation}
+                    onChange={(e) => setAffiliation(i, e.target.value)}
+                    placeholder="撮影会名、事務所、フリー"
+                    aria-label={`所属 ${i + 1}`}
+                    className={inputClass}
+                  />
+                  {form.affiliations.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removeAffiliation(i)}
+                      aria-label={`所属 ${i + 1} を削除`}
+                      className={SMALL_BUTTON}
+                    >
+                      削除
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => set('affiliations', [...form.affiliations, ''])}
+              className={`${SMALL_BUTTON} mt-2 py-1.5`}
+            >
+              所属を追加
+            </button>
+          </fieldset>
 
           <Field label="モデルアカウント" hint="URL か @ハンドルを入力します。空欄にすると削除します">
             {(p) => (
@@ -201,65 +290,17 @@ function ModelEditForm({ model }: { model: ModelDetail }) {
             </Field>
           </div>
 
-          <Field
-            label="所属"
-            hint="予約などの入力では、モデル名と撮影会名の組み合わせをこの所属と照らし合わせてモデルを見分けます"
-          >
-            {(p) => (
+          <div>
+            <p className="text-sm font-medium">お気に入り</p>
+            <label className="mt-1.5 flex items-center gap-2 py-2 text-sm">
               <input
-                {...p}
-                type="text"
-                value={form.affiliation}
-                onChange={(e) => set('affiliation', e.target.value)}
-                placeholder="事務所、フリー、所属撮影会"
-                className={inputClass}
+                type="checkbox"
+                checked={form.isFavorite}
+                onChange={(e) => set('isFavorite', e.target.checked)}
+                className="size-4"
               />
-            )}
-          </Field>
-
-          <Field label="タグ" hint="複数ある場合は「、」か「,」で区切ります">
-            {(p) => (
-              <input
-                {...p}
-                type="text"
-                value={form.tags}
-                onChange={(e) => set('tags', e.target.value)}
-                placeholder="ポートレート、コスプレ"
-                className={inputClass}
-              />
-            )}
-          </Field>
-
-          <div className="grid items-start gap-5 sm:grid-cols-2">
-            <Field label="評価">
-              {(p) => (
-                <select
-                  {...p}
-                  value={form.rating}
-                  onChange={(e) => set('rating', e.target.value)}
-                  className={inputClass}
-                >
-                  <option value="">未設定</option>
-                  {[1, 2, 3, 4, 5].map((n) => (
-                    <option key={n} value={n}>
-                      {n}
-                    </option>
-                  ))}
-                </select>
-              )}
-            </Field>
-            <div>
-              <p className="text-sm font-medium">お気に入り</p>
-              <label className="mt-1.5 flex items-center gap-2 py-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={form.isFavorite}
-                  onChange={(e) => set('isFavorite', e.target.checked)}
-                  className="size-4"
-                />
-                お気に入りにする
-              </label>
-            </div>
+              お気に入りにする
+            </label>
           </div>
 
           <Field label="ステータス" required hint="「今後撮影しない」にすると、モデル名の入力候補に出なくなります">

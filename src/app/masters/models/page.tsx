@@ -53,6 +53,11 @@ export default function ModelMasterPage() {
                   <td className="px-4 py-3 font-medium break-words">{row.name}</td>
                   <td className="px-4 py-3 break-words">
                     {row.affiliation || <span className="text-muted">—</span>}
+                    {row.otherAffiliationCount > 0 && (
+                      <span className="text-muted ml-1 text-xs">
+                        ほか{row.otherAffiliationCount}
+                      </span>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex gap-2">

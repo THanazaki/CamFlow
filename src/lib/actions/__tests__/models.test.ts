@@ -4,8 +4,9 @@ import { db } from '@/lib/db'
 import { loadModelDetail, loadModelList } from '@/lib/queries/models'
 import { createRow, softDeleteRow } from '@/lib/sync/mutations'
 
+import { splitAffiliations, updateModel, type ModelInput } from '../models'
 import { createReservation } from '../reservations'
-import { parseTags, updateModel, type ModelInput } from '../models'
+import { resolveModel } from '../shoots'
 
 const USER = '11111111-1111-4111-8111-111111111111'
 
@@ -13,14 +14,13 @@ function input(overrides: Partial<ModelInput> = {}): ModelInput {
   return {
     name: '栞奈',
     nameKana: '',
-    avatarUrl: '',
     x: '',
     instagram: '',
     contactMethod: '',
     contactValue: '',
-    affiliation: '',
-    tags: '',
-    rating: '',
+    affiliations: [''],
+    mainAffiliation: 0,
+    aliases: [],
     isFavorite: false,
     status: 'active',
     notes: '',
@@ -31,6 +31,9 @@ function input(overrides: Partial<ModelInput> = {}): ModelInput {
 function addModel(name = '栞奈', extra: Record<string, unknown> = {}) {
   return createRow('models', { user_id: USER, name, sns_links: {}, ...extra })
 }
+
+const aliasesOf = async (modelId: string) =>
+  (await db.model_former_names.where('model_id').equals(modelId).toArray()).map((a) => a.name).sort()
 
 beforeEach(async () => {
   await db.delete()
@@ -46,14 +49,13 @@ describe('モデルの編集', () => {
       input({
         name: ' 栞奈改 ',
         nameKana: ' かんな ',
-        avatarUrl: ' https://example.com/a.jpg ',
         x: ' @kanna ',
         instagram: ' @kanna_ig ',
         contactMethod: ' LINE ',
         contactValue: ' kanna ',
-        affiliation: ' フリー ',
-        tags: 'ポートレート、 コスプレ,ポートレート',
-        rating: '5',
+        affiliations: [' 秋の撮影会 ', ' 春の撮影会 '],
+        mainAffiliation: 1,
+        aliases: [' 旧名 '],
         isFavorite: true,
         status: 'inactive',
         notes: ' メモ ',
@@ -63,43 +65,54 @@ describe('モデルの編集', () => {
     expect(await db.models.get(id)).toMatchObject({
       name: '栞奈改',
       name_kana: 'かんな',
-      avatar_url: 'https://example.com/a.jpg',
       sns_links: { x: '@kanna', instagram: '@kanna_ig' },
       contact_method: 'LINE',
       contact_value: 'kanna',
-      affiliation: 'フリー',
-      tags: ['ポートレート', 'コスプレ'],
-      rating: 5,
+      affiliation: '春の撮影会',
+      sub_affiliations: ['秋の撮影会'],
       is_favorite: true,
       status: 'inactive',
       notes: 'メモ',
     })
+    expect(await aliasesOf(id)).toEqual(['旧名'])
   })
 
-  it('所属は一覧に反映される', async () => {
-    const id = await addModel()
-
-    await updateModel(id, input({ affiliation: 'フリー' }))
-
-    expect(await loadModelList()).toMatchObject([{ name: '栞奈', affiliation: 'フリー' }])
-  })
-
-  it('空にした項目は null に戻し、タグは空の配列にする', async () => {
-    const id = await addModel('栞奈', {
-      name_kana: 'かんな',
-      affiliation: 'フリー',
-      tags: ['a'],
-      rating: 3,
-      notes: 'メモ',
-    })
+  it('アバターURL・タグ・評価は変更しない', async () => {
+    const id = await addModel('栞奈', { avatar_url: 'https://example.com/a.jpg', tags: ['a'], rating: 4 })
 
     await updateModel(id, input())
 
     expect(await db.models.get(id)).toMatchObject({
+      avatar_url: 'https://example.com/a.jpg',
+      tags: ['a'],
+      rating: 4,
+    })
+  })
+
+  it('メインの所属は一覧に出し、その他の所属は数を出す', async () => {
+    const id = await addModel()
+
+    await updateModel(id, input({ affiliations: ['フリー', '秋の撮影会', '春の撮影会'] }))
+
+    expect(await loadModelList()).toMatchObject([
+      { name: '栞奈', affiliation: 'フリー', otherAffiliationCount: 2 },
+    ])
+  })
+
+  it('空にした項目は null に戻す。所属が全部空なら所属なし', async () => {
+    const id = await addModel('栞奈', {
+      name_kana: 'かんな',
+      affiliation: 'フリー',
+      sub_affiliations: ['秋'],
+      notes: 'メモ',
+    })
+
+    await updateModel(id, input({ affiliations: ['  ', ''] }))
+
+    expect(await db.models.get(id)).toMatchObject({
       name_kana: null,
       affiliation: null,
-      tags: [],
-      rating: null,
+      sub_affiliations: [],
       notes: null,
     })
   })
@@ -126,32 +139,34 @@ describe('モデルの編集', () => {
     expect(after?.updated_at).not.toBe('2000-01-01T00:00:00.000Z')
   })
 
-  it('変更を送信キューに積む', async () => {
-    const id = await addModel()
-    const before = await db._outbox.count()
-
-    await updateModel(id, input({ affiliation: 'フリー' }))
-
-    expect(await db._outbox.count()).toBe(before + 1)
-  })
-
   it('モデル名が空ならエラーにして変更しない', async () => {
     const id = await addModel()
 
-    await expect(updateModel(id, input({ name: '  ', affiliation: 'フリー' }))).rejects.toThrow(
-      'モデル名を入力してください',
-    )
+    await expect(
+      updateModel(id, input({ name: '  ', affiliations: ['フリー'] })),
+    ).rejects.toThrow('モデル名を入力してください')
 
     expect((await db.models.get(id))?.affiliation).toBeUndefined()
   })
 
-  it('他のモデルと同じ名前（大文字小文字の違いを含む）はエラー', async () => {
-    await addModel('Kanna')
+  it('同じ名前で所属が重なるモデルがあればエラー。メイン以外の所属どうしも見る', async () => {
+    await addModel('葵', { affiliation: 'フリー', sub_affiliations: ['秋の撮影会'] })
     const id = await addModel('別のモデル')
 
-    await expect(updateModel(id, input({ name: 'kanna' }))).rejects.toThrow('既に登録されています')
+    await expect(
+      updateModel(id, input({ name: 'aoi', affiliations: ['フリー'] })),
+    ).resolves.toBeUndefined()
+    await expect(
+      updateModel(id, input({ name: '葵', affiliations: ['春', '秋の撮影会'] })),
+    ).rejects.toThrow('「葵」（所属：秋の撮影会）は既に登録されています')
+    await expect(updateModel(id, input({ name: '葵', affiliations: ['春'] }))).resolves.toBeUndefined()
+  })
 
-    expect((await db.models.get(id))?.name).toBe('別のモデル')
+  it('所属なしどうしの同名はエラー', async () => {
+    await addModel('葵')
+    const id = await addModel('別のモデル')
+
+    await expect(updateModel(id, input({ name: '葵' }))).rejects.toThrow('所属：なし')
   })
 
   it('自分の名前の大文字小文字だけを変えられる', async () => {
@@ -162,7 +177,7 @@ describe('モデルの編集', () => {
     expect((await db.models.get(id))?.name).toBe('Kanna')
   })
 
-  it('論理削除したモデルの名前は使える', async () => {
+  it('論理削除したモデルとは重複しない', async () => {
     const deleted = await addModel('削除済み')
     await softDeleteRow('models', deleted)
     const id = await addModel('別のモデル')
@@ -170,12 +185,6 @@ describe('モデルの編集', () => {
     await updateModel(id, input({ name: '削除済み' }))
 
     expect((await db.models.get(id))?.name).toBe('削除済み')
-  })
-
-  it.each(['0', '6', '1.5', 'abc'])('評価 %s はエラー', async (rating) => {
-    const id = await addModel()
-
-    await expect(updateModel(id, input({ rating }))).rejects.toThrow('評価は1〜5')
   })
 
   it('存在しないモデルと論理削除したモデルはエラー', async () => {
@@ -187,41 +196,110 @@ describe('モデルの編集', () => {
   })
 })
 
-describe('parseTags', () => {
-  it('読点、カンマ、全角カンマ、改行で分け、空欄と重複を除く', () => {
-    expect(parseTags('a、b,c，d\ne, ,a')).toEqual(['a', 'b', 'c', 'd', 'e'])
-    expect(parseTags('  ')).toEqual([])
+describe('splitAffiliations', () => {
+  it('選んだ所属をメインにし、空欄と重複（大文字小文字の違いを含む）を除く', () => {
+    expect(splitAffiliations(['A', ' B ', '', 'a', 'C'], 1)).toEqual({ main: 'B', subs: ['A', 'C'] })
+  })
+
+  it('メインに選んだ欄が空なら先頭をメインにする', () => {
+    expect(splitAffiliations(['A', '', 'C'], 1)).toEqual({ main: 'A', subs: ['C'] })
+  })
+
+  it('メインに選んだ欄が他と重複していても、その所属をメインにする', () => {
+    expect(splitAffiliations(['A', 'B', 'a'], 2)).toEqual({ main: 'A', subs: ['B'] })
+  })
+
+  it('全部空なら所属なし', () => {
+    expect(splitAffiliations(['', ' '], 0)).toEqual({ main: null, subs: [] })
+  })
+})
+
+describe('別名義', () => {
+  it('追加・削除を入力どおりにし、空欄と重複は除く', async () => {
+    const id = await addModel()
+    await updateModel(id, input({ aliases: ['A', 'B'] }))
+    const kept = (await db.model_former_names.toArray()).find((a) => a.name === 'A')!
+
+    await updateModel(id, input({ aliases: ['A', '', 'C', 'c'] }))
+
+    expect(await aliasesOf(id)).toEqual(['A', 'C'])
+    // 残したものは作り直さない
+    expect((await db.model_former_names.get(kept.id))?.name).toBe('A')
+  })
+
+  it('別名義の変更を送信キューに積む', async () => {
+    const id = await addModel()
+
+    await updateModel(id, input({ aliases: ['A'] }))
+
+    const entries = await db._outbox.toArray()
+    expect(entries.some((e) => e.table === 'model_former_names' && e.op === 'insert')).toBe(true)
+  })
+
+  it('全部消せる', async () => {
+    const id = await addModel()
+    await updateModel(id, input({ aliases: ['A', 'B'] }))
+
+    await updateModel(id, input({ aliases: [] }))
+
+    expect(await aliasesOf(id)).toEqual([])
+  })
+})
+
+describe('所属の照合', () => {
+  it('撮影会名がメイン以外の所属と一致しても、同じモデルとして扱う', async () => {
+    const id = await addModel('葵', { affiliation: 'フリー', sub_affiliations: ['秋の撮影会'] })
+
+    expect(await resolveModel(USER, '葵', '秋の撮影会')).toEqual({ id, created: false })
+    expect((await resolveModel(USER, '葵', '春の撮影会')).created).toBe(true)
+  })
+
+  it('新しく作るモデルの sub_affiliations は空の配列', async () => {
+    const { id } = await resolveModel(USER, '葵', '秋')
+
+    expect((await db.models.get(id))?.sub_affiliations).toEqual([])
   })
 })
 
 describe('モデルの詳細', () => {
-  it('全カラムの値を返す', async () => {
+  it('所属と別名義を含めて返す', async () => {
     const id = await addModel('栞奈', {
       name_kana: 'かんな',
-      avatar_url: 'https://example.com/a.jpg',
       sns_links: { x: '@kanna' },
       contact_method: 'LINE',
       contact_value: 'kanna',
       affiliation: 'フリー',
-      tags: ['a'],
-      rating: 4,
+      sub_affiliations: ['秋'],
       is_favorite: true,
       status: 'ng',
       notes: 'メモ',
     })
+    await updateModel(
+      id,
+      input({
+        nameKana: 'かんな',
+        x: '@kanna',
+        contactMethod: 'LINE',
+        contactValue: 'kanna',
+        affiliations: ['フリー', '秋'],
+        aliases: ['旧名A', '旧名B'],
+        isFavorite: true,
+        status: 'ng',
+        notes: 'メモ',
+      }),
+    )
 
     expect(await loadModelDetail(id)).toMatchObject({
       id,
       userId: USER,
       name: '栞奈',
       nameKana: 'かんな',
-      avatarUrl: 'https://example.com/a.jpg',
       snsLinks: { x: '@kanna' },
       contactMethod: 'LINE',
       contactValue: 'kanna',
       affiliation: 'フリー',
-      tags: ['a'],
-      rating: 4,
+      subAffiliations: ['秋'],
+      aliases: ['旧名A', '旧名B'],
       isFavorite: true,
       status: 'ng',
       notes: 'メモ',
@@ -247,11 +325,12 @@ describe('モデルの詳細', () => {
       paymentDate: '',
     })
     const [model] = await db.models.toArray()
+    await db.models.update(model.id, { sub_affiliations: undefined })
 
     expect(await loadModelDetail(model.id)).toMatchObject({
       snsLinks: {},
-      tags: [],
-      rating: null,
+      subAffiliations: [],
+      aliases: [],
       isFavorite: false,
       status: 'active',
     })

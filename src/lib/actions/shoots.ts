@@ -283,8 +283,11 @@ export async function resolveModel(
   const affiliation = eventName.trim() || FREE_AFFILIATION
   const isFree = !eventName.trim()
 
-  const sameAffiliation = models.find(
-    (m) => normalize(m.affiliation ?? '') === normalize(affiliation),
+  // メインの所属に加えて、追加した所属のどれかと一致すれば同じモデル
+  const sameAffiliation = models.find((m) =>
+    [m.affiliation ?? '', ...(m.sub_affiliations ?? [])].some(
+      (a) => normalize(a) === normalize(affiliation),
+    ),
   )
   const unset = models.find((m) => !m.affiliation)
   const existing = anyAffiliation
@@ -297,6 +300,7 @@ export async function resolveModel(
     name: modelName,
     affiliation,
     // サーバ側の既定は '{}'。ローカルで省くと pull で入るサーバ行と形が食い違う
+    sub_affiliations: [],
     sns_links: {},
   })
   return { id, created: true }

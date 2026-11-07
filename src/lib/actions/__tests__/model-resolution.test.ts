@@ -254,14 +254,14 @@ describe('モデルマスタの編集の重複チェック', () => {
     await createRow('models', { user_id: USER, name: '葵', affiliation: '秋', sns_links: {} })
     const id = await createRow('models', { user_id: USER, name: '栞奈', affiliation: '春', sns_links: {} })
     const base = {
-      nameKana: '', avatarUrl: '', x: '', instagram: '', contactMethod: '', contactValue: '',
-      tags: '', rating: '', isFavorite: false, status: 'active' as const, notes: '',
+      nameKana: '', x: '', instagram: '', contactMethod: '', contactValue: '',
+      mainAffiliation: 0, aliases: [], isFavorite: false, status: 'active' as const, notes: '',
     }
 
-    await updateModel(id, { ...base, name: '葵', affiliation: '春' })
+    await updateModel(id, { ...base, name: '葵', affiliations: ['春'] })
     expect((await db.models.get(id))?.name).toBe('葵')
 
-    await expect(updateModel(id, { ...base, name: '葵', affiliation: '秋' })).rejects.toThrow(
+    await expect(updateModel(id, { ...base, name: '葵', affiliations: ['秋'] })).rejects.toThrow(
       '既に登録されています',
     )
   })

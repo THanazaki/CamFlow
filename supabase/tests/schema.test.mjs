@@ -690,6 +690,20 @@ console.log('\n[14] wishlist_models（撮影希望モデル）')
     : bad('cascade', `残り${left} / tombstone${tombs} / ログ${audited}`)
 }
 
+// ── 16. モデルの複数の所属 ───────────────────────────────────────────
+console.log('\n[16] models.sub_affiliations（メイン以外の所属）')
+{
+  const r = (await db.query(`
+    insert into public.models (user_id, name, affiliation) values ('${UA}', '所属テスト', 'フリー')
+    returning sub_affiliations`)).rows[0]
+  Array.isArray(r?.sub_affiliations) && r.sub_affiliations.length === 0
+    ? ok('既定は空の配列') : bad('sub_affiliations の既定', JSON.stringify(r))
+  await mustPass('メイン以外の所属を保存できる',
+    `update public.models set sub_affiliations = '{秋の撮影会,春の撮影会}' where name = '所属テスト'`)
+  await mustFail('NULL にはできない',
+    `update public.models set sub_affiliations = null where name = '所属テスト'`)
+}
+
 // ── 15. 撮影会マスタの拠点 ───────────────────────────────────────────
 console.log('\n[15] organizers.base_location（拠点）')
 {

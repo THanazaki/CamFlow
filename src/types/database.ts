@@ -52,6 +52,7 @@ export type Database = {
           contact_method: string | null
           contact_value: string | null
           affiliation: string | null
+          sub_affiliations: string[]
           tags: string[]
           rating: number | null
           is_favorite: boolean
@@ -71,6 +72,7 @@ export type Database = {
           contact_method?: string | null
           contact_value?: string | null
           affiliation?: string | null
+          sub_affiliations?: string[]
           tags?: string[]
           rating?: number | null
           is_favorite?: boolean
@@ -90,6 +92,7 @@ export type Database = {
           contact_method?: string | null
           contact_value?: string | null
           affiliation?: string | null
+          sub_affiliations?: string[]
           tags?: string[]
           rating?: number | null
           is_favorite?: boolean
