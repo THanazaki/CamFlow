@@ -5,7 +5,7 @@ import { useId, useState } from 'react'
 
 import { Field, inputClass } from '@/components/forms/ShootDetailsFields'
 import { ShootOptionTextFields } from '@/components/forms/ShootOptionsFields'
-import { ModelAccount } from '@/components/ModelAccount'
+import { ModelAccounts } from '@/components/ModelAccount'
 import { createWishlistModel, type WishlistInput } from '@/lib/actions/wishlist'
 import { getActiveUserId } from '@/lib/auth/session'
 import { loadSuggestions } from '@/lib/queries/reservations'
@@ -200,8 +200,7 @@ function WishlistCard({ row }: { row: WishlistRow }) {
     <li className="bg-surface border-border rounded-lg border p-4">
       <h3 className="flex flex-wrap items-center gap-x-2 gap-y-1 text-base font-medium">
         <span className="min-w-0 break-words">{row.modelName}</span>
-        {row.x && <ModelAccount href={row.x} label="X" />}
-        {row.instagram && <ModelAccount href={row.instagram} label="IG" />}
+        <ModelAccounts accounts={row.accounts} />
       </h3>
       {(row.eventName || row.costumeOptions || row.shootingMethodOptions) && (
         <dl className="text-muted mt-2 space-y-1 text-sm">

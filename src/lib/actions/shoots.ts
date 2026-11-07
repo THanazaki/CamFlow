@@ -305,6 +305,7 @@ export async function resolveModel(
     // サーバ側の既定は '{}'。ローカルで省くと pull で入るサーバ行と形が食い違う
     sub_affiliations: [],
     sns_links: {},
+    sns_accounts: [],
   })
   return { id, created: true }
 }

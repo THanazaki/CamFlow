@@ -14,8 +14,7 @@ function input(overrides: Partial<ModelInput> = {}): ModelInput {
   return {
     name: '栞奈',
     nameKana: '',
-    x: '',
-    instagram: '',
+    accounts: [],
     contactMethod: '',
     contactValue: '',
     affiliations: [''],
@@ -49,13 +48,15 @@ describe('モデルの編集', () => {
       input({
         name: ' 栞奈改 ',
         nameKana: ' かんな ',
-        x: ' @kanna ',
-        instagram: ' @kanna_ig ',
+        accounts: [
+          { service: 'x', value: ' @kanna ' },
+          { service: 'instagram', value: ' @kanna_ig ' },
+        ],
         contactMethod: ' LINE ',
         contactValue: ' kanna ',
         affiliations: [' 秋の撮影会 ', ' 春の撮影会 '],
         mainAffiliation: 1,
-        aliases: [' 旧名 '],
+        aliases: [{ name: ' 旧名 ', kana: ' きゅうめい ' }],
         isFavorite: true,
         status: 'inactive',
         notes: ' メモ ',
@@ -65,7 +66,10 @@ describe('モデルの編集', () => {
     expect(await db.models.get(id)).toMatchObject({
       name: '栞奈改',
       name_kana: 'かんな',
-      sns_links: { x: '@kanna', instagram: '@kanna_ig' },
+      sns_accounts: [
+        { service: 'x', value: '@kanna' },
+        { service: 'instagram', value: '@kanna_ig' },
+      ],
       contact_method: 'LINE',
       contact_value: 'kanna',
       affiliation: '春の撮影会',
@@ -75,6 +79,8 @@ describe('モデルの編集', () => {
       notes: 'メモ',
     })
     expect(await aliasesOf(id)).toEqual(['旧名'])
+    const [alias] = await db.model_former_names.where('model_id').equals(id).toArray()
+    expect(alias.name_kana).toBe('きゅうめい')
   })
 
   it('アバターURL・タグ・評価は変更しない', async () => {
@@ -117,14 +123,37 @@ describe('モデルの編集', () => {
     })
   })
 
-  it('空欄にしたアカウントは消し、X / Instagram 以外の SNS は残す', async () => {
-    const id = await addModel('栞奈', {
-      sns_links: { x: '@old', instagram: '@old_ig', tiktok: '@tt' },
-    })
+  it('アカウントは同じ種類でも複数保存でき、空欄と重複は除く。sns_links は書き換えない', async () => {
+    const id = await addModel('栞奈', { sns_links: { x: '@old' } })
 
-    await updateModel(id, input({ x: '@new' }))
+    await updateModel(
+      id,
+      input({
+        accounts: [
+          { service: 'x', value: '@main' },
+          { service: 'x', value: '@sub' },
+          { service: 'instagram', value: '  ' },
+          { service: 'x', value: '@MAIN' },
+          { service: 'other', value: 'https://example.com' },
+        ],
+      }),
+    )
 
-    expect((await db.models.get(id))?.sns_links).toEqual({ x: '@new', tiktok: '@tt' })
+    const model = await db.models.get(id)
+    expect(model?.sns_accounts).toEqual([
+      { service: 'x', value: '@main' },
+      { service: 'x', value: '@sub' },
+      { service: 'other', value: 'https://example.com' },
+    ])
+    expect(model?.sns_links).toEqual({ x: '@old' })
+  })
+
+  it('アカウントを全部消したら、古い sns_links は表示に出さない', async () => {
+    const id = await addModel('栞奈', { sns_links: { x: '@old' } })
+
+    await updateModel(id, input({ accounts: [] }))
+
+    expect((await loadModelDetail(id))?.accounts).toEqual([])
   })
 
   it('id / user_id / created_at は変えず、更新日時は進める', async () => {
@@ -155,11 +184,11 @@ describe('モデルの編集', () => {
 
     await expect(
       updateModel(id, input({ name: 'aoi', affiliations: ['フリー'] })),
-    ).resolves.toBeUndefined()
+    ).resolves.toBeDefined()
     await expect(
       updateModel(id, input({ name: '葵', affiliations: ['春', '秋の撮影会'] })),
     ).rejects.toThrow('「葵」（所属：秋の撮影会）は既に登録されています')
-    await expect(updateModel(id, input({ name: '葵', affiliations: ['春'] }))).resolves.toBeUndefined()
+    await expect(updateModel(id, input({ name: '葵', affiliations: ['春'] }))).resolves.toBeDefined()
   })
 
   it('所属なしどうしの同名はエラー', async () => {
@@ -217,10 +246,10 @@ describe('splitAffiliations', () => {
 describe('別名義', () => {
   it('追加・削除を入力どおりにし、空欄と重複は除く', async () => {
     const id = await addModel()
-    await updateModel(id, input({ aliases: ['A', 'B'] }))
+    await updateModel(id, input({ aliases: [{ name: 'A', kana: '' }, { name: 'B', kana: '' }] }))
     const kept = (await db.model_former_names.toArray()).find((a) => a.name === 'A')!
 
-    await updateModel(id, input({ aliases: ['A', '', 'C', 'c'] }))
+    await updateModel(id, input({ aliases: [{ name: 'A', kana: '' }, { name: '', kana: '' }, { name: 'C', kana: '' }, { name: 'c', kana: '' }] }))
 
     expect(await aliasesOf(id)).toEqual(['A', 'C'])
     // 残したものは作り直さない
@@ -230,7 +259,7 @@ describe('別名義', () => {
   it('別名義の変更を送信キューに積む', async () => {
     const id = await addModel()
 
-    await updateModel(id, input({ aliases: ['A'] }))
+    await updateModel(id, input({ aliases: [{ name: 'A', kana: '' }] }))
 
     const entries = await db._outbox.toArray()
     expect(entries.some((e) => e.table === 'model_former_names' && e.op === 'insert')).toBe(true)
@@ -238,11 +267,74 @@ describe('別名義', () => {
 
   it('全部消せる', async () => {
     const id = await addModel()
-    await updateModel(id, input({ aliases: ['A', 'B'] }))
+    await updateModel(id, input({ aliases: [{ name: 'A', kana: '' }, { name: 'B', kana: '' }] }))
 
     await updateModel(id, input({ aliases: [] }))
 
     expect(await aliasesOf(id)).toEqual([])
+  })
+  it('読みだけ変えたら、行を作り直さずに読みを更新する', async () => {
+    const id = await addModel()
+    await updateModel(id, input({ aliases: [{ name: 'A', kana: '' }] }))
+    const [before] = await db.model_former_names.toArray()
+    expect(before.name_kana).toBeNull()
+
+    await updateModel(id, input({ aliases: [{ name: 'A', kana: ' えー ' }] }))
+
+    const rows = await db.model_former_names.toArray()
+    expect(rows).toHaveLength(1)
+    expect(rows[0]).toMatchObject({ id: before.id, name_kana: 'えー' })
+  })
+})
+
+describe('所属から撮影会マスタへの登録', () => {
+  const organizerNames = async () =>
+    (await db.organizers.toArray()).filter((o) => !o.deleted_at).map((o) => o.name).sort()
+
+  it('撮影会マスタに無い所属を登録し、登録した名前を返す。「フリー」は登録しない', async () => {
+    const id = await addModel()
+    await createRow('organizers', { user_id: USER, name: '秋の撮影会', is_favorite: false })
+
+    const result = await updateModel(
+      id,
+      input({ affiliations: ['フリー', '秋の撮影会', ' 春の撮影会 '], mainAffiliation: 0 }),
+    )
+
+    expect(result.createdOrganizers).toEqual(['春の撮影会'])
+    expect(await organizerNames()).toEqual(['春の撮影会', '秋の撮影会'])
+    const created = (await db.organizers.toArray()).find((o) => o.name === '春の撮影会')
+    expect(created?.user_id).toBe(USER)
+  })
+
+  it('大文字小文字の違いだけなら同じ撮影会とみなす。2回目の保存では増えない', async () => {
+    const id = await addModel()
+    await createRow('organizers', { user_id: USER, name: 'Pista', is_favorite: false })
+
+    expect((await updateModel(id, input({ affiliations: ['pista', 'Nova'] }))).createdOrganizers)
+      .toEqual(['Nova'])
+    expect((await updateModel(id, input({ affiliations: ['pista', 'Nova'] }))).createdOrganizers)
+      .toEqual([])
+    expect(await organizerNames()).toEqual(['Nova', 'Pista'])
+  })
+
+  it('論理削除した撮影会と同じ名前なら、新しく登録する', async () => {
+    const id = await addModel()
+    const old = await createRow('organizers', { user_id: USER, name: '秋', is_favorite: false })
+    await softDeleteRow('organizers', old)
+
+    expect((await updateModel(id, input({ affiliations: ['秋'] }))).createdOrganizers).toEqual(['秋'])
+  })
+})
+
+describe('モデルアカウントの読み取り', () => {
+  it('sns_accounts を持たない古い行は sns_links から作る（X → Instagram → その他）', async () => {
+    const id = await addModel('栞奈', { sns_links: { tiktok: '@tt', instagram: '@ig', x: '@x', y: '' } })
+
+    expect((await loadModelDetail(id))?.accounts).toEqual([
+      { service: 'x', value: '@x' },
+      { service: 'instagram', value: '@ig' },
+      { service: 'tiktok', value: '@tt' },
+    ])
   })
 })
 
@@ -278,11 +370,14 @@ describe('モデルの詳細', () => {
       id,
       input({
         nameKana: 'かんな',
-        x: '@kanna',
+        accounts: [{ service: 'x', value: '@kanna' }],
         contactMethod: 'LINE',
         contactValue: 'kanna',
         affiliations: ['フリー', '秋'],
-        aliases: ['旧名A', '旧名B'],
+        aliases: [
+          { name: '旧名A', kana: 'きゅうめいえー' },
+          { name: '旧名B', kana: '' },
+        ],
         isFavorite: true,
         status: 'inactive',
         notes: 'メモ',
@@ -294,12 +389,15 @@ describe('モデルの詳細', () => {
       userId: USER,
       name: '栞奈',
       nameKana: 'かんな',
-      snsLinks: { x: '@kanna' },
+      accounts: [{ service: 'x', value: '@kanna' }],
       contactMethod: 'LINE',
       contactValue: 'kanna',
       affiliation: 'フリー',
       subAffiliations: ['秋'],
-      aliases: ['旧名A', '旧名B'],
+      aliases: [
+        { name: '旧名A', kana: 'きゅうめいえー' },
+        { name: '旧名B', kana: null },
+      ],
       isFavorite: true,
       status: 'inactive',
       notes: 'メモ',
@@ -328,7 +426,7 @@ describe('モデルの詳細', () => {
     await db.models.update(model.id, { sub_affiliations: undefined })
 
     expect(await loadModelDetail(model.id)).toMatchObject({
-      snsLinks: {},
+      accounts: [],
       subAffiliations: [],
       aliases: [],
       isFavorite: false,

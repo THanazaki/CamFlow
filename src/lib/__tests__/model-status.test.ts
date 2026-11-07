@@ -38,8 +38,7 @@ describe('モデルのステータス', () => {
     await updateModel(id, {
       name: '葵',
       nameKana: '',
-      x: '',
-      instagram: '',
+      accounts: [],
       contactMethod: '',
       contactValue: '',
       affiliations: [''],

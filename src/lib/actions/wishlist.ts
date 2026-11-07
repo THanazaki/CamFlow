@@ -1,4 +1,5 @@
 import { db } from '@/lib/db'
+import { cleanAccounts, readModelAccounts } from '@/lib/model-accounts'
 import { createRow, updateRow } from '@/lib/sync/mutations'
 import type { Json } from '@/types/database'
 
@@ -40,20 +41,24 @@ export async function createWishlistModel(userId: string, input: WishlistInput):
   })
 }
 
-/** 入力があった欄だけ上書きする。空欄で既存のアカウントを消さないため */
+/**
+ * 入力されたアカウントをモデルに足す。既に同じものがあれば何もしない。
+ * アカウントは複数持てるので、空欄でも違う値でも既存のアカウントは消さない
+ */
 async function saveModelAccounts(
   modelId: string,
   input: Pick<WishlistInput, 'modelX' | 'modelInstagram'>,
 ): Promise<void> {
   const model = await db.models.get(modelId)
-  const current = (model?.sns_links ?? {}) as Record<string, string>
-  const next = { ...current }
-  const x = input.modelX.trim()
-  const instagram = input.modelInstagram.trim()
-  if (x) next.x = x
-  if (instagram) next.instagram = instagram
+  if (!model) return
+  const current = readModelAccounts(model)
+  const next = cleanAccounts([
+    ...current,
+    { service: 'x', value: input.modelX },
+    { service: 'instagram', value: input.modelInstagram },
+  ])
 
-  if (JSON.stringify(next) !== JSON.stringify(current)) {
-    await updateRow('models', modelId, { sns_links: next as Json })
+  if (next.length !== current.length) {
+    await updateRow('models', modelId, { sns_accounts: next as unknown as Json })
   }
 }

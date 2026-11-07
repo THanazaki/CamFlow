@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useEffect, useState } from 'react'
 
 import { ShootOptionsFields } from '@/components/forms/ShootOptionsFields'
-import { ModelAccount } from '@/components/ModelAccount'
+import { ModelAccounts } from '@/components/ModelAccount'
 import { StorageUrlsField } from '@/components/forms/StorageUrlsField'
 import { saveShootOptions, saveStorageUrls, type ShootOptionsInput } from '@/lib/actions/shoots'
 import { feePaymentTimingLabel } from '@/lib/fee-payment'
@@ -145,8 +145,7 @@ function ShootCard({ shoot }: { shoot: ConfirmedShoot }) {
                 {shoot.models.map((m) => (
                   <span key={m.name} className="flex items-center gap-1.5">
                     <span>{m.name}</span>
-                    {m.x && <ModelAccount href={m.x} label="X" />}
-                    {m.instagram && <ModelAccount href={m.instagram} label="IG" />}
+                    <ModelAccounts accounts={m.accounts} />
                   </span>
                 ))}
               </span>

@@ -49,6 +49,7 @@ export type Database = {
           name_kana: string | null
           avatar_url: string | null
           sns_links: Json
+          sns_accounts: Json
           contact_method: string | null
           contact_value: string | null
           affiliation: string | null
@@ -69,6 +70,7 @@ export type Database = {
           name_kana?: string | null
           avatar_url?: string | null
           sns_links?: Json
+          sns_accounts?: Json
           contact_method?: string | null
           contact_value?: string | null
           affiliation?: string | null
@@ -89,6 +91,7 @@ export type Database = {
           name_kana?: string | null
           avatar_url?: string | null
           sns_links?: Json
+          sns_accounts?: Json
           contact_method?: string | null
           contact_value?: string | null
           affiliation?: string | null
@@ -697,6 +700,7 @@ export type Database = {
           user_id: string
           model_id: string
           name: string
+          name_kana: string | null
           used_from: string | null
           used_until: string | null
           created_at: string
@@ -707,6 +711,7 @@ export type Database = {
           user_id: string
           model_id: string
           name: string
+          name_kana?: string | null
           used_from?: string | null
           used_until?: string | null
           created_at?: string
@@ -717,6 +722,7 @@ export type Database = {
           user_id?: string
           model_id?: string
           name?: string
+          name_kana?: string | null
           used_from?: string | null
           used_until?: string | null
           created_at?: string

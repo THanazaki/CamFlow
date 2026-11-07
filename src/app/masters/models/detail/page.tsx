@@ -6,6 +6,7 @@ import { useSearchParams } from 'next/navigation'
 import { Suspense } from 'react'
 
 import { ModelAccount } from '@/components/ModelAccount'
+import { accountLabel } from '@/lib/model-accounts'
 import { modelStatusLabel } from '@/lib/model-status'
 import { loadModelDetail } from '@/lib/queries/models'
 
@@ -20,8 +21,6 @@ export default function ModelDetailPage() {
 function formatDateTime(iso: string): string {
   return new Date(iso).toLocaleString('ja-JP')
 }
-
-const SNS_LABELS: Record<string, string> = { x: 'X', instagram: 'Instagram' }
 
 /** モデルマスタの詳細 */
 function ModelDetailView() {
@@ -45,12 +44,6 @@ function ModelDetailView() {
       </div>
     )
   }
-
-  const snsEntries = [
-    'x',
-    'instagram',
-    ...Object.keys(model.snsLinks).filter((key) => key !== 'x' && key !== 'instagram'),
-  ]
 
   return (
     <div className="max-w-2xl space-y-6">
@@ -82,16 +75,31 @@ function ModelDetailView() {
         </Row>
         <Row label="モデル名">{model.name}</Row>
         <Row label="読み">{model.nameKana}</Row>
-        <Row label="別名義">{model.aliases.join('、')}</Row>
+        <Row label="別名義">
+          {model.aliases.length > 0 ? (
+            <ul className="space-y-0.5">
+              {model.aliases.map((a) => (
+                <li key={a.name}>
+                  {a.name}
+                  {a.kana && <span className="text-muted ml-1.5 text-xs">（{a.kana}）</span>}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </Row>
         <Row label="所属（メイン）">{model.affiliation}</Row>
         <Row label="その他の所属">{model.subAffiliations.join('、')}</Row>
-        {snsEntries.map((key) => (
-          <Row key={key} label={SNS_LABELS[key] ?? `SNS（${key}）`}>
-            {model.snsLinks[key] ? (
-              <ModelAccount href={model.snsLinks[key]} label={SNS_LABELS[key] ?? key} />
-            ) : null}
-          </Row>
-        ))}
+        <Row label="モデルアカウント">
+          {model.accounts.length > 0 ? (
+            <ul className="space-y-0.5">
+              {model.accounts.map((a, i) => (
+                <li key={`${a.service}-${i}`}>
+                  <ModelAccount href={a.value} label={accountLabel(a.service)} />
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </Row>
         <Row label="連絡手段">{model.contactMethod}</Row>
         <Row label="連絡先">{model.contactValue}</Row>
         <Row label="お気に入り">{model.isFavorite ? 'はい' : 'いいえ'}</Row>

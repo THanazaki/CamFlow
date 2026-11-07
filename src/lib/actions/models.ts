@@ -1,25 +1,39 @@
 import { db } from '@/lib/db'
+import { cleanAccounts, type ModelAccountEntry } from '@/lib/model-accounts'
 import type { SelectableModelStatus } from '@/lib/model-status'
 import { createRow, deleteRow, updateRow } from '@/lib/sync/mutations'
 import type { Json } from '@/types/database'
+
+import { FREE_AFFILIATION, resolveOrganizer } from './shoots'
 
 /** モデルマスタの編集の入力。入力欄の値のまま持つ */
 export interface ModelInput {
   name: string
   nameKana: string
-  x: string
-  instagram: string
+  /** モデルアカウント。空欄は無視する */
+  accounts: ModelAccountEntry[]
   contactMethod: string
   contactValue: string
   /** 所属。空欄は無視する */
   affiliations: string[]
   /** affiliations のうちメインにするものの位置 */
   mainAffiliation: number
-  /** 別名義。空欄は無視する */
-  aliases: string[]
+  /** 別名義と、その読み。名義が空欄の行は無視する */
+  aliases: AliasInput[]
   isFavorite: boolean
   status: SelectableModelStatus
   notes: string
+}
+
+export interface AliasInput {
+  name: string
+  kana: string
+}
+
+/** updateModel の結果 */
+export interface UpdateModelResult {
+  /** 所属から撮影会マスタに新しく登録した撮影会名 */
+  createdOrganizers: string[]
 }
 
 function normalize(name: string): string {
@@ -65,8 +79,9 @@ export function affiliationKeys(
 /**
  * モデルマスタの編集。
  * id / user_id / 作成・更新・削除の日時は変更しない。別名義は model_former_names に保存する。
+ * 所属に撮影会マスタに無い名前があれば、撮影会として登録する（「フリー」は除く）。
  */
-export async function updateModel(modelId: string, input: ModelInput): Promise<void> {
+export async function updateModel(modelId: string, input: ModelInput): Promise<UpdateModelResult> {
   const model = await db.models.get(modelId)
   if (!model || model.deleted_at) {
     throw new Error('モデルが見つかりませんでした')
@@ -99,21 +114,11 @@ export async function updateModel(modelId: string, input: ModelInput): Promise<v
     throw new Error(`「${name}」（所属：${label}）は既に登録されています`)
   }
 
-  // X / Instagram 以外の SNS は画面に欄が無いので、そのまま残す
-  const snsLinks = { ...((model.sns_links ?? {}) as Record<string, string>) }
-  for (const [key, value] of [
-    ['x', input.x],
-    ['instagram', input.instagram],
-  ] as const) {
-    const trimmed = value.trim()
-    if (trimmed) snsLinks[key] = trimmed
-    else delete snsLinks[key]
-  }
-
+  // sns_links は互換用（sns_accounts を持たない古い行の読み取り用）なので書き換えない
   await updateRow('models', modelId, {
     name,
     name_kana: input.nameKana.trim() || null,
-    sns_links: snsLinks as Json,
+    sns_accounts: cleanAccounts(input.accounts) as unknown as Json,
     contact_method: input.contactMethod.trim() || null,
     contact_value: input.contactValue.trim() || null,
     affiliation: main,
@@ -123,21 +128,63 @@ export async function updateModel(modelId: string, input: ModelInput): Promise<v
     notes: input.notes.trim() || null,
   })
 
-  await saveAliases(model.user_id, modelId, cleanList(input.aliases))
+  await saveAliases(model.user_id, modelId, cleanAliases(input.aliases))
+  const createdOrganizers = await registerOrganizers(model.user_id, [main, ...subs])
+  return { createdOrganizers }
 }
 
-/** 別名義を入力どおりにする。消えたものは削除し、増えたものを追加する */
-async function saveAliases(userId: string, modelId: string, aliases: string[]): Promise<void> {
+/** 所属のうち撮影会マスタに無いものを登録し、登録した名前を返す */
+async function registerOrganizers(
+  userId: string,
+  affiliations: (string | null)[],
+): Promise<string[]> {
+  const organizers = await db.organizers.toArray()
+  const known = new Set(organizers.filter((o) => !o.deleted_at).map((o) => normalize(o.name)))
+  const created: string[] = []
+  for (const affiliation of affiliations) {
+    if (!affiliation || normalize(affiliation) === normalize(FREE_AFFILIATION)) continue
+    if (known.has(normalize(affiliation))) continue
+    await resolveOrganizer(userId, affiliation)
+    known.add(normalize(affiliation))
+    created.push(affiliation)
+  }
+  return created
+}
+
+/** 名義の前後の空白、空欄、重複を除く（重複は先に書いた方を残す）。読みは空なら null */
+function cleanAliases(aliases: AliasInput[]): { name: string; kana: string | null }[] {
+  const names = cleanList(aliases.map((a) => a.name))
+  return names.map((name) => {
+    const source = aliases.find((a) => normalize(a.name) === normalize(name))
+    return { name, kana: source?.kana.trim() || null }
+  })
+}
+
+/** 別名義を入力どおりにする。消えたものは削除し、増えたものを追加し、読みが変わったものを更新する */
+async function saveAliases(
+  userId: string,
+  modelId: string,
+  aliases: { name: string; kana: string | null }[],
+): Promise<void> {
   const current = await db.model_former_names.where('model_id').equals(modelId).toArray()
-  const wanted = new Set(aliases)
+  const wanted = new Map(aliases.map((a) => [a.name, a.kana]))
 
   for (const row of current) {
-    if (!wanted.has(row.name)) await deleteRow('model_former_names', row.id)
+    if (!wanted.has(row.name)) {
+      await deleteRow('model_former_names', row.id)
+    } else if ((row.name_kana ?? null) !== wanted.get(row.name)) {
+      await updateRow('model_former_names', row.id, { name_kana: wanted.get(row.name) ?? null })
+    }
   }
   const kept = new Set(current.map((row) => row.name))
   for (const alias of aliases) {
-    if (!kept.has(alias)) {
-      await createRow('model_former_names', { user_id: userId, model_id: modelId, name: alias })
+    if (!kept.has(alias.name)) {
+      await createRow('model_former_names', {
+        user_id: userId,
+        model_id: modelId,
+        name: alias.name,
+        name_kana: alias.kana,
+      })
     }
   }
 }

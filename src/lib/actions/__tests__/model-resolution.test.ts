@@ -254,7 +254,7 @@ describe('モデルマスタの編集の重複チェック', () => {
     await createRow('models', { user_id: USER, name: '葵', affiliation: '秋', sns_links: {} })
     const id = await createRow('models', { user_id: USER, name: '栞奈', affiliation: '春', sns_links: {} })
     const base = {
-      nameKana: '', x: '', instagram: '', contactMethod: '', contactValue: '',
+      nameKana: '', accounts: [], contactMethod: '', contactValue: '',
       mainAffiliation: 0, aliases: [], isFavorite: false, status: 'active' as const, notes: '',
     }
 

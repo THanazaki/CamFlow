@@ -9,7 +9,7 @@ const ok = (name, extra = '') => { pass++; console.log(`  ✓ ${name}${extra ? '
 const bad = (name, err) => { fail++; console.log(`  ✗ ${name}\n      ${String(err).split('\n')[0]}`) }
 
 // ── Supabase 環境のスタブ（auth スキーマ / ロール / auth.uid()） ──────────
-await db.exec(`
+const SUPABASE_STUB = `
   create role anon;
   create role authenticated;
   create schema if not exists extensions;
@@ -32,7 +32,8 @@ await db.exec(`
     select nullif(current_setting('request.jwt.claims', true)::jsonb ->> 'sub', '')::uuid
   $$;
   grant usage on schema auth to anon, authenticated;
-`)
+`
+await db.exec(SUPABASE_STUB)
 
 // ── 1. マイグレーション適用 ───────────────────────────────────────────────
 console.log('\n[1] マイグレーション適用')
@@ -712,6 +713,50 @@ console.log('\n[15] organizers.base_location（拠点）')
     `insert into public.organizers (id, user_id, name, base_location) values ('${O}', '${UA}', '拠点テスト', '東京')`)
   await mustPass('拠点は省略できる',
     `insert into public.organizers (user_id, name) values ('${UA}', '拠点なしテスト')`)
+}
+
+// ── 17. モデルアカウントの複数登録・別名義の読み ─────────────────────
+console.log('\n[17] models.sns_accounts / model_former_names.name_kana')
+{
+  const r = (await db.query(`
+    insert into public.models (user_id, name, affiliation) values ('${UA}', 'アカウントテスト', '秋')
+    returning id, sns_accounts`)).rows[0]
+  Array.isArray(r?.sns_accounts) && r.sns_accounts.length === 0
+    ? ok('sns_accounts の既定は空の配列') : bad('sns_accounts の既定', JSON.stringify(r))
+  await mustPass('同じ種類のアカウントを複数保存できる',
+    `update public.models set sns_accounts = '[{"service":"x","value":"@a"},{"service":"x","value":"@b"}]'
+     where id = '${r.id}'`)
+  await mustFail('配列以外は入らない',
+    `update public.models set sns_accounts = '{"x":"@a"}' where id = '${r.id}'`)
+  await mustFail('NULL にはできない',
+    `update public.models set sns_accounts = null where id = '${r.id}'`)
+  await mustPass('別名義に読みを保存できる',
+    `insert into public.model_former_names (user_id, model_id, name, name_kana)
+     values ('${UA}', '${r.id}', '旧名', 'きゅうめい')`)
+  await mustPass('別名義の読みは省略できる',
+    `insert into public.model_former_names (user_id, model_id, name) values ('${UA}', '${r.id}', '旧名2')`)
+}
+
+// マイグレーションの移し替え: sns_links の内容を sns_accounts へ（X → Instagram → その他の順）
+{
+  const fresh = await PGlite.create()
+  await fresh.exec(SUPABASE_STUB)
+  const before = migrations.filter(f => f < '20261103002400')
+  try {
+    for (const f of before) await fresh.exec(readFileSync(`${DIR}/migrations/${f}`, 'utf8'))
+    const U = 'a9000000-0000-4000-8000-000000000001'
+    await fresh.exec(`insert into auth.users (id) values ('${U}');
+      insert into public.models (user_id, name, sns_links)
+      values ('${U}', '移行', '{"tiktok":"@tt","instagram":"@ig","x":" @x ","blank":""}')`)
+    await fresh.exec(readFileSync(`${DIR}/migrations/20261103002400_model_accounts_and_alias_kana.sql`, 'utf8'))
+    const got = (await fresh.query(`select sns_accounts from public.models where name = '移行'`)).rows[0].sns_accounts
+    const want = [{ service: 'x', value: '@x' }, { service: 'instagram', value: '@ig' }, { service: 'tiktok', value: '@tt' }]
+    // jsonb はキーの順を保たないので、種類と値の組で比べる
+    JSON.stringify(got.map(a => [a.service, a.value])) === JSON.stringify(want.map(a => [a.service, a.value]))
+      ? ok('既存の sns_links を sns_accounts に移す') : bad('sns_links の移し替え', JSON.stringify(got))
+  } catch (e) {
+    bad('sns_links の移し替え', e.message)
+  }
 }
 
 console.log(`\n${'─'.repeat(60)}\n結果: ${pass} 成功 / ${fail} 失敗`)

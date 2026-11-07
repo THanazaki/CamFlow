@@ -1,4 +1,5 @@
 import { db } from '@/lib/db'
+import { readModelAccounts, type ModelAccountEntry } from '@/lib/model-accounts'
 import { toSelectableModelStatus, type SelectableModelStatus } from '@/lib/model-status'
 
 /**
@@ -10,7 +11,8 @@ export interface ModelDetail {
   userId: string
   name: string
   nameKana: string | null
-  snsLinks: Record<string, string>
+  /** モデルアカウント。登録した順 */
+  accounts: ModelAccountEntry[]
   contactMethod: string | null
   contactValue: string | null
   /** メインの所属 */
@@ -18,7 +20,7 @@ export interface ModelDetail {
   /** メイン以外の所属 */
   subAffiliations: string[]
   /** 別名義（model_former_names）。登録した順 */
-  aliases: string[]
+  aliases: { name: string; kana: string | null }[]
   isFavorite: boolean
   /** ng（今後撮影しない）は休止・引退にそろえて返す */
   status: SelectableModelStatus
@@ -43,12 +45,12 @@ export async function loadModelDetail(id: string): Promise<ModelDetail | null> {
     userId: m.user_id,
     name: m.name,
     nameKana: m.name_kana ?? null,
-    snsLinks: (m.sns_links ?? {}) as Record<string, string>,
+    accounts: readModelAccounts(m),
     contactMethod: m.contact_method ?? null,
     contactValue: m.contact_value ?? null,
     affiliation: m.affiliation ?? null,
     subAffiliations: m.sub_affiliations ?? [],
-    aliases: aliases.map((a) => a.name),
+    aliases: aliases.map((a) => ({ name: a.name, kana: a.name_kana ?? null })),
     isFavorite: m.is_favorite ?? false,
     status: toSelectableModelStatus(m.status),
     notes: m.notes ?? null,

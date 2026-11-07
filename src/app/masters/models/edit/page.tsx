@@ -8,8 +8,12 @@ import { Suspense, useState } from 'react'
 import { ChoicePicker } from '@/components/forms/ChoicePicker'
 import { Field, inputClass } from '@/components/forms/ShootDetailsFields'
 import { updateModel, type ModelInput } from '@/lib/actions/models'
+import { ACCOUNT_SERVICES, type ModelAccountEntry } from '@/lib/model-accounts'
 import { MODEL_STATUSES } from '@/lib/model-status'
 import { loadModelDetail, type ModelDetail } from '@/lib/queries/models'
+
+/** inputClass の w-full を外したもの。幅を指定して並べる select 用 */
+const SELECT_CLASS = inputClass.replace('w-full', '')
 
 const SMALL_BUTTON =
   'border-border hover:bg-navy-50 shrink-0 rounded-md border px-3 py-2 text-sm dark:hover:bg-white/5'
@@ -53,14 +57,14 @@ function toFormValues(model: ModelDetail): ModelInput {
   return {
     name: model.name,
     nameKana: model.nameKana ?? '',
-    x: model.snsLinks.x ?? '',
-    instagram: model.snsLinks.instagram ?? '',
+    // 欄が1つも無いと入力できないので、空なら X の空欄を1つ出す
+    accounts: model.accounts.length > 0 ? model.accounts : [{ service: 'x', value: '' }],
     contactMethod: model.contactMethod ?? '',
     contactValue: model.contactValue ?? '',
     // 欄が1つも無いと入力できないので、空なら空欄を1つ出す
     affiliations: affiliations.length > 0 ? affiliations : [''],
     mainAffiliation: 0,
-    aliases: model.aliases,
+    aliases: model.aliases.map((a) => ({ name: a.name, kana: a.kana ?? '' })),
     isFavorite: model.isFavorite,
     status: model.status,
     notes: model.notes ?? '',
@@ -88,15 +92,29 @@ function ModelEditForm({ model }: { model: ModelDetail }) {
         index === f.mainAffiliation ? 0 : index < f.mainAffiliation ? f.mainAffiliation - 1 : f.mainAffiliation,
     }))
 
-  const setAlias = (index: number, value: string) =>
-    setForm((f) => ({ ...f, aliases: f.aliases.map((a, i) => (i === index ? value : a)) }))
+  const setAlias = (index: number, patch: Partial<ModelInput['aliases'][number]>) =>
+    setForm((f) => ({
+      ...f,
+      aliases: f.aliases.map((a, i) => (i === index ? { ...a, ...patch } : a)),
+    }))
+
+  const setAccount = (index: number, patch: Partial<ModelAccountEntry>) =>
+    setForm((f) => ({
+      ...f,
+      accounts: f.accounts.map((a, i) => (i === index ? { ...a, ...patch } : a)),
+    }))
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
     setSaving(true)
     try {
-      await updateModel(model.id, form)
+      const { createdOrganizers } = await updateModel(model.id, form)
+      if (createdOrganizers.length > 0) {
+        alert(
+          `撮影会マスタに${createdOrganizers.map((n) => `「${n}」`).join('')}を登録しました`,
+        )
+      }
       // 「戻る」で編集画面に戻らないよう、履歴を置き換える
       router.replace(`/masters/models/detail?id=${encodeURIComponent(model.id)}`)
     } catch (err) {
@@ -161,17 +179,30 @@ function ModelEditForm({ model }: { model: ModelDetail }) {
 
           <fieldset>
             <legend className="text-sm font-medium">別名義</legend>
-            <p className="text-muted mt-0.5 text-xs">改名前の名前や、別の活動名を登録します</p>
+            <p className="text-muted mt-0.5 text-xs">
+              改名前の名前や、別の活動名を登録します。読みは省略できます
+            </p>
             <div className="mt-1.5 space-y-2">
               {form.aliases.map((alias, i) => (
                 <div key={i} className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={alias}
-                    onChange={(e) => setAlias(i, e.target.value)}
-                    aria-label={`別名義 ${i + 1}`}
-                    className={inputClass}
-                  />
+                  <div className="grid min-w-0 flex-1 gap-2 sm:grid-cols-2">
+                    <input
+                      type="text"
+                      value={alias.name}
+                      onChange={(e) => setAlias(i, { name: e.target.value })}
+                      placeholder="別名義"
+                      aria-label={`別名義 ${i + 1}`}
+                      className={inputClass}
+                    />
+                    <input
+                      type="text"
+                      value={alias.kana}
+                      onChange={(e) => setAlias(i, { kana: e.target.value })}
+                      placeholder="読み（かんな）"
+                      aria-label={`別名義 ${i + 1} の読み`}
+                      className={inputClass}
+                    />
+                  </div>
                   <button
                     type="button"
                     onClick={() => set('aliases', form.aliases.filter((_, j) => j !== i))}
@@ -185,7 +216,7 @@ function ModelEditForm({ model }: { model: ModelDetail }) {
             </div>
             <button
               type="button"
-              onClick={() => set('aliases', [...form.aliases, ''])}
+              onClick={() => set('aliases', [...form.aliases, { name: '', kana: '' }])}
               className={`${SMALL_BUTTON} mt-2 py-1.5`}
             >
               別名義を追加
@@ -195,7 +226,7 @@ function ModelEditForm({ model }: { model: ModelDetail }) {
           <fieldset>
             <legend className="text-sm font-medium">所属</legend>
             <p className="text-muted mt-0.5 text-xs">
-              予約などの入力では、撮影会名がどれかの所属と一致すれば、このモデルとして扱います。メインの所属は一覧に表示されます
+              予約などの入力では、撮影会名がどれかの所属と一致すれば、このモデルとして扱います。メインの所属は一覧に表示されます。撮影会マスタに無い所属は、保存すると撮影会として登録します（「フリー」は除く）
             </p>
             <div className="mt-1.5 space-y-2" role="radiogroup" aria-label="メインの所属">
               {form.affiliations.map((affiliation, i) => (
@@ -214,7 +245,7 @@ function ModelEditForm({ model }: { model: ModelDetail }) {
                     type="text"
                     value={affiliation}
                     onChange={(e) => setAffiliation(i, e.target.value)}
-                    placeholder="撮影会名、事務所、フリー"
+                    placeholder="撮影会名、フリー"
                     aria-label={`所属 ${i + 1}`}
                     className={inputClass}
                   />
@@ -240,29 +271,57 @@ function ModelEditForm({ model }: { model: ModelDetail }) {
             </button>
           </fieldset>
 
-          <Field label="モデルアカウント" hint="URL か @ハンドルを入力します。空欄にすると削除します">
-            {(p) => (
-              <div className="grid gap-2 sm:grid-cols-2">
-                <input
-                  {...p}
-                  type="text"
-                  value={form.x}
-                  onChange={(e) => set('x', e.target.value)}
-                  placeholder="X: @example"
-                  aria-label="X アカウント"
-                  className={inputClass}
-                />
-                <input
-                  type="text"
-                  value={form.instagram}
-                  onChange={(e) => set('instagram', e.target.value)}
-                  placeholder="Instagram: @example"
-                  aria-label="Instagram アカウント"
-                  className={inputClass}
-                />
-              </div>
-            )}
-          </Field>
+          <fieldset>
+            <legend className="text-sm font-medium">モデルアカウント</legend>
+            <p className="text-muted mt-0.5 text-xs">
+              URL か @ハンドルを入力します。同じ種類のアカウントも複数登録できます
+            </p>
+            <div className="mt-1.5 space-y-2">
+              {form.accounts.map((account, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <select
+                    value={account.service}
+                    onChange={(e) => setAccount(i, { service: e.target.value })}
+                    aria-label={`アカウント ${i + 1} の種類`}
+                    className={`${SELECT_CLASS} w-28 shrink-0 sm:w-32`}
+                  >
+                    {ACCOUNT_SERVICES.map((s) => (
+                      <option key={s.value} value={s.value}>
+                        {s.label}
+                      </option>
+                    ))}
+                    {/* 移行前のデータにある種類（tiktok など）も選んだままにできるように */}
+                    {!ACCOUNT_SERVICES.some((s) => s.value === account.service) && (
+                      <option value={account.service}>{account.service}</option>
+                    )}
+                  </select>
+                  <input
+                    type="text"
+                    value={account.value}
+                    onChange={(e) => setAccount(i, { value: e.target.value })}
+                    placeholder="@example"
+                    aria-label={`アカウント ${i + 1}`}
+                    className={`${inputClass} min-w-0`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => set('accounts', form.accounts.filter((_, j) => j !== i))}
+                    aria-label={`アカウント ${i + 1} を削除`}
+                    className={SMALL_BUTTON}
+                  >
+                    削除
+                  </button>
+                </div>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => set('accounts', [...form.accounts, { service: 'x', value: '' }])}
+              className={`${SMALL_BUTTON} mt-2 py-1.5`}
+            >
+              アカウントを追加
+            </button>
+          </fieldset>
 
           <div className="grid gap-5 sm:grid-cols-2">
             <Field label="連絡手段">

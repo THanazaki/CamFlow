@@ -1,5 +1,6 @@
 import { db } from '@/lib/db'
 import type { FeePaymentTiming } from '@/lib/fee-payment'
+import { readModelAccounts, type ModelAccountEntry } from '@/lib/model-accounts'
 import type { PlaceCategory } from '@/lib/place-category'
 import { DEFAULT_SHOOT_CATEGORY, type ShootCategory } from '@/lib/shoot-category'
 import { isSlotFinished } from '@/lib/slot-time'
@@ -18,7 +19,7 @@ export interface ConfirmedShoot {
   shootDate: string
   startTime: string
   endTime: string
-  models: { name: string; x: string | null; instagram: string | null }[]
+  models: { name: string; accounts: ModelAccountEntry[] }[]
   /** 撮影料（円）。未入力は0 */
   shootFee: number
   costumeOptions: string | null
@@ -57,12 +58,6 @@ export interface ConfirmableReservation {
   paymentTiming: FeePaymentTiming | null
   paymentDate: string
   memo: string
-}
-
-function asRecord(value: unknown): Record<string, string> {
-  return value && typeof value === 'object' && !Array.isArray(value)
-    ? (value as Record<string, string>)
-    : {}
 }
 
 /** ローカル時刻の HH:mm */
@@ -154,9 +149,8 @@ export async function loadConfirmedShoots(now: Date = new Date()): Promise<Confi
   for (const sm of slotModels) {
     const model = modelMap.get(sm.model_id)
     if (!model) continue
-    const sns = asRecord(model.sns_links)
     const list = modelsBySlot.get(sm.slot_id) ?? []
-    list.push({ name: model.name, x: sns.x ?? null, instagram: sns.instagram ?? null })
+    list.push({ name: model.name, accounts: readModelAccounts(model) })
     modelsBySlot.set(sm.slot_id, list)
   }
 

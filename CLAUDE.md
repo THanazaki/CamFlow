@@ -84,8 +84,11 @@
 ### マスタ（4種）
 - `models`: モデルマスタ。**モデル名と所属（撮影会名）の組み合わせで見分ける**（撮影会ごとに同名の別人がいる）。
   予約・確定・過去撮影の入力で組み合わせが新しければ自動で登録する（`resolveModel`、`docs/仕様書.md` 8.12.2）。
-  所属はメイン（`affiliation`）とそれ以外（`sub_affiliations`）があり、照合ではどちらも見る
-  - `model_former_names`: モデルの別名義（子テーブル。画面では「別名義」）。現在の活動名は `models.name`
+  所属はメイン（`affiliation`）とそれ以外（`sub_affiliations`）があり、照合ではどちらも見る。
+  編集画面で撮影会マスタに無い所属を保存すると、撮影会マスタにも登録する（「フリー」は除く）
+  - モデルアカウントは `sns_accounts`（配列。同じ種類を複数持てる）。`sns_links` は古い行を読むための互換用で、
+    **読み書きは `src/lib/model-accounts.ts` を通す**
+  - `model_former_names`: モデルの別名義（子テーブル。画面では「別名義」）。読み（`name_kana`）を持つ。現在の活動名は `models.name`
 - `venues`: スタジオ / ロケ地マスタ。**`kind` カラムで区別**し、テーブルは分けていない
   （持つ項目が共通なため。分けると `sessions.venue_id` の参照先が2つになる）
 - `organizers`: 団体マスタ（撮影会の主催団体）
@@ -163,7 +166,7 @@
 - **開発サーバー起動**: `npm run dev`
 - **ビルド確認**: `npm run build`（Service Worker の生成を含む）
 - **オフライン動作確認**: `npm run build && npm start`（dev では SW が無効）
-- **テスト**: `npm test`（単体テスト261項目） / `npm run test:schema`（DBスキーマ129項目）
+- **テスト**: `npm test`（単体テスト267項目） / `npm run test:schema`（DBスキーマ137項目）
 - **型生成**: `npm run db:types`（要 Supabase ローカルスタック）
 
 ### 環境メモ

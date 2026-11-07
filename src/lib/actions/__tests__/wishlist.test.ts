@@ -45,12 +45,20 @@ describe('撮影希望モデル登録', () => {
     )
 
     const [model] = await db.models.toArray()
-    expect(model).toMatchObject({ name: '栞奈', sns_links: { x: '@kanna', instagram: '@kanna_ig' } })
+    expect(model).toMatchObject({
+      name: '栞奈',
+      sns_accounts: [
+        { service: 'x', value: '@kanna' },
+        { service: 'instagram', value: '@kanna_ig' },
+      ],
+    })
     expect(await loadWishlist()).toMatchObject([
       {
         modelName: '栞奈',
-        x: '@kanna',
-        instagram: '@kanna_ig',
+        accounts: [
+          { service: 'x', value: '@kanna' },
+          { service: 'instagram', value: '@kanna_ig' },
+        ],
         eventName: '秋の撮影会',
         costumeOptions: '浴衣',
         shootingMethodOptions: '動画撮影',
@@ -88,7 +96,7 @@ describe('撮影希望モデル登録', () => {
     expect((await loadWishlist())[0].modelName).toBe('Kanna')
   })
 
-  it('入力があったアカウントだけ上書きし、空欄では既存のアカウントを消さない', async () => {
+  it('入力したアカウントを既存のアカウントに足す。既存のものは消さない', async () => {
     await createRow('models', {
       user_id: USER,
       name: '栞奈',
@@ -98,7 +106,12 @@ describe('撮影希望モデル登録', () => {
     await createWishlistModel(USER, input({ modelX: '@new' }))
 
     const [model] = await db.models.toArray()
-    expect(model.sns_links).toEqual({ x: '@new', instagram: '@old_ig', tiktok: '@tt' })
+    expect(model.sns_accounts).toEqual([
+      { service: 'x', value: '@old' },
+      { service: 'instagram', value: '@old_ig' },
+      { service: 'tiktok', value: '@tt' },
+      { service: 'x', value: '@new' },
+    ])
   })
 
   it('アカウントに変更が無ければモデルを更新しない', async () => {
@@ -142,6 +155,6 @@ describe('撮影希望モデル登録', () => {
 
     const rows = await loadWishlist()
     expect(rows).toHaveLength(2)
-    expect(rows.every((r) => r.x === '@kanna')).toBe(true)
+    expect(rows.every((r) => r.accounts.some((a) => a.service === 'x' && a.value === '@kanna'))).toBe(true)
   })
 })
