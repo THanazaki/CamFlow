@@ -1,6 +1,7 @@
+import { db } from '@/lib/db'
 import { categoryHasModel, fallbackShootTitle } from '@/lib/shoot-category'
 import { normalizeStorageUrls } from '@/lib/storage-urls'
-import { createRow } from '@/lib/sync/mutations'
+import { createRow, deleteRow, updateRow } from '@/lib/sync/mutations'
 
 import { findVenue, resolveModel, type ShootDetailsInput } from './shoots'
 
@@ -23,10 +24,8 @@ export function localToday(now: Date = new Date()): string {
   return `${now.getFullYear()}-${month}-${day}`
 }
 
-export async function createShootHistory(
-  userId: string,
-  input: ShootHistoryInput,
-): Promise<{ historyId: string }> {
+/** 登録と編集で共通の処理。入力を検証してカラムに変換し、モデルをマスタと突き合わせる */
+async function prepareShootHistory(userId: string, input: ShootHistoryInput) {
   const hasModel = categoryHasModel(input.shootCategory)
   // 欄を隠す前の入力が残っていても、モデルを指定しない区分では使わない
   const modelName = hasModel ? input.modelName.trim() : ''
@@ -46,18 +45,32 @@ export async function createShootHistory(
   const modelId = hasModel ? await resolveModel(userId, modelName) : null
   const venue = await findVenue(venueName)
 
+  return {
+    modelId,
+    values: {
+      shoot_date: input.shootDate,
+      title: eventName || concept || fallbackShootTitle(input.shootCategory, modelName),
+      shoot_category: input.shootCategory,
+      concept: concept || null,
+      place_category: input.placeCategory,
+      venue_id: venue?.id ?? null,
+      venue_name: venueName || null,
+      storage_urls: storageUrls,
+    },
+  }
+}
+
+export async function createShootHistory(
+  userId: string,
+  input: ShootHistoryInput,
+): Promise<{ historyId: string }> {
+  const { modelId, values } = await prepareShootHistory(userId, input)
+
   const historyId = await createRow('shoot_history', {
     user_id: userId,
-    shoot_date: input.shootDate,
-    title: eventName || concept || fallbackShootTitle(input.shootCategory, modelName),
+    ...values,
     // NOT NULL + 既定値のカラムは、ローカル行とサーバ行の形をそろえるため明示する
     shoot_type: 'solo',
-    shoot_category: input.shootCategory,
-    concept: concept || null,
-    place_category: input.placeCategory,
-    venue_id: venue?.id ?? null,
-    venue_name: venueName || null,
-    storage_urls: storageUrls,
     venue_cost: 0,
     transport_cost: 0,
     entry_cost: 0,
@@ -67,14 +80,46 @@ export async function createShootHistory(
 
   // outbox は順に送信されるので、親 → 子の順に作れば FK の順序は保たれる
   if (modelId) {
-    await createRow('shoot_history_models', {
-      user_id: userId,
-      shoot_history_id: historyId,
-      model_id: modelId,
-      fee: 0,
-      payment_status: 'paid',
-    })
+    await addHistoryModel(userId, historyId, modelId)
   }
 
   return { historyId }
+}
+
+/** 過去撮影の編集。撮影情報検索の編集画面から呼ぶ */
+export async function updateShootHistory(
+  userId: string,
+  historyId: string,
+  input: ShootHistoryInput,
+): Promise<void> {
+  if (!(await db.shoot_history.get(historyId))) {
+    throw new Error('撮影が見つかりませんでした')
+  }
+  const { modelId, values } = await prepareShootHistory(userId, input)
+
+  await updateRow('shoot_history', historyId, values)
+
+  const links = await db.shoot_history_models.where('shoot_history_id').equals(historyId).toArray()
+  if (!modelId) {
+    for (const link of links) {
+      await deleteRow('shoot_history_models', link.id)
+    }
+  } else if (links.some((l) => l.model_id === modelId)) {
+    return
+  } else if (links.length === 1) {
+    // 紐づけを付け替える。作り直すとモデル料や納品の記録が消える
+    await updateRow('shoot_history_models', links[0].id, { model_id: modelId })
+  } else {
+    await addHistoryModel(userId, historyId, modelId)
+  }
+}
+
+async function addHistoryModel(userId: string, historyId: string, modelId: string): Promise<void> {
+  await createRow('shoot_history_models', {
+    user_id: userId,
+    shoot_history_id: historyId,
+    model_id: modelId,
+    fee: 0,
+    payment_status: 'paid',
+  })
 }

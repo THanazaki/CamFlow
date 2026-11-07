@@ -61,7 +61,7 @@ function asRecord(value: unknown): Record<string, string> {
 }
 
 /** ローカル時刻の HH:mm */
-function toTime(iso: string): string {
+export function toTime(iso: string): string {
   const d = new Date(iso)
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }

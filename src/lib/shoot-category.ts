@@ -22,6 +22,10 @@ export function categoryHasModel(category: ShootCategory): boolean {
   return findCategory(category).hasModel
 }
 
+export function shootCategoryLabel(category: ShootCategory): string {
+  return findCategory(category).label
+}
+
 /**
  * 撮影会名もコンセプトも無いときのタイトル。
  * モデルを指定しない区分では、モデル名の代わりに区分名を使う。

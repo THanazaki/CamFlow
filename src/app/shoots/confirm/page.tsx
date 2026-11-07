@@ -6,9 +6,9 @@ import { useId, useState } from 'react'
 
 import {
   EMPTY_SHOOT_DETAILS,
-  Field,
   inputClass,
   ShootDetailsFields,
+  ShootTimeFields,
 } from '@/components/forms/ShootDetailsFields'
 import {
   EMPTY_SHOOT_OPTIONS,
@@ -147,43 +147,7 @@ export default function ShootConfirmPage() {
         <section className="bg-surface border-border space-y-5 rounded-lg border p-5">
           <ShootDetailsFields values={form} onChange={setDetails} />
 
-          <div className="grid gap-4 sm:grid-cols-3">
-            <Field label="集合時刻">
-              {(p) => (
-                <input
-                  {...p}
-                  type="time"
-                  value={form.meetingTime}
-                  onChange={(e) => set('meetingTime', e.target.value)}
-                  className={inputClass}
-                />
-              )}
-            </Field>
-            <Field label="開始時刻" required>
-              {(p) => (
-                <input
-                  {...p}
-                  type="time"
-                  required
-                  value={form.startTime}
-                  onChange={(e) => set('startTime', e.target.value)}
-                  className={inputClass}
-                />
-              )}
-            </Field>
-            <Field label="終了時刻" required>
-              {(p) => (
-                <input
-                  {...p}
-                  type="time"
-                  required
-                  value={form.endTime}
-                  onChange={(e) => set('endTime', e.target.value)}
-                  className={inputClass}
-                />
-              )}
-            </Field>
-          </div>
+          <ShootTimeFields values={form} onChange={set} />
 
           <ShootOptionsFields
             values={form}

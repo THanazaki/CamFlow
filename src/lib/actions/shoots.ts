@@ -48,14 +48,18 @@ export interface ShootPaymentInput {
   paymentDate: string
 }
 
-export interface ShootConfirmInput extends ShootDetailsInput, ShootOptionsInput, ShootPaymentInput {
-  /** 予約から確定する場合はその session.id。新規なら空 */
-  fromSessionId: string
+/** 確定撮影情報入力と、確定した撮影の編集で共通の入力 */
+export interface ShootFormInput extends ShootDetailsInput, ShootOptionsInput, ShootPaymentInput {
   /** 集合時刻（HH:mm）。空欄可 */
   meetingTime: string
   /** 開始・終了時刻（HH:mm） */
   startTime: string
   endTime: string
+}
+
+export interface ShootConfirmInput extends ShootFormInput {
+  /** 予約から確定する場合はその session.id。新規なら空 */
+  fromSessionId: string
 }
 
 function normalize(name: string): string {
@@ -93,7 +97,7 @@ export function toFeePaymentColumns(input: ShootPaymentInput) {
 }
 
 /** 確定時に枠へ保存する、時刻以外の項目 */
-function toSlotDetailColumns(input: ShootConfirmInput) {
+function toSlotDetailColumns(input: ShootFormInput) {
   return {
     ...toShootOptionColumns(input),
     ...toFeePaymentColumns(input),
@@ -106,10 +110,8 @@ export function minutesBetween(date: string, start: string, end: string): number
   return Math.round(ms / 60_000)
 }
 
-export async function confirmShoot(
-  userId: string,
-  input: ShootConfirmInput,
-): Promise<{ sessionId: string; slotId: string }> {
+/** 確定と編集で共通の処理。入力を検証してカラムに変換し、モデルをマスタと突き合わせる */
+async function prepareShoot(userId: string, input: ShootFormInput) {
   const hasModel = categoryHasModel(input.shootCategory)
   // 欄を隠す前に入力した名前が残っていても、モデルを指定しない区分では使わない
   const modelName = hasModel ? input.modelName.trim() : ''
@@ -143,8 +145,6 @@ export async function confirmShoot(
     title: eventName || concept || fallbackShootTitle(input.shootCategory, modelName),
     session_date: input.shootDate,
     shoot_category: input.shootCategory,
-    // 予約が通った、または予約を通さず確定した撮影
-    status: 'confirmed' as const,
     concept: concept || null,
     venue_id: venue?.id ?? null,
     venue_name: venueName || null,
@@ -152,7 +152,26 @@ export async function confirmShoot(
     meeting_point: meetingPoint || null,
   }
 
-  const startAt = toIso(input.shootDate, input.startTime)
+  return {
+    modelId,
+    sessionValues,
+    startAt: toIso(input.shootDate, input.startTime),
+    minutes,
+    options,
+  }
+}
+
+export async function confirmShoot(
+  userId: string,
+  input: ShootConfirmInput,
+): Promise<{ sessionId: string; slotId: string }> {
+  const prepared = await prepareShoot(userId, input)
+  const { modelId, startAt, minutes, options } = prepared
+  const sessionValues = {
+    ...prepared.sessionValues,
+    // 予約が通った、または予約を通さず確定した撮影
+    status: 'confirmed' as const,
+  }
 
   // ── 予約から確定する ─────────────────────────────────────
   if (input.fromSessionId) {
@@ -246,6 +265,42 @@ export async function saveStorageUrls(slotId: string, urls: string[]): Promise<v
   await updateRow('slots', slotId, {
     storage_urls: normalizeStorageUrls(urls),
   })
+}
+
+/**
+ * 確定した撮影の編集。撮影情報検索の編集画面から呼ぶ。
+ * status は変えない。session の項目は同じ session の他の枠にも効く。
+ */
+export async function updateConfirmedShoot(
+  userId: string,
+  slotId: string,
+  input: ShootFormInput & { storageUrls: string[] },
+): Promise<void> {
+  const slot = await db.slots.get(slotId)
+  if (!slot) {
+    throw new Error('撮影が見つかりませんでした')
+  }
+  // モデルなどを作る前に検証する
+  const storageUrls = normalizeStorageUrls(input.storageUrls)
+  const { modelId, sessionValues, startAt, minutes, options } = await prepareShoot(userId, input)
+
+  await updateRow('sessions', slot.session_id, sessionValues)
+  await updateRow('slots', slotId, {
+    start_at: startAt,
+    planned_minutes: minutes,
+    storage_urls: storageUrls,
+    ...options,
+  })
+
+  const links = await db.slot_models.where('slot_id').equals(slotId).toArray()
+  if (!modelId) {
+    await removeSlotModels(slotId)
+  } else if (links.length === 1 && links[0].model_id !== modelId) {
+    // 紐づけを付け替える。作り直すとモデル料や納品の記録が消える
+    await updateRow('slot_models', links[0].id, { model_id: modelId })
+  } else {
+    await ensureSlotModel(userId, slotId, modelId)
+  }
 }
 
 /** 撮影料とオプションの更新。確定撮影情報画面から呼ぶ */

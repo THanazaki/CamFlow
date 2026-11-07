@@ -188,6 +188,55 @@ export function ShootDetailsFields({
   )
 }
 
+/** 集合・開始・終了時刻の入力欄。確定撮影情報入力と撮影情報の編集で共通 */
+export function ShootTimeFields({
+  values,
+  onChange,
+}: {
+  values: { meetingTime: string; startTime: string; endTime: string }
+  onChange: (key: 'meetingTime' | 'startTime' | 'endTime', value: string) => void
+}) {
+  return (
+    <div className="grid gap-4 sm:grid-cols-3">
+      <Field label="集合時刻">
+        {(p) => (
+          <input
+            {...p}
+            type="time"
+            value={values.meetingTime}
+            onChange={(e) => onChange('meetingTime', e.target.value)}
+            className={inputClass}
+          />
+        )}
+      </Field>
+      <Field label="開始時刻" required>
+        {(p) => (
+          <input
+            {...p}
+            type="time"
+            required
+            value={values.startTime}
+            onChange={(e) => onChange('startTime', e.target.value)}
+            className={inputClass}
+          />
+        )}
+      </Field>
+      <Field label="終了時刻" required>
+        {(p) => (
+          <input
+            {...p}
+            type="time"
+            required
+            value={values.endTime}
+            onChange={(e) => onChange('endTime', e.target.value)}
+            className={inputClass}
+          />
+        )}
+      </Field>
+    </div>
+  )
+}
+
 export const inputClass =
   'bg-background border-border focus:border-navy-500 focus:ring-navy-500/30 w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2'
 
