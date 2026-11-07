@@ -23,7 +23,7 @@ export default function HistoryStatsPage() {
         <>
           <StatsTable
             title="モデル別情報"
-            columns={['モデル名', '撮影会数', '初撮影日', '最新撮影日']}
+            columns={['モデル名', '撮影回数', '初撮影日', '最新撮影日']}
             rows={stats.models.map((m) => ({
               id: m.id,
               name: m.name,

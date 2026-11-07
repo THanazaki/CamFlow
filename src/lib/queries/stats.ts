@@ -6,7 +6,7 @@ import { loadShootArchive } from './archives'
 export interface ModelHistoryStat {
   id: string
   name: string
-  /** 撮影会数。撮影イベントの数で、同じイベントの枠は1回と数える */
+  /** 撮影回数。撮影イベントの数で、同じイベントの枠は1回と数える */
   shootCount: number
   firstDate: string
   lastDate: string
