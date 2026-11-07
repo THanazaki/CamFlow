@@ -54,7 +54,10 @@ export function splitAffiliations(
 }
 
 /** モデルの所属すべて（メイン + それ以外）。所属が無ければ空文字を1つ返す（一意制約と同じ扱い） */
-function affiliationKeys(main: string | null | undefined, subs: string[] | undefined): string[] {
+export function affiliationKeys(
+  main: string | null | undefined,
+  subs: string[] | undefined,
+): string[] {
   const all = [main ?? '', ...(subs ?? [])].map(normalize)
   return all.some(Boolean) ? all.filter(Boolean) : ['']
 }

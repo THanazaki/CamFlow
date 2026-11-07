@@ -107,7 +107,7 @@ function OrganizerEditForm({ organizer }: { organizer: OrganizerDetail }) {
           <Field
             label="撮影会名"
             required
-            hint="変更しても、登録済みの撮影のタイトルとモデルの所属は変わりません"
+            hint="変更すると、この撮影会を所属に持つモデルの所属も新しい名前に変わります。登録済みの撮影のタイトルは変わりません"
           >
             {(p) => (
               <input

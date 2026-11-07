@@ -138,7 +138,7 @@ describe('撮影会の編集', () => {
     expect((await db.organizers.get(id))?.name).toBe('削除済み')
   })
 
-  it('名前を変えても、撮影のタイトルとモデルの所属は変えない', async () => {
+  it('名前を変えると、モデルの所属は追従し、撮影のタイトルは変えない', async () => {
     const { sessionId } = await createReservation(USER, {
       eventName: '秋の撮影会',
       shootCategory: 'solo',
@@ -160,8 +160,133 @@ describe('撮影会の編集', () => {
     await updateOrganizer(organizer.id, input({ name: '名前を変えた撮影会' }))
 
     expect((await db.sessions.get(sessionId))?.title).toBe('秋の撮影会')
-    expect((await db.models.toArray())[0].affiliation).toBe('秋の撮影会')
+    expect((await db.models.toArray())[0].affiliation).toBe('名前を変えた撮影会')
     expect((await db.sessions.get(sessionId))?.organizer_id).toBe(organizer.id)
+  })
+})
+
+describe('撮影会名の変更とモデルの所属', () => {
+  function addModel(name: string, affiliation: string | null, subs: string[] = []) {
+    return createRow('models', {
+      user_id: USER,
+      name,
+      affiliation,
+      sub_affiliations: subs,
+      sns_links: {},
+    })
+  }
+  const affiliationsOf = async (id: string) => {
+    const m = await db.models.get(id)
+    return { main: m?.affiliation, subs: m?.sub_affiliations }
+  }
+
+  it('メインとその他の所属の両方を、大文字小文字の違いも含めて書き換える', async () => {
+    const id = await addOrganizer('Autumn')
+    const main = await addModel('葵', 'autumn', ['フリー'])
+    const sub = await addModel('栞奈', 'フリー', ['AUTUMN', '春'])
+    const other = await addModel('みなも', '春', ['フリー'])
+
+    await updateOrganizer(id, input({ name: '秋の撮影会' }))
+
+    expect(await affiliationsOf(main)).toEqual({ main: '秋の撮影会', subs: ['フリー'] })
+    expect(await affiliationsOf(sub)).toEqual({ main: 'フリー', subs: ['秋の撮影会', '春'] })
+    expect(await affiliationsOf(other)).toEqual({ main: '春', subs: ['フリー'] })
+  })
+
+  it('大文字小文字だけの変更でも、所属の表記をそろえる', async () => {
+    const id = await addOrganizer('autumn')
+    const model = await addModel('葵', 'autumn')
+
+    await updateOrganizer(id, input({ name: 'Autumn' }))
+
+    expect((await db.models.get(model))?.affiliation).toBe('Autumn')
+  })
+
+  it('書き換えで同じモデルの所属が重なったら、1つにまとめる', async () => {
+    const id = await addOrganizer('秋')
+    const mainKept = await addModel('葵', '春', ['秋'])
+    const subMerged = await addModel('栞奈', '秋', ['春', 'フリー'])
+
+    await updateOrganizer(id, input({ name: '春' }))
+
+    expect(await affiliationsOf(mainKept)).toEqual({ main: '春', subs: [] })
+    expect(await affiliationsOf(subMerged)).toEqual({ main: '春', subs: ['フリー'] })
+  })
+
+  it('書き換えると同じ名前・同じ所属のモデルができるなら、エラーにして何も変えない', async () => {
+    const id = await addOrganizer('秋')
+    const a = await addModel('葵', '秋')
+    const b = await addModel('葵', '春')
+    const outboxBefore = await db._outbox.count()
+
+    await expect(updateOrganizer(id, input({ name: '春', baseLocation: '東京' }))).rejects.toThrow(
+      'モデル「葵」の所属が他のモデルと重なります',
+    )
+
+    expect((await db.organizers.get(id))?.name).toBe('秋')
+    expect(await affiliationsOf(a)).toEqual({ main: '秋', subs: [] })
+    expect(await affiliationsOf(b)).toEqual({ main: '春', subs: [] })
+    expect(await db._outbox.count()).toBe(outboxBefore)
+  })
+
+  it('その他の所属どうしが重なる場合もエラー', async () => {
+    const id = await addOrganizer('秋')
+    await addModel('葵', 'フリー', ['秋'])
+    await addModel('葵', '事務所', ['春'])
+
+    await expect(updateOrganizer(id, input({ name: '春' }))).rejects.toThrow('所属が他のモデルと重なります')
+  })
+
+  it('名前が違うモデルどうしなら、所属が同じになっても問題ない', async () => {
+    const id = await addOrganizer('秋')
+    const a = await addModel('葵', '秋')
+    await addModel('栞奈', '春')
+
+    await updateOrganizer(id, input({ name: '春' }))
+
+    expect((await db.models.get(a))?.affiliation).toBe('春')
+  })
+
+  it('名前を変えなければモデルは更新しない。論理削除したモデルも変えない', async () => {
+    const id = await addOrganizer('秋')
+    const live = await addModel('葵', '秋')
+    const deleted = await addModel('栞奈', '秋')
+    await softDeleteRow('models', deleted)
+    const outboxBefore = await db._outbox.count()
+
+    await updateOrganizer(id, input({ name: '秋', baseLocation: '東京' }))
+    expect(await db._outbox.count()).toBe(outboxBefore + 1)
+
+    await updateOrganizer(id, input({ name: '冬' }))
+    expect((await db.models.get(live))?.affiliation).toBe('冬')
+    expect((await db.models.get(deleted))?.affiliation).toBe('秋')
+  })
+
+  it('所属を書き換えたモデルは、新しい撮影会名で予約しても同じモデルとして使う', async () => {
+    const id = await addOrganizer('秋')
+    const model = await addModel('葵', '秋')
+
+    await updateOrganizer(id, input({ name: '秋の撮影会' }))
+    const { newModelId } = await createReservation(USER, {
+      eventName: '秋の撮影会',
+      shootCategory: 'solo',
+      modelName: '葵',
+      concept: '',
+      venueName: '',
+      shootDate: '2026-12-20',
+      bookingOpensAt: '2026-11-20T20:00',
+      bookingMethod: 'page',
+      bookingContact: 'https://example.com',
+      shootFee: '',
+      costumeOptions: '',
+      shootingMethodOptions: '',
+      paymentTiming: null,
+      paymentDate: '',
+    })
+
+    expect(newModelId).toBeNull()
+    const [link] = await db.slot_models.toArray()
+    expect(link.model_id).toBe(model)
   })
 
   it('存在しない撮影会と論理削除した撮影会はエラー', async () => {
