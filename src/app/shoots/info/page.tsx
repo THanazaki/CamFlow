@@ -10,6 +10,7 @@ import { StorageUrlsField } from '@/components/forms/StorageUrlsField'
 import { saveShootOptions, saveStorageUrls, type ShootOptionsInput } from '@/lib/actions/shoots'
 import { feePaymentTimingLabel } from '@/lib/fee-payment'
 import { placeCategoryLabel } from '@/lib/place-category'
+import { shootRecordHref } from '@/lib/queries/archives'
 import { loadConfirmedShoots, type ConfirmedShoot } from '@/lib/queries/shoots'
 import { MAX_STORAGE_URLS, normalizeStorageUrls } from '@/lib/storage-urls'
 
@@ -40,7 +41,7 @@ export default function ShootInfoPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">確定撮影情報</h1>
           <p className="text-muted mt-1 text-sm">
-            確定した撮影の内容です。撮影料とオプションを編集でき、撮影後はここから保存先ストレージURLを登録してください。
+            確定した撮影の内容です。「編集」で日時・場所・モデル・オプションなどを修正できます。撮影後はここから保存先ストレージURLを登録してください。
           </p>
         </div>
         <Link
@@ -110,7 +111,16 @@ function ShootCard({ shoot }: { shoot: ConfirmedShoot }) {
               <p className="text-muted mt-0.5 truncate text-xs">{shoot.concept}</p>
             )}
           </div>
-          <StatusBadge shoot={shoot} />
+          <div className="flex shrink-0 items-center gap-2">
+            <StatusBadge shoot={shoot} />
+            <Link
+              href={`${shootRecordHref('edit', { source: 'slot', id: shoot.slotId })}&from=info`}
+              aria-label={`${shoot.title} を編集`}
+              className="tap-target border-border hover:bg-navy-50 rounded-md border px-3 py-1 text-xs whitespace-nowrap dark:hover:bg-white/5"
+            >
+              編集
+            </Link>
+          </div>
         </div>
 
         <dl className="text-muted mt-3 grid gap-x-6 gap-y-1.5 text-sm sm:grid-cols-2">

@@ -62,7 +62,11 @@ function ShootEdit() {
       </div>
     )
   }
-  return <ShootEditForm key={`${record.source}:${record.id}`} record={record} />
+  // 確定撮影情報から開いたときは、保存後に確定撮影情報へ戻る
+  const returnTo = params.get('from') === 'info' && source === 'slot' ? '/shoots/info' : null
+  return (
+    <ShootEditForm key={`${record.source}:${record.id}`} record={record} returnTo={returnTo} />
+  )
 }
 
 /** 空なら空欄を1つ出す */
@@ -92,7 +96,7 @@ function toFormValues(record: ShootRecord): ShootFormInput {
   }
 }
 
-function ShootEditForm({ record }: { record: ShootRecord }) {
+function ShootEditForm({ record, returnTo }: { record: ShootRecord; returnTo: string | null }) {
   const router = useRouter()
   const isSlot = record.source === 'slot'
 
@@ -128,7 +132,7 @@ function ShootEditForm({ record }: { record: ShootRecord }) {
         await updateShootHistory(userId, record.id, { ...form, storageUrls })
       }
       // 「戻る」で編集画面に戻らないよう、履歴を置き換える
-      router.replace(shootRecordHref('detail', record))
+      router.replace(returnTo ?? shootRecordHref('detail', record))
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
