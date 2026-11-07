@@ -2,7 +2,7 @@
 
 import { useLiveQuery } from 'dexie-react-hooks'
 import Link from 'next/link'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import { Suspense } from 'react'
 
 import { StorageUrlList } from '@/components/StorageUrlList'
@@ -22,7 +22,6 @@ function formatDateTime(iso: string): string {
 
 /** 撮影会マスタの詳細。全カラムの値を表示する */
 function OrganizerDetailView() {
-  const router = useRouter()
   const id = useSearchParams().get('id') ?? ''
   const organizer = useLiveQuery(() => loadOrganizerDetail(id), [id], 'loading' as const)
 
@@ -49,13 +48,13 @@ function OrganizerDetailView() {
       <header className="flex flex-wrap items-start justify-between gap-3">
         <h1 className="text-2xl font-semibold tracking-tight">撮影会の詳細</h1>
         <div className="flex shrink-0 gap-2">
-          <button
-            type="button"
-            onClick={() => router.back()}
+          {/* 編集から来た場合も含め、常に一覧へ戻る */}
+          <Link
+            href="/masters/organizers"
             className="border-border hover:bg-navy-50 rounded-md border px-4 py-2 text-sm dark:hover:bg-white/5"
           >
             戻る
-          </button>
+          </Link>
           <Link
             href={`/masters/organizers/edit?id=${encodeURIComponent(organizer.id)}`}
             className="bg-navy-900 hover:bg-navy-800 rounded-md px-4 py-2 text-sm font-medium text-white"
