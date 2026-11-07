@@ -20,6 +20,12 @@ declare const self: ServiceWorkerGlobalScope
 
 const serwist = new Serwist({
   precacheEntries: self.__SW_MANIFEST,
+  precacheOptions: {
+    // 詳細・編集の画面は /masters/models/edit?id=… のようにクエリで対象を渡す。
+    // 画面自体は同じ HTML（id はクライアントで読む）なので、precache の照合ではクエリを全て無視する。
+    // 既定（utm_* と fbclid だけ無視）のままだと、オフラインでこれらの画面が「オフラインです」になる
+    ignoreURLParametersMatching: [/.*/],
+  },
   skipWaiting: true,
   clientsClaim: true,
   navigationPreload: true,
