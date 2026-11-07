@@ -1,5 +1,6 @@
 import { clearLocalData, getMeta, setMeta } from '@/lib/db'
 import { getSupabase, isSupabaseConfigured } from '@/lib/supabase/client'
+import { DEMO_ACCOUNT_USER_ID } from '@/lib/auth/test-account'
 
 /**
  * 認証の唯一の境界。アプリ内で `supabase.auth` を直接触るのはこのファイルだけ。
@@ -109,6 +110,10 @@ export async function initAuth(): Promise<AuthState> {
   // すでに入っている（devtools で誰でも読める）ローカルデータだけ。
   const remembered = await getMeta<string>(USER_ID_KEY)
   if (remembered) {
+    // デモアカウントは、サンプルデータが入っていなければここでも入れる。
+    // サインインの時点で入れ損ねた場合（古い画面のままサインインした、投入の途中で閉じた等）に、
+    // 開き直すだけで直るように
+    await prepareDemoData(remembered)
     emit({
       status: 'authenticated',
       user: { id: remembered, email: null },
@@ -145,6 +150,14 @@ export async function applySession(accessToken: string, refreshToken: string): P
  * Supabase のユーザーではないので**同期はされない**。
  * サーバに送ろうとしても RLS で弾かれるため、データはこの端末に残るだけ。
  */
+/** デモアカウントなら、サンプルデータが入っていなければ入れる。それ以外のユーザーでは何もしない */
+export async function prepareDemoData(userId: string): Promise<void> {
+  if (userId !== DEMO_ACCOUNT_USER_ID) return
+  // サンプルデータの生成はデモアカウントでしか使わないので、必要になってから読み込む
+  const { seedDemoDataIfNeeded } = await import('@/lib/demo/seed')
+  await seedDemoDataIfNeeded(userId)
+}
+
 export async function applyLocalSession(
   userId: string,
   email: string,

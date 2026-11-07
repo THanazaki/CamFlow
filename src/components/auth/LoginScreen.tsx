@@ -3,7 +3,7 @@
 import { useId, useState } from 'react'
 
 import { getRecaptchaToken, isRecaptchaConfigured, RECAPTCHA_ENABLED } from '@/lib/auth/recaptcha'
-import { applyLocalSession, applySession } from '@/lib/auth/session'
+import { applyLocalSession, applySession, prepareDemoData } from '@/lib/auth/session'
 import { TEST_ACCOUNT_ENABLED } from '@/lib/auth/test-account'
 import { Logo } from '@/components/layout/Logo'
 
@@ -46,13 +46,8 @@ export function LoginScreen() {
       }
       // テスト・デモアカウント。Supabase を通さずローカルだけで入る
       if (json.localUser) {
-        const { id, email: name, demo } = json.localUser
-        await applyLocalSession(id, name, async () => {
-          if (!demo) return
-          // サンプルデータの生成はデモアカウントでしか使わないので、必要になってから読み込む
-          const { seedDemoDataIfNeeded } = await import('@/lib/demo/seed')
-          await seedDemoDataIfNeeded(id)
-        })
+        const { id, email: name } = json.localUser
+        await applyLocalSession(id, name, () => prepareDemoData(id))
         return
       }
       if (!json.session) {
