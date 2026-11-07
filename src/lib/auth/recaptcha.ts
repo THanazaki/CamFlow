@@ -5,7 +5,14 @@
  * アプリ全体の初期表示を重くしないため。
  */
 
-const SITE_KEY = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY
+/**
+ * reCAPTCHA を使うか。**一時的に外している。** 戻すときは true にする。
+ * false の間はスクリプトを読み込まず、ログイン画面の表示も出さず、サーバ側（/api/auth）の検証も省く。
+ * 鍵（NEXT_PUBLIC_RECAPTCHA_SITE_KEY / RECAPTCHA_SECRET_KEY）の設定はそのまま残してよい。
+ */
+export const RECAPTCHA_ENABLED = false
+
+const SITE_KEY = RECAPTCHA_ENABLED ? process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY : undefined
 
 interface Grecaptcha {
   ready: (cb: () => void) => void

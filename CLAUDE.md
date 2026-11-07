@@ -134,6 +134,8 @@
 - **`supabase.auth` を触るのは `src/lib/auth/session.ts` だけ。**
   メール＋パスワードのアカウント制。サインインするまで `AppShell` がアプリを出さない。
   RLS は有効なまま維持すること。
+- **reCAPTCHA は一時的に外している**（`src/lib/auth/recaptcha.ts` の `RECAPTCHA_ENABLED = false`）。
+  戻すときは `true` にする。
 - **サインイン／新規登録は `/api/auth` を経由する。** reCAPTCHA の秘密鍵は
   サーバにしか置けないため。Supabase Auth の CAPTCHA 連携は hCaptcha と
   Turnstile のみで reCAPTCHA に非対応なので、自前で検証している。

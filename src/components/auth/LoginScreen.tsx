@@ -2,7 +2,7 @@
 
 import { useId, useState } from 'react'
 
-import { getRecaptchaToken, isRecaptchaConfigured } from '@/lib/auth/recaptcha'
+import { getRecaptchaToken, isRecaptchaConfigured, RECAPTCHA_ENABLED } from '@/lib/auth/recaptcha'
 import { applyLocalSession, applySession } from '@/lib/auth/session'
 import { Logo } from '@/components/layout/Logo'
 
@@ -178,7 +178,11 @@ export function LoginScreen() {
             </div>
           )}
 
-          <p className="text-muted mt-4 text-center text-[11px] leading-relaxed">
+          {/* 一時的に外している間（RECAPTCHA_ENABLED = false）は出さない */}
+          <p
+            hidden={!RECAPTCHA_ENABLED}
+            className="text-muted mt-4 text-center text-[11px] leading-relaxed"
+          >
             {isRecaptchaConfigured() ? (
               <>
                 このサイトは reCAPTCHA で保護されています。Google の{' '}

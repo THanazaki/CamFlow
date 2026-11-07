@@ -1,6 +1,8 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 
+import { RECAPTCHA_ENABLED } from '@/lib/auth/recaptcha'
+
 /**
  * サインイン / サインアップ。
  *
@@ -57,6 +59,9 @@ function bad(message: string, status = 400) {
 }
 
 async function verifyCaptcha(token: string | undefined): Promise<string | null> {
+  // 一時的に外している間は、本番でも検証しない（lib/auth/recaptcha.ts の RECAPTCHA_ENABLED）
+  if (!RECAPTCHA_ENABLED) return null
+
   const secret = process.env.RECAPTCHA_SECRET_KEY
 
   if (!secret) {
