@@ -110,8 +110,15 @@ export function minutesBetween(date: string, start: string, end: string): number
   return Math.round(ms / 60_000)
 }
 
-/** 確定と編集で共通の処理。入力を検証してカラムに変換し、モデルをマスタと突き合わせる */
-async function prepareShoot(userId: string, input: ShootFormInput) {
+/**
+ * 確定と編集で共通の処理。入力を検証してカラムに変換し、モデルと撮影会をマスタと突き合わせる。
+ * current は更新する既存の session。
+ */
+async function prepareShoot(
+  userId: string,
+  input: ShootFormInput,
+  current?: EventOrganizerRow,
+) {
   const hasModel = categoryHasModel(input.shootCategory)
   // 欄を隠す前に入力した名前が残っていても、モデルを指定しない区分では使わない
   const modelName = hasModel ? input.modelName.trim() : ''
@@ -141,8 +148,11 @@ async function prepareShoot(userId: string, input: ShootFormInput) {
   // ── 場所 ─────────────────────────────────────────────────
   const venue = await findVenue(venueName)
 
+  const organizerId = await resolveEventOrganizer(userId, eventName, current)
+
   const sessionValues = {
     title: eventName || concept || fallbackShootTitle(input.shootCategory, modelName),
+    organizer_id: organizerId,
     session_date: input.shootDate,
     shoot_category: input.shootCategory,
     concept: concept || null,
@@ -165,7 +175,8 @@ export async function confirmShoot(
   userId: string,
   input: ShootConfirmInput,
 ): Promise<{ sessionId: string; slotId: string }> {
-  const prepared = await prepareShoot(userId, input)
+  const reservation = input.fromSessionId ? await db.sessions.get(input.fromSessionId) : undefined
+  const prepared = await prepareShoot(userId, input, reservation)
   const { modelId, startAt, minutes, options } = prepared
   const sessionValues = {
     ...prepared.sessionValues,
@@ -233,6 +244,41 @@ export async function resolveModel(userId: string, modelName: string): Promise<s
   })
 }
 
+/** 撮影会マスタの行を返す。空なら null。同名が無ければ作る */
+export async function resolveOrganizer(userId: string, name: string): Promise<string | null> {
+  const organizerName = name.trim()
+  if (!organizerName) return null
+
+  const organizers = await db.organizers.toArray()
+  const existing = organizers.find(
+    (o) => !o.deleted_at && normalize(o.name) === normalize(organizerName),
+  )
+  if (existing) return existing.id
+
+  return createRow('organizers', { user_id: userId, name: organizerName, is_favorite: false })
+}
+
+/** 撮影会名を持つ既存の行（sessions / shoot_history） */
+export interface EventOrganizerRow {
+  title: string
+  organizer_id: string | null
+}
+
+/**
+ * 撮影の入力に対応する撮影会を返す。
+ *
+ * 予約の選択や編集ではフォームに既存のタイトルが入る。撮影会名が未入力の撮影は
+ * 「葵 撮影」のような自動のタイトルなので、変更が無いときはマスタに登録しない。
+ */
+export async function resolveEventOrganizer(
+  userId: string,
+  eventName: string,
+  current?: EventOrganizerRow,
+): Promise<string | null> {
+  if (current && eventName === current.title) return current.organizer_id ?? null
+  return resolveOrganizer(userId, eventName)
+}
+
 async function removeSlotModels(slotId: string): Promise<void> {
   const rows = await db.slot_models.where('slot_id').equals(slotId).toArray()
   for (const row of rows) {
@@ -282,7 +328,12 @@ export async function updateConfirmedShoot(
   }
   // モデルなどを作る前に検証する
   const storageUrls = normalizeStorageUrls(input.storageUrls)
-  const { modelId, sessionValues, startAt, minutes, options } = await prepareShoot(userId, input)
+  const session = await db.sessions.get(slot.session_id)
+  const { modelId, sessionValues, startAt, minutes, options } = await prepareShoot(
+    userId,
+    input,
+    session,
+  )
 
   await updateRow('sessions', slot.session_id, sessionValues)
   await updateRow('slots', slotId, {

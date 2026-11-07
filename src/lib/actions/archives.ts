@@ -3,7 +3,13 @@ import { categoryHasModel, fallbackShootTitle } from '@/lib/shoot-category'
 import { normalizeStorageUrls } from '@/lib/storage-urls'
 import { createRow, deleteRow, updateRow } from '@/lib/sync/mutations'
 
-import { findVenue, resolveModel, type ShootDetailsInput } from './shoots'
+import {
+  findVenue,
+  resolveEventOrganizer,
+  resolveModel,
+  type EventOrganizerRow,
+  type ShootDetailsInput,
+} from './shoots'
 
 /**
  * 過去撮影登録の書き込み。
@@ -24,8 +30,15 @@ export function localToday(now: Date = new Date()): string {
   return `${now.getFullYear()}-${month}-${day}`
 }
 
-/** 登録と編集で共通の処理。入力を検証してカラムに変換し、モデルをマスタと突き合わせる */
-async function prepareShootHistory(userId: string, input: ShootHistoryInput) {
+/**
+ * 登録と編集で共通の処理。入力を検証してカラムに変換し、モデルと撮影会をマスタと突き合わせる。
+ * current は更新する既存の行。
+ */
+async function prepareShootHistory(
+  userId: string,
+  input: ShootHistoryInput,
+  current?: EventOrganizerRow,
+) {
   const hasModel = categoryHasModel(input.shootCategory)
   // 欄を隠す前の入力が残っていても、モデルを指定しない区分では使わない
   const modelName = hasModel ? input.modelName.trim() : ''
@@ -44,12 +57,14 @@ async function prepareShootHistory(userId: string, input: ShootHistoryInput) {
 
   const modelId = hasModel ? await resolveModel(userId, modelName) : null
   const venue = await findVenue(venueName)
+  const organizerId = await resolveEventOrganizer(userId, eventName, current)
 
   return {
     modelId,
     values: {
       shoot_date: input.shootDate,
       title: eventName || concept || fallbackShootTitle(input.shootCategory, modelName),
+      organizer_id: organizerId,
       shoot_category: input.shootCategory,
       concept: concept || null,
       place_category: input.placeCategory,
@@ -92,10 +107,11 @@ export async function updateShootHistory(
   historyId: string,
   input: ShootHistoryInput,
 ): Promise<void> {
-  if (!(await db.shoot_history.get(historyId))) {
+  const history = await db.shoot_history.get(historyId)
+  if (!history) {
     throw new Error('撮影が見つかりませんでした')
   }
-  const { modelId, values } = await prepareShootHistory(userId, input)
+  const { modelId, values } = await prepareShootHistory(userId, input, history)
 
   await updateRow('shoot_history', historyId, values)
 

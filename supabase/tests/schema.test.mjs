@@ -685,5 +685,15 @@ console.log('\n[14] wishlist_models（撮影希望モデル）')
     : bad('cascade', `残り${left} / tombstone${tombs} / ログ${audited}`)
 }
 
+// ── 15. 撮影会マスタの拠点 ───────────────────────────────────────────
+console.log('\n[15] organizers.base_location（拠点）')
+{
+  const O = 'c4000000-0000-4000-8000-0000000000aa'
+  await mustPass('拠点を保存できる',
+    `insert into public.organizers (id, user_id, name, base_location) values ('${O}', '${UA}', '拠点テスト', '東京')`)
+  await mustPass('拠点は省略できる',
+    `insert into public.organizers (user_id, name) values ('${UA}', '拠点なしテスト')`)
+}
+
 console.log(`\n${'─'.repeat(60)}\n結果: ${pass} 成功 / ${fail} 失敗`)
 process.exit(fail > 0 ? 1 : 0)

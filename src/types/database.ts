@@ -110,6 +110,7 @@ export type Database = {
           url: string | null
           contact: string | null
           notes: string | null
+          base_location: string | null
           is_favorite: boolean
           created_at: string
           updated_at: string
@@ -120,6 +121,7 @@ export type Database = {
           user_id: string
           name: string
           name_kana?: string | null
+          base_location?: string | null
           url?: string | null
           contact?: string | null
           notes?: string | null
@@ -133,6 +135,7 @@ export type Database = {
           user_id?: string
           name?: string
           name_kana?: string | null
+          base_location?: string | null
           url?: string | null
           contact?: string | null
           notes?: string | null

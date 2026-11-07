@@ -2,7 +2,7 @@ import { db } from '@/lib/db'
 import { createRow, updateRow } from '@/lib/sync/mutations'
 import type { Json } from '@/types/database'
 
-import { resolveModel, type ShootOptionsInput } from './shoots'
+import { resolveModel, resolveOrganizer, type ShootOptionsInput } from './shoots'
 
 /** 撮影希望モデル登録の入力。入力順は画面と同じ */
 export interface WishlistInput
@@ -26,6 +26,8 @@ export async function createWishlistModel(userId: string, input: WishlistInput):
 
   const modelId = await resolveModel(userId, modelName)
   await saveModelAccounts(modelId, input)
+  // 撮影希望には日付も枠も無いので撮影会への紐づけは持たず、マスタへの登録だけ行う
+  await resolveOrganizer(userId, input.eventName)
 
   return createRow('wishlist_models', {
     user_id: userId,

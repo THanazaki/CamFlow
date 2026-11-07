@@ -3,6 +3,7 @@ import { categoryHasModel, fallbackShootTitle, type ShootCategory } from '@/lib/
 import { createRow } from '@/lib/sync/mutations'
 
 import {
+  resolveOrganizer,
   toFeePaymentColumns,
   toShootOptionColumns,
   type ShootOptionsInput,
@@ -95,10 +96,12 @@ export async function createReservation(
   // 撮影会名があればそれがタイトル。無ければコンセプト、どちらも無ければモデル名か区分名から組む
   const eventName = input.eventName.trim()
   const title = eventName || concept || fallbackShootTitle(input.shootCategory, modelName)
+  const organizerId = await resolveOrganizer(userId, eventName)
 
   const sessionId = await createRow('sessions', {
     user_id: userId,
     title,
+    organizer_id: organizerId,
     session_date: input.shootDate,
     shoot_category: input.shootCategory,
     // 予約段階。可否が決まったら confirmed / cancelled になる
