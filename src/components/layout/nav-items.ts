@@ -16,7 +16,7 @@ export const NAV_ITEMS: NavItem[] = [
     children: [
       { href: '/reservations/new', label: '予約情報入力', ready: true },
       { href: '/reservations/schedule', label: '予約スケジュール', ready: true },
-      { href: '/reservations/wishlist', label: '撮影希望モデル登録', ready: false },
+      { href: '/reservations/wishlist', label: '撮影希望モデル登録', ready: true },
       { href: '/reservations/analysis', label: '予約成否分析', ready: false },
     ],
   },

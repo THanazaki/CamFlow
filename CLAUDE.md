@@ -95,6 +95,7 @@
   （1枠に複数モデルが入りうるため、支払い・納品は枠ではなくこちらに持つ）
 - `shoot_history` / `shoot_history_models`: 遡及登録した過去の撮影。1行 = 1回の撮影。
   タイマー系カラムと枠番号は持たない
+- `wishlist_models`: 撮影希望モデル。予約になる前の控えで、日付や枠は持たない
 - `sync_tombstones`: オフライン同期用の物理削除ログ
 - `audit_logs`: DB 操作ログ。トリガだけが書き込み、端末には同期しない
 
@@ -153,7 +154,7 @@
 - **開発サーバー起動**: `npm run dev`
 - **ビルド確認**: `npm run build`（Service Worker の生成を含む）
 - **オフライン動作確認**: `npm run build && npm start`（dev では SW が無効）
-- **テスト**: `npm test`（単体テスト94項目） / `npm run test:schema`（DBスキーマ112項目）
+- **テスト**: `npm test`（単体テスト105項目） / `npm run test:schema`（DBスキーマ119項目）
 - **型生成**: `npm run db:types`（要 Supabase ローカルスタック）
 
 ### 環境メモ

@@ -726,6 +726,47 @@ export type Database = {
           },
         ]
       }
+      wishlist_models: {
+        Row: {
+          id: string
+          user_id: string
+          model_id: string
+          event_name: string | null
+          costume_options: string | null
+          shooting_method_options: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          model_id: string
+          event_name?: string | null
+          costume_options?: string | null
+          shooting_method_options?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          model_id?: string
+          event_name?: string | null
+          costume_options?: string | null
+          shooting_method_options?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'wishlist_models_model_id_fkey'
+            columns: ['model_id']
+            isOneToOne: false
+            referencedRelation: 'models'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       audit_logs: {
         Row: {
           id: number

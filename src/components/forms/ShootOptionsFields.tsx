@@ -90,6 +90,21 @@ export function ShootOptionsFields({
         {feeAside}
       </div>
 
+      <ShootOptionTextFields values={values} onChange={onChange} />
+    </>
+  )
+}
+
+/** 衣装系・撮影方法オプションの入力欄。撮影希望モデル登録でも使う */
+export function ShootOptionTextFields({
+  values,
+  onChange,
+}: {
+  values: Pick<ShootOptionsInput, 'costumeOptions' | 'shootingMethodOptions'>
+  onChange: (key: 'costumeOptions' | 'shootingMethodOptions', value: string) => void
+}) {
+  return (
+    <>
       <Field label="衣装系オプション">
         {(p) => (
           <input

@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useState } from 'react'
 
 import { ShootOptionsFields } from '@/components/forms/ShootOptionsFields'
+import { ModelAccount } from '@/components/ModelAccount'
 import { StorageUrlsField } from '@/components/forms/StorageUrlsField'
 import { saveShootOptions, saveStorageUrls, type ShootOptionsInput } from '@/lib/actions/shoots'
 import { feePaymentTimingLabel } from '@/lib/fee-payment'
@@ -137,8 +138,8 @@ function ShootCard({ shoot }: { shoot: ConfirmedShoot }) {
                 {shoot.models.map((m) => (
                   <span key={m.name} className="flex items-center gap-1.5">
                     <span>{m.name}</span>
-                    {m.x && <Account href={m.x} label="X" />}
-                    {m.instagram && <Account href={m.instagram} label="IG" />}
+                    {m.x && <ModelAccount href={m.x} label="X" />}
+                    {m.instagram && <ModelAccount href={m.instagram} label="IG" />}
                   </span>
                 ))}
               </span>
@@ -272,20 +273,3 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
   )
 }
 
-function Account({ href, label }: { href: string; label: string }) {
-  // アカウント欄には URL ではなく @ハンドルだけ入っていることもある
-  const isUrl = /^https?:\/\//.test(href)
-  if (!isUrl) {
-    return <span className="text-muted text-xs">{label}: {href}</span>
-  }
-  return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="text-navy-600 dark:text-navy-200 text-xs underline underline-offset-2"
-    >
-      {label}
-    </a>
-  )
-}

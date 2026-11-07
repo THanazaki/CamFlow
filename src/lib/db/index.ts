@@ -11,6 +11,7 @@ import type {
   LocalShootHistoryModel,
   LocalSlotModel,
   LocalVenue,
+  LocalWishlistModel,
   MetaRow,
   OutboxEntry,
   SyncTable,
@@ -26,6 +27,7 @@ export class CamFlowDB extends Dexie {
   organizers!: EntityTable<LocalOrganizer, 'id'>
   models!: EntityTable<LocalModel, 'id'>
   model_former_names!: EntityTable<LocalModelFormerName, 'id'>
+  wishlist_models!: EntityTable<LocalWishlistModel, 'id'>
   sessions!: EntityTable<LocalSession, 'id'>
   slots!: EntityTable<LocalSlot, 'id'>
   slot_models!: EntityTable<LocalSlotModel, 'id'>
@@ -59,6 +61,10 @@ export class CamFlowDB extends Dexie {
     // 指定しなかったストアは v1 のまま残り、既存のデータも消えない
     this.version(2).stores({
       model_former_names: 'id, user_id, model_id, name, updated_at, _dirty',
+    })
+
+    this.version(3).stores({
+      wishlist_models: 'id, user_id, model_id, updated_at, _dirty',
     })
   }
 

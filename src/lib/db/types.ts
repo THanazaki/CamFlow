@@ -14,6 +14,7 @@ export const SYNC_TABLES = [
   'organizers',
   'models',
   'model_former_names',
+  'wishlist_models',
   'sessions',
   'slots',
   'slot_models',
@@ -34,6 +35,7 @@ export type LocalVenue = LocalRow<'venues'>
 export type LocalOrganizer = LocalRow<'organizers'>
 export type LocalModel = LocalRow<'models'>
 export type LocalModelFormerName = LocalRow<'model_former_names'>
+export type LocalWishlistModel = LocalRow<'wishlist_models'>
 export type LocalSession = LocalRow<'sessions'>
 export type LocalSlot = LocalRow<'slots'>
 export type LocalSlotModel = LocalRow<'slot_models'>

@@ -650,5 +650,40 @@ console.log('\n[13] slots の撮影料とオプション')
     `update public.slots set meeting_at = now() where id = '${SLOT}'`)
 }
 
+// ── 14. 撮影希望モデル ───────────────────────────────────────────────
+console.log('\n[14] wishlist_models（撮影希望モデル）')
+{
+  const M = 'c3000000-0000-4000-8000-0000000000aa'
+  const wish = (user = UA, model = M) =>
+    `insert into public.wishlist_models (user_id, model_id, event_name, costume_options, shooting_method_options)
+     values ('${user}', '${model}', '秋の撮影会', '浴衣', '動画撮影')`
+  await db.exec(`insert into public.models (id, user_id, name) values ('${M}', '${UA}', '撮影希望のモデル')`)
+
+  await mustPass('同じモデルを複数登録できる', `${wish()}; ${wish()}`)
+  await mustPass('モデル以外は省略できる',
+    `insert into public.wishlist_models (user_id, model_id) values ('${UA}', '${M}')`)
+  await mustFail('他ユーザーのモデルへの登録', wish(UB))
+  await mustFail('存在しないモデルへの登録', wish(UA, 'c3000000-0000-4000-8000-0000000000ff'))
+
+  await db.exec(`set role authenticated; select set_config('request.jwt.claims', '{"sub":"${UB}"}', false);`)
+  const otherSees = (await db.query(`select count(*)::int n from public.wishlist_models`)).rows[0].n
+  await db.exec(`select set_config('request.jwt.claims', '{"sub":"${UA}"}', false);`)
+  const ownerSees = (await db.query(`select count(*)::int n from public.wishlist_models`)).rows[0].n
+  await db.exec(`reset role`)
+  otherSees === 0 && ownerSees === 3
+    ? ok('撮影希望は本人だけが読める') : bad('撮影希望の RLS', `他人${otherSees}件 / 本人${ownerSees}件`)
+
+  await db.exec(`delete from public.models where id = '${M}'`)
+  const left = (await db.query(`select count(*)::int n from public.wishlist_models where model_id = '${M}'`)).rows[0].n
+  const tombs = (await db.query(`
+    select count(*)::int n from public.sync_tombstones where table_name = 'wishlist_models'`)).rows[0].n
+  const audited = (await db.query(`
+    select count(*)::int n from public.audit_logs
+    where table_name = 'wishlist_models' and operation = 'DELETE'`)).rows[0].n
+  left === 0 && tombs === 3 && audited === 3
+    ? ok('モデルの物理削除で撮影希望も消え、tombstone とログが残る')
+    : bad('cascade', `残り${left} / tombstone${tombs} / ログ${audited}`)
+}
+
 console.log(`\n${'─'.repeat(60)}\n結果: ${pass} 成功 / ${fail} 失敗`)
 process.exit(fail > 0 ? 1 : 0)

@@ -9,6 +9,7 @@ const SECTIONS = [
   { id: 'flow', title: '全体の流れ' },
   { id: 'account', title: 'サインイン' },
   { id: 'dashboard', title: 'ダッシュボード' },
+  { id: 'wishlist', title: '撮影したいモデルを控える' },
   { id: 'reservation', title: '予約を管理する' },
   { id: 'shoot', title: '撮影を確定する' },
   { id: 'data', title: '撮影後にデータを登録する' },
@@ -101,6 +102,25 @@ export default function GuidePage() {
             ['直近の撮影済みデータ', '過去撮影登録で登録した撮影など。最大10件です。'],
           ]}
         />
+      </Section>
+
+      <Section id="wishlist">
+        <p>
+          <ScreenLink href="/reservations/wishlist">撮影希望モデル登録</ScreenLink>
+          で、撮影してみたいモデルを控えておけます。登録したものはフォームの下に新しい順で並びます。予約とはまだ連動しません。
+        </p>
+        <Definitions
+          items={[
+            ['必須', 'モデル名'],
+            ['任意', '撮影会名、モデルアカウント（X、Instagram）、衣装系オプション、撮影方法オプション'],
+          ]}
+        />
+        <ul className="list-disc space-y-1 pl-5">
+          <li>同じモデルを、撮影会やオプションを変えて複数登録できます。</li>
+          <li>
+            モデルアカウントはモデルマスタに保存され、確定撮影情報のモデル欄にも表示されます。空欄のまま登録しても、保存済みのアカウントは消えません。
+          </li>
+        </ul>
       </Section>
 
       <Section id="reservation">
@@ -252,9 +272,10 @@ export default function GuidePage() {
           </li>
           <li>落選やキャンセルの記録</li>
           <li>モデル料の入力と支払いの記録</li>
-          <li>モデルマスタでの登録・編集（所属やSNSアカウントの入力を含む）</li>
+          <li>撮影希望モデルの編集・削除</li>
+          <li>モデルマスタでの登録・編集（所属の入力を含む）</li>
           <li>
-            メニューで「準備中」と表示されている画面の利用（撮影希望モデル登録、予約成否分析、撮影情報検索、統計情報、撮影会マスタ、ロケ地・スタジオマスタ、通知設定、アカウント設定）
+            メニューで「準備中」と表示されている画面の利用（予約成否分析、撮影情報検索、統計情報、撮影会マスタ、ロケ地・スタジオマスタ、通知設定、アカウント設定）
           </li>
         </ul>
         <Note>
