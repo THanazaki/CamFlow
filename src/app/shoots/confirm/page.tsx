@@ -10,6 +10,7 @@ import {
   inputClass,
   ShootDetailsFields,
 } from '@/components/forms/ShootDetailsFields'
+import { ChoicePicker } from '@/components/forms/ChoicePicker'
 import { EMPTY_SHOOT_OPTIONS, ShootOptionsFields } from '@/components/forms/ShootOptionsFields'
 import {
   confirmShoot,
@@ -18,14 +19,18 @@ import {
   type ShootOptionsInput,
 } from '@/lib/actions/shoots'
 import { getActiveUserId } from '@/lib/auth/session'
+import { FEE_PAYMENT_TIMINGS, feePaymentHasDate } from '@/lib/fee-payment'
 import { loadConfirmableReservations } from '@/lib/queries/shoots'
 
 const EMPTY: ShootConfirmInput = {
   ...EMPTY_SHOOT_DETAILS,
   ...EMPTY_SHOOT_OPTIONS,
   fromSessionId: '',
+  meetingTime: '',
   startTime: '',
   endTime: '',
+  paymentTiming: null,
+  paymentDate: '',
 }
 
 export default function ShootConfirmPage() {
@@ -131,7 +136,18 @@ export default function ShootConfirmPage() {
         <section className="bg-surface border-border space-y-5 rounded-lg border p-5">
           <ShootDetailsFields values={form} onChange={setDetails} />
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-3">
+            <Field label="集合時刻">
+              {(p) => (
+                <input
+                  {...p}
+                  type="time"
+                  value={form.meetingTime}
+                  onChange={(e) => set('meetingTime', e.target.value)}
+                  className={inputClass}
+                />
+              )}
+            </Field>
             <Field label="開始時刻" required>
               {(p) => (
                 <input
@@ -158,7 +174,39 @@ export default function ShootConfirmPage() {
             </Field>
           </div>
 
-          <ShootOptionsFields values={form} onChange={setOptions} />
+          <ShootOptionsFields
+            values={form}
+            onChange={setOptions}
+            feeAside={
+              <div className="space-y-4">
+                <Field label="支払方法">
+                  {(p) => (
+                    <ChoicePicker
+                      id={p.id}
+                      name="paymentTiming"
+                      label="支払方法"
+                      options={FEE_PAYMENT_TIMINGS}
+                      value={form.paymentTiming}
+                      onChange={(v) => set('paymentTiming', v)}
+                    />
+                  )}
+                </Field>
+                {feePaymentHasDate(form.paymentTiming) && (
+                  <Field label="支払日">
+                    {(p) => (
+                      <input
+                        {...p}
+                        type="date"
+                        value={form.paymentDate}
+                        onChange={(e) => set('paymentDate', e.target.value)}
+                        className={inputClass}
+                      />
+                    )}
+                  </Field>
+                )}
+              </div>
+            }
+          />
         </section>
 
         <div className="flex flex-wrap items-center gap-3">

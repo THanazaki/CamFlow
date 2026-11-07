@@ -1,4 +1,5 @@
 import { db } from '@/lib/db'
+import { feePaymentHasDate, type FeePaymentTiming } from '@/lib/fee-payment'
 import { categoryHasMeetingPoint, type PlaceCategory } from '@/lib/place-category'
 import { categoryHasModel, fallbackShootTitle, type ShootCategory } from '@/lib/shoot-category'
 import { normalizeStorageUrls } from '@/lib/storage-urls'
@@ -42,9 +43,15 @@ const MAX_SHOOT_FEE = 9_999_999_999
 export interface ShootConfirmInput extends ShootDetailsInput, ShootOptionsInput {
   /** 予約から確定する場合はその session.id。新規なら空 */
   fromSessionId: string
+  /** 集合時刻（HH:mm）。空欄可 */
+  meetingTime: string
   /** 開始・終了時刻（HH:mm） */
   startTime: string
   endTime: string
+  /** 撮影料の支払方法。null は未選択 */
+  paymentTiming: FeePaymentTiming | null
+  /** 支払日（YYYY-MM-DD）。事前以外では無視する */
+  paymentDate: string
 }
 
 function normalize(name: string): string {
@@ -70,6 +77,17 @@ function toShootOptionColumns(input: ShootOptionsInput) {
     booking_fee: bookingFee,
     costume_options: input.costumeOptions.trim() || null,
     shooting_method_options: input.shootingMethodOptions.trim() || null,
+  }
+}
+
+/** 確定時に枠へ保存する、時刻以外の項目 */
+function toSlotDetailColumns(input: ShootConfirmInput) {
+  return {
+    ...toShootOptionColumns(input),
+    meeting_at: input.meetingTime ? toIso(input.shootDate, input.meetingTime) : null,
+    fee_payment_timing: input.paymentTiming,
+    // 欄を隠す前に入力した日付が残っていても、事前以外では使わない
+    fee_payment_date: feePaymentHasDate(input.paymentTiming) ? input.paymentDate || null : null,
   }
 }
 
@@ -103,7 +121,7 @@ export async function confirmShoot(
   }
 
   // モデルなどを作る前に検証する。途中で失敗して行だけ残らないように
-  const options = toShootOptionColumns(input)
+  const options = toSlotDetailColumns(input)
 
   // ── モデル ───────────────────────────────────────────────
   const modelId = hasModel ? await resolveModel(userId, modelName) : null
@@ -198,7 +216,7 @@ async function createSlot(
   sessionId: string,
   startAt: string,
   minutes: number,
-  options: ReturnType<typeof toShootOptionColumns>,
+  options: ReturnType<typeof toSlotDetailColumns>,
 ): Promise<string> {
   return createRow('slots', {
     user_id: userId,

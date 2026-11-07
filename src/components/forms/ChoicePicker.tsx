@@ -13,7 +13,8 @@ export function ChoicePicker<T extends string>({
   /** 読み上げ用のグループ名 */
   label: string
   options: { value: T; label: string }[]
-  value: T
+  /** null は未選択 */
+  value: T | null
   onChange: (value: T) => void
 }) {
   return (

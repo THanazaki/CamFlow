@@ -321,6 +321,9 @@ export type Database = {
           booking_fee: number
           costume_options: string | null
           shooting_method_options: string | null
+          fee_payment_timing: Database['public']['Enums']['fee_payment_timing'] | null
+          fee_payment_date: string | null
+          meeting_at: string | null
           theme: string | null
           shoot_status: Database['public']['Enums']['shoot_status']
           frame_count: number | null
@@ -354,6 +357,9 @@ export type Database = {
           booking_fee?: number
           costume_options?: string | null
           shooting_method_options?: string | null
+          fee_payment_timing?: Database['public']['Enums']['fee_payment_timing'] | null
+          fee_payment_date?: string | null
+          meeting_at?: string | null
           theme?: string | null
           shoot_status?: Database['public']['Enums']['shoot_status']
           frame_count?: number | null
@@ -387,6 +393,9 @@ export type Database = {
           booking_fee?: number
           costume_options?: string | null
           shooting_method_options?: string | null
+          fee_payment_timing?: Database['public']['Enums']['fee_payment_timing'] | null
+          fee_payment_date?: string | null
+          meeting_at?: string | null
           theme?: string | null
           shoot_status?: Database['public']['Enums']['shoot_status']
           frame_count?: number | null
@@ -881,6 +890,7 @@ export type Database = {
       shoot_type: 'solo' | 'event' | 'client' | 'personal'
       shoot_category: 'solo' | 'group' | 'session' | 'large'
       place_category: 'outdoor' | 'studio'
+      fee_payment_timing: 'on_the_day' | 'in_advance' | 'paid'
       session_status: 'planned' | 'confirmed' | 'done' | 'cancelled'
       timer_status: 'idle' | 'running' | 'paused' | 'finished'
       shoot_status: 'planned' | 'shot' | 'cancelled' | 'no_show'

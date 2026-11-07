@@ -21,6 +21,9 @@ function input(overrides: Partial<ShootConfirmInput> = {}): ShootConfirmInput {
     shootDate: '2026-12-20',
     startTime: '13:00',
     endTime: '15:00',
+    meetingTime: '',
+    paymentTiming: null,
+    paymentDate: '',
     shootFee: '',
     costumeOptions: '',
     shootingMethodOptions: '',
@@ -121,6 +124,80 @@ describe('撮影料とオプション', () => {
 
     await saveShootOptions(slotId, { shootFee: '', costumeOptions: '', shootingMethodOptions: '' })
     expect((await db.slots.get(slotId))?.booking_fee).toBe(0)
+  })
+
+  it('支払方法が事前なら支払日も保存する', async () => {
+    const { slotId } = await confirmShoot(
+      USER,
+      input({ paymentTiming: 'in_advance', paymentDate: '2026-12-01' }),
+    )
+
+    expect(await db.slots.get(slotId)).toMatchObject({
+      fee_payment_timing: 'in_advance',
+      fee_payment_date: '2026-12-01',
+    })
+    const [shoot] = await loadConfirmedShoots()
+    expect(shoot).toMatchObject({ paymentTiming: 'in_advance', paymentDate: '2026-12-01' })
+  })
+
+  it.each(['on_the_day', 'paid'] as const)(
+    '支払方法が %s なら入力済みの支払日を保存しない',
+    async (paymentTiming) => {
+      const { slotId } = await confirmShoot(USER, input({ paymentTiming, paymentDate: '2026-12-01' }))
+
+      expect(await db.slots.get(slotId)).toMatchObject({
+        fee_payment_timing: paymentTiming,
+        fee_payment_date: null,
+      })
+    },
+  )
+
+  it('支払方法は未選択でも、事前で支払日が空でも登録できる', async () => {
+    const first = await confirmShoot(USER, input())
+    const second = await confirmShoot(USER, input({ paymentTiming: 'in_advance' }))
+
+    expect(await db.slots.get(first.slotId)).toMatchObject({
+      fee_payment_timing: null,
+      fee_payment_date: null,
+    })
+    expect(await db.slots.get(second.slotId)).toMatchObject({
+      fee_payment_timing: 'in_advance',
+      fee_payment_date: null,
+    })
+  })
+
+  it('集合時刻を撮影日と合わせて保存し、一覧に時刻で出す', async () => {
+    const { slotId } = await confirmShoot(USER, input({ meetingTime: '12:30' }))
+
+    expect((await db.slots.get(slotId))?.meeting_at).toBe(
+      new Date('2026-12-20T12:30:00').toISOString(),
+    )
+    const [shoot] = await loadConfirmedShoots()
+    expect(shoot.meetingTime).toBe('12:30')
+  })
+
+  it('集合時刻は未入力なら null', async () => {
+    const { slotId } = await confirmShoot(USER, input())
+
+    expect((await db.slots.get(slotId))?.meeting_at).toBeNull()
+    const [shoot] = await loadConfirmedShoots()
+    expect(shoot.meetingTime).toBeNull()
+  })
+
+  it('撮影料を編集しても支払方法と集合時刻は変わらない', async () => {
+    const { slotId } = await confirmShoot(
+      USER,
+      input({ meetingTime: '12:30', paymentTiming: 'in_advance', paymentDate: '2026-12-01' }),
+    )
+
+    await saveShootOptions(slotId, { shootFee: '20000', costumeOptions: '', shootingMethodOptions: '' })
+
+    expect(await db.slots.get(slotId)).toMatchObject({
+      booking_fee: 20000,
+      fee_payment_timing: 'in_advance',
+      fee_payment_date: '2026-12-01',
+      meeting_at: new Date('2026-12-20T12:30:00').toISOString(),
+    })
   })
 
   it('編集で不正な撮影料を渡すとエラーにして変更しない', async () => {

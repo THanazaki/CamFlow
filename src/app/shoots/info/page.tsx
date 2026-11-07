@@ -7,6 +7,7 @@ import { useState } from 'react'
 import { ShootOptionsFields } from '@/components/forms/ShootOptionsFields'
 import { StorageUrlsField } from '@/components/forms/StorageUrlsField'
 import { saveShootOptions, saveStorageUrls, type ShootOptionsInput } from '@/lib/actions/shoots'
+import { feePaymentTimingLabel } from '@/lib/fee-payment'
 import { placeCategoryLabel } from '@/lib/place-category'
 import { loadConfirmedShoots, type ConfirmedShoot } from '@/lib/queries/shoots'
 import { MAX_STORAGE_URLS, normalizeStorageUrls } from '@/lib/storage-urls'
@@ -110,6 +111,19 @@ function ShootCard({ shoot }: { shoot: ConfirmedShoot }) {
               {shoot.shootDate} {shoot.startTime}〜{shoot.endTime}
             </span>
           </Row>
+          {shoot.meetingTime && (
+            <Row label="集合時刻">
+              <span className="tabular-nums">{shoot.meetingTime}</span>
+            </Row>
+          )}
+          {shoot.paymentTiming && (
+            <Row label="支払方法">
+              {feePaymentTimingLabel(shoot.paymentTiming)}
+              {shoot.paymentDate && (
+                <span className="tabular-nums">（支払日 {shoot.paymentDate}）</span>
+              )}
+            </Row>
+          )}
           <Row label="場所区分">
             {shoot.placeCategory ? placeCategoryLabel(shoot.placeCategory) : '—'}
           </Row>

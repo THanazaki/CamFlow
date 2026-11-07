@@ -1,4 +1,5 @@
 import { db } from '@/lib/db'
+import type { FeePaymentTiming } from '@/lib/fee-payment'
 import type { PlaceCategory } from '@/lib/place-category'
 import { DEFAULT_SHOOT_CATEGORY, type ShootCategory } from '@/lib/shoot-category'
 
@@ -20,6 +21,11 @@ export interface ConfirmedShoot {
   shootFee: number
   costumeOptions: string | null
   shootingMethodOptions: string | null
+  /** 集合時刻（HH:mm）。未入力は null */
+  meetingTime: string | null
+  paymentTiming: FeePaymentTiming | null
+  /** 支払日（YYYY-MM-DD）。事前のときだけ入る */
+  paymentDate: string | null
   storageUrls: string[]
   /** 保存先が1つでも入っていれば撮影データ登録は済み */
   registered: boolean
@@ -165,6 +171,9 @@ export async function loadConfirmedShoots(now: Date = new Date()): Promise<Confi
         shootFee: Number(slot.booking_fee ?? 0),
         costumeOptions: slot.costume_options ?? null,
         shootingMethodOptions: slot.shooting_method_options ?? null,
+        meetingTime: slot.meeting_at ? toTime(slot.meeting_at) : null,
+        paymentTiming: slot.fee_payment_timing ?? null,
+        paymentDate: slot.fee_payment_date ?? null,
         storageUrls: urls,
         registered: urls.length > 0 || Boolean(slot.storage_path),
         past: start.getTime() < nowMs,

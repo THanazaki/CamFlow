@@ -633,6 +633,21 @@ console.log('\n[13] slots の撮影料とオプション')
     select booking_total::int as n from public.v_session_costs
     where session_id = 'c1000000-0000-4000-8000-0000000000ab'`)).rows[0]
   cost?.n === 15000 ? ok('撮影料が v_session_costs に集計される') : bad('撮影料の集計', JSON.stringify(cost))
+
+  await mustPass('支払方法が事前なら支払日を持てる',
+    `update public.slots
+     set fee_payment_timing = 'in_advance', fee_payment_date = '2026-01-01'
+     where id = '${SLOT}'`)
+  await mustFail('事前以外で支払日を持つ',
+    `update public.slots set fee_payment_timing = 'on_the_day' where id = '${SLOT}'`)
+  await mustFail('支払方法が未選択で支払日を持つ',
+    `update public.slots set fee_payment_timing = null where id = '${SLOT}'`)
+  await mustPass('支払日を消せば別の支払方法にできる',
+    `update public.slots set fee_payment_timing = 'paid', fee_payment_date = null where id = '${SLOT}'`)
+  await mustFail('定義にない支払方法',
+    `update public.slots set fee_payment_timing = 'later' where id = '${SLOT}'`)
+  await mustPass('集合時刻を保存できる',
+    `update public.slots set meeting_at = now() where id = '${SLOT}'`)
 }
 
 console.log(`\n${'─'.repeat(60)}\n結果: ${pass} 成功 / ${fail} 失敗`)
