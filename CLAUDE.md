@@ -158,7 +158,7 @@
 - **開発サーバー起動**: `npm run dev`
 - **ビルド確認**: `npm run build`（Service Worker の生成を含む）
 - **オフライン動作確認**: `npm run build && npm start`（dev では SW が無効）
-- **テスト**: `npm test`（単体テスト225項目） / `npm run test:schema`（DBスキーマ129項目）
+- **テスト**: `npm test`（単体テスト237項目） / `npm run test:schema`（DBスキーマ129項目）
 - **型生成**: `npm run db:types`（要 Supabase ローカルスタック）
 
 ### 環境メモ
