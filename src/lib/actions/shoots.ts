@@ -3,7 +3,6 @@ import { categoryHasMeetingPoint, type PlaceCategory } from '@/lib/place-categor
 import { categoryHasModel, fallbackShootTitle, type ShootCategory } from '@/lib/shoot-category'
 import { normalizeStorageUrls } from '@/lib/storage-urls'
 import { createRow, deleteRow, updateRow } from '@/lib/sync/mutations'
-import type { Json } from '@/types/database'
 
 /**
  * 確定撮影情報入力の書き込み。
@@ -18,11 +17,8 @@ import type { Json } from '@/types/database'
 export interface ShootDetailsInput {
   eventName: string
   shootCategory: ShootCategory
-  /** モデルを指定しない撮影区分では、モデル名と SNS を無視する */
+  /** モデルを指定しない撮影区分では無視する */
   modelName: string
-  /** モデルの SNS。入力があればモデルマスタを更新する */
-  modelX: string
-  modelInstagram: string
   concept: string
   placeCategory: PlaceCategory
   venueName: string
@@ -79,7 +75,7 @@ export async function confirmShoot(
   }
 
   // ── モデル ───────────────────────────────────────────────
-  const modelId = hasModel ? await resolveModel(userId, modelName, input) : null
+  const modelId = hasModel ? await resolveModel(userId, modelName) : null
 
   // ── 場所 ─────────────────────────────────────────────────
   const venue = await findVenue(venueName)
@@ -142,32 +138,20 @@ export async function findVenue(venueName: string) {
   return venues.find((v) => !v.deleted_at && normalize(v.name) === normalize(venueName))
 }
 
-/** モデルマスタの行を返す。同名が無ければ作り、あれば入力された SNS を反映する */
-export async function resolveModel(
-  userId: string,
-  modelName: string,
-  input: Pick<ShootDetailsInput, 'modelX' | 'modelInstagram'>,
-): Promise<string> {
+/** モデルマスタの行を返す。同名が無ければ作る */
+export async function resolveModel(userId: string, modelName: string): Promise<string> {
   const models = await db.models.toArray()
   const existingModel = models.find(
     (m) => !m.deleted_at && normalize(m.name) === normalize(modelName),
   )
-  if (!existingModel) {
-    return createRow('models', {
-      user_id: userId,
-      name: modelName,
-      sns_links: buildSnsLinks({}, input),
-    })
-  }
+  if (existingModel) return existingModel.id
 
-  // 既存モデルの SNS は、入力があったものだけ上書きする。
-  // 空欄で既存のリンクを消さないため
-  const current = asRecord(existingModel.sns_links)
-  const merged = buildSnsLinks(current, input)
-  if (JSON.stringify(merged) !== JSON.stringify(current)) {
-    await updateRow('models', existingModel.id, { sns_links: merged as Json })
-  }
-  return existingModel.id
+  return createRow('models', {
+    user_id: userId,
+    name: modelName,
+    // サーバ側の既定は '{}'。ローカルで省くと pull で入るサーバ行と形が食い違う
+    sns_links: {},
+  })
 }
 
 async function removeSlotModels(slotId: string): Promise<void> {
@@ -211,22 +195,4 @@ async function ensureSlotModel(userId: string, slotId: string, modelId: string):
     .first()
   if (existing) return
   await createRow('slot_models', { user_id: userId, slot_id: slotId, model_id: modelId })
-}
-
-function asRecord(value: unknown): Record<string, string> {
-  return value && typeof value === 'object' && !Array.isArray(value)
-    ? (value as Record<string, string>)
-    : {}
-}
-
-function buildSnsLinks(
-  current: Record<string, string>,
-  input: Pick<ShootDetailsInput, 'modelX' | 'modelInstagram'>,
-): Record<string, string> {
-  const next = { ...current }
-  const x = input.modelX.trim()
-  const instagram = input.modelInstagram.trim()
-  if (x) next.x = x
-  if (instagram) next.instagram = instagram
-  return next
 }

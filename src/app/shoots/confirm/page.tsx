@@ -50,8 +50,6 @@ export default function ShootConfirmPage() {
       eventName: r.eventName,
       shootCategory: r.shootCategory,
       modelName: r.modelName,
-      modelX: r.modelX,
-      modelInstagram: r.modelInstagram,
       concept: r.concept,
       venueName: r.venueName,
       shootDate: r.shootDate,

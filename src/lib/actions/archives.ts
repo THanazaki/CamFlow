@@ -43,7 +43,7 @@ export async function createShootHistory(
     throw new Error('撮影日には今日以前の日付を入力してください')
   }
 
-  const modelId = hasModel ? await resolveModel(userId, modelName, input) : null
+  const modelId = hasModel ? await resolveModel(userId, modelName) : null
   const venue = await findVenue(venueName)
 
   const historyId = await createRow('shoot_history', {

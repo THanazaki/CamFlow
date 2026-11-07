@@ -18,8 +18,6 @@ export const EMPTY_SHOOT_DETAILS: ShootDetailsInput = {
   eventName: '',
   shootCategory: DEFAULT_SHOOT_CATEGORY,
   modelName: '',
-  modelX: '',
-  modelInstagram: '',
   concept: '',
   placeCategory: DEFAULT_PLACE_CATEGORY,
   venueName: '',
@@ -88,56 +86,27 @@ export function ShootDetailsFields({
       </Field>
 
       {hasModel && (
-        <>
-          <Field label="モデル名" required hint="マスタに無い名前はそのまま新規登録されます">
-            {(p) => (
-              <>
-                <input
-                  {...p}
-                  type="text"
-                  required
-                  list={modelListId}
-                  value={values.modelName}
-                  onChange={(e) => onChange('modelName', e.target.value)}
-                  placeholder="栞奈"
-                  className={inputClass}
-                />
-                <datalist id={modelListId}>
-                  {suggestions.models.map((m) => (
-                    <option key={m} value={m} />
-                  ))}
-                </datalist>
-              </>
-            )}
-          </Field>
-
-          <Field
-            label="モデルアカウント"
-            hint="入力するとモデルマスタに保存します。空欄なら既存のリンクはそのまま残ります"
-          >
-            {(p) => (
-              <div className="grid gap-2 sm:grid-cols-2">
-                <input
-                  {...p}
-                  type="text"
-                  value={values.modelX}
-                  onChange={(e) => onChange('modelX', e.target.value)}
-                  placeholder="X: @example"
-                  aria-label="X アカウント"
-                  className={inputClass}
-                />
-                <input
-                  type="text"
-                  value={values.modelInstagram}
-                  onChange={(e) => onChange('modelInstagram', e.target.value)}
-                  placeholder="Instagram: @example"
-                  aria-label="Instagram アカウント"
-                  className={inputClass}
-                />
-              </div>
-            )}
-          </Field>
-        </>
+        <Field label="モデル名" required hint="マスタに無い名前はそのまま新規登録されます">
+          {(p) => (
+            <>
+              <input
+                {...p}
+                type="text"
+                required
+                list={modelListId}
+                value={values.modelName}
+                onChange={(e) => onChange('modelName', e.target.value)}
+                placeholder="栞奈"
+                className={inputClass}
+              />
+              <datalist id={modelListId}>
+                {suggestions.models.map((m) => (
+                  <option key={m} value={m} />
+                ))}
+              </datalist>
+            </>
+          )}
+        </Field>
       )}
 
       <Field label="撮影コンセプト">

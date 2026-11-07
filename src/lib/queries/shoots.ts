@@ -30,8 +30,6 @@ export interface ConfirmableReservation {
   eventName: string
   shootCategory: ShootCategory
   modelName: string
-  modelX: string
-  modelInstagram: string
   concept: string
   venueName: string
   shootDate: string
@@ -78,7 +76,6 @@ export async function loadConfirmableReservations(): Promise<ConfirmableReservat
       const model = slot
         ? modelMap.get(slotModels.find((sm) => sm.slot_id === slot.id)?.model_id ?? '')
         : undefined
-      const sns = asRecord(model?.sns_links)
 
       // 予約時の start_at は撮影日の 0 時を仮置きしている。
       // 0:00 のままなら未入力扱いにして、確定時に入れてもらう
@@ -95,8 +92,6 @@ export async function loadConfirmableReservations(): Promise<ConfirmableReservat
         eventName: session.title,
         shootCategory: session.shoot_category ?? DEFAULT_SHOOT_CATEGORY,
         modelName: model?.name ?? '',
-        modelX: sns.x ?? '',
-        modelInstagram: sns.instagram ?? '',
         concept: session.concept ?? '',
         venueName: session.venue_id
           ? (venueMap.get(session.venue_id)?.name ?? session.venue_name ?? '')

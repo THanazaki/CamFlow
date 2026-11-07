@@ -30,8 +30,6 @@ function confirmation(overrides: Partial<ShootConfirmInput> = {}): ShootConfirmI
     eventName: '',
     shootCategory: 'solo',
     modelName: '栞奈',
-    modelX: '',
-    modelInstagram: '',
     concept: '',
     placeCategory: 'studio',
     venueName: '',
@@ -93,7 +91,7 @@ describe('確定撮影情報入力の撮影区分', () => {
   it('モデルなしの区分を直接登録できる', async () => {
     const { sessionId } = await confirmShoot(
       USER,
-      confirmation({ shootCategory: 'session', modelName: '栞奈', modelX: '@kanna' }),
+      confirmation({ shootCategory: 'session', modelName: '栞奈' }),
     )
 
     const session = await db.sessions.get(sessionId)

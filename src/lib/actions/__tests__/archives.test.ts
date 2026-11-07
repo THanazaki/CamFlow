@@ -13,8 +13,6 @@ function input(overrides: Partial<ShootHistoryInput> = {}): ShootHistoryInput {
     eventName: '',
     shootCategory: 'solo',
     modelName: '栞奈',
-    modelX: '',
-    modelInstagram: '',
     concept: '',
     placeCategory: 'studio',
     venueName: '',
@@ -38,7 +36,6 @@ describe('過去撮影登録', () => {
         concept: ' 夕景 ',
         placeCategory: 'outdoor',
         venueName: '代々木公園',
-        modelX: '@kanna',
         storageUrls: [' https://example.com/a ', '', 'https://example.com/b'],
       }),
     )
@@ -58,7 +55,7 @@ describe('過去撮影登録', () => {
     })
 
     const [model] = await db.models.toArray()
-    expect(model.sns_links).toEqual({ x: '@kanna' })
+    expect(model.sns_links).toEqual({})
     const [link] = await db.shoot_history_models.toArray()
     expect(link).toMatchObject({
       shoot_history_id: historyId,

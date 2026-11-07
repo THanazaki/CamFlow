@@ -14,8 +14,6 @@ async function createShoot(): Promise<string> {
     eventName: '',
     shootCategory: 'solo',
     modelName: '栞奈',
-    modelX: '',
-    modelInstagram: '',
     concept: '',
     placeCategory: 'studio',
     venueName: '',
