@@ -171,6 +171,9 @@
   `host.docker.internal` を使う（`.env.example` 参照）。
 - `npm run dev` はバインドマウント上でファイル変更を取りこぼすことがある。
   反映されないときは dev サーバーを再起動する。
+- スマホの実機で開く手順は `README.md` の「スマホの実機で開く」。localhost 以外から開発サーバーを開くには
+  `next.config.ts` の `allowedDevOrigins` に許可が要る。HTTP（secure context ではない）でも動くよう、
+  `crypto.randomUUID` のような HTTPS 専用の API には代わりの経路を用意すること（例: `newId()`）。
 
 ## 作業ルール
 - 変更前に必ずgit commitすること

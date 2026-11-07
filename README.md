@@ -36,6 +36,55 @@ npm run dev
 | `npm run test:schema` | DB スキーマの検証（Docker 不要、PGlite 上で実行） |
 | `npm run typecheck` / `npm run lint` | 型・Lint |
 
+## スマホの実機で開く
+
+開発サーバーはコンテナの中で動いているので、スマホからはそのままでは届かない。目的に合わせて次のどれかを使う。
+
+| 方法 | URL | ホーム画面に追加（PWA） | 向いている用途 |
+|---|---|---|---|
+| A. 同じ Wi-Fi から開く | `http://<PC の IP>:3000` | できない（HTTP のため） | 画面の見た目と操作の確認 |
+| B. VS Code のポート転送（公開） | `https://xxxx-3000.xxx.devtunnels.ms` | できる | 外出先からの確認、PWA の確認 |
+| C. 本番環境に公開（Vercel など） | 公開した URL | できる | 実際に使う |
+
+### A. 同じ Wi-Fi から開く（Windows + WSL の場合）
+
+VS Code が転送したポートは Windows の `localhost` でしか待ち受けていないので、Windows 側で LAN からの接続を中継する。
+**管理者の PowerShell** で実行する（`<PC の IP>` は `ipconfig` の Wi-Fi の IPv4 アドレス）。
+
+```powershell
+netsh interface portproxy add v4tov4 listenaddress=0.0.0.0 listenport=3000 connectaddress=127.0.0.1 connectport=3000
+New-NetFirewallRule -DisplayName "CamFlow dev 3000" -Direction Inbound -Protocol TCP -LocalPort 3000 -Action Allow -Profile Private
+```
+
+スマホを同じ Wi-Fi につないで `http://<PC の IP>:3000` を開く。使い終わったら元に戻す。
+
+```powershell
+netsh interface portproxy delete v4tov4 listenaddress=0.0.0.0 listenport=3000
+Remove-NetFirewallRule -DisplayName "CamFlow dev 3000"
+```
+
+HTTP なので Service Worker は動かず、ホーム画面への追加とオフライン動作は確認できない
+（`crypto.randomUUID` も使えないが、ID は `crypto.getRandomValues` で作るので登録はできる）。
+
+### B. VS Code のポート転送（Dev Tunnels）
+
+VS Code の「ポート」パネルで 3000 を右クリック →「ポートの表示範囲」→「パブリック」にすると、
+`https://…devtunnels.ms` の URL が発行される（GitHub か Microsoft アカウントでのサインインが必要）。
+HTTPS なので PWA も確認できる。**URL を知っていれば誰でも開けるので、確認が終わったら「プライベート」に戻す。**
+
+### 開発サーバーの許可設定
+
+開発サーバーは `localhost` 以外から開くと開発用のリソースを拒否し、画面が表示されない。
+`next.config.ts` の `allowedDevOrigins` で、LAN の IP（`192.168.*.*` / `10.*.*.*` / `172.*.*.*`）と
+`**.devtunnels.ms` を許可している。別のトンネルサービスを使う場合はここに足す。
+
+### スマホから開くときの注意
+
+- **Supabase の URL が `127.0.0.1` / `host.docker.internal` だとスマホからは届かない**（同期できない）。
+  開発中は `test` / `test` のテストアカウントで画面を確認するか、Supabase をクラウドの開発用プロジェクトにする
+- 開発サーバーでは Service Worker を登録しない。ホーム画面への追加とオフライン動作は
+  `npm run build && npm start` で確認する（B か C の HTTPS が必要）
+
 ## アーキテクチャ
 
 ### ローカルファースト = クライアント SPA

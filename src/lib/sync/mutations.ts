@@ -19,9 +19,25 @@ function rowKey(table: SyncTable, id: string): string {
   return `${table}:${id}`
 }
 
-/** テスト時に差し替えられるよう分離（crypto.randomUUID は jsdom/node 双方にある） */
+/**
+ * 行の id（UUID v4）。テスト時に差し替えられるよう分離している。
+ *
+ * crypto.randomUUID は HTTPS か localhost（secure context）でしか使えない。
+ * スマホから開発サーバーを http://192.168.x.x:3000 のように開くと undefined になり、
+ * 全ての登録が失敗するので、どこでも使える crypto.getRandomValues で同じ形式を作る。
+ */
 export function newId(): string {
-  return crypto.randomUUID()
+  if (typeof crypto.randomUUID === 'function') return crypto.randomUUID()
+  return uuidV4FromRandomValues()
+}
+
+/** RFC 4122 の UUID v4 を crypto.getRandomValues から作る */
+export function uuidV4FromRandomValues(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(16))
+  bytes[6] = (bytes[6] & 0x0f) | 0x40 // version 4
+  bytes[8] = (bytes[8] & 0x3f) | 0x80 // variant 10xx
+  const hex = [...bytes].map((b) => b.toString(16).padStart(2, '0')).join('')
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`
 }
 
 async function enqueue(
