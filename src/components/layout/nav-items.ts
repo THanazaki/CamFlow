@@ -58,5 +58,14 @@ export const NAV_ITEMS: NavItem[] = [
       { href: '/masters/venues', label: 'ロケ地・スタジオマスタ', ready: false },
     ],
   },
-  { href: '/settings', label: '設定', ready: false },
+  {
+    href: '/settings',
+    label: '設定',
+    ready: false,
+    children: [
+      { href: '/settings/notifications', label: '通知設定', ready: false },
+      { href: '/settings/account', label: 'アカウント設定', ready: false },
+      { href: '/settings/guide', label: '使い方ガイド', ready: false },
+    ],
+  },
 ]
