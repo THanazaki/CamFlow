@@ -4,7 +4,7 @@ import { normalizeStorageUrls } from '@/lib/storage-urls'
 import { createRow, deleteRow, updateRow } from '@/lib/sync/mutations'
 
 import {
-  findVenue,
+  resolveVenue,
   resolveShootEvent,
   resolveShootModel,
   type EventOrganizerRow,
@@ -60,7 +60,7 @@ async function prepareShootHistory(
   const model = hasModel
     ? await resolveShootModel(userId, modelName, event, currentModelIds)
     : null
-  const venue = await findVenue(venueName)
+  const venueId = await resolveVenue(userId, venueName, input.placeCategory)
 
   return {
     modelId: model?.id ?? null,
@@ -72,7 +72,7 @@ async function prepareShootHistory(
       shoot_category: input.shootCategory,
       concept: concept || null,
       place_category: input.placeCategory,
-      venue_id: venue?.id ?? null,
+      venue_id: venueId,
       venue_name: venueName || null,
       storage_urls: storageUrls,
       memo: input.memo?.trim() || null,

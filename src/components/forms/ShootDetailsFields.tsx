@@ -153,7 +153,7 @@ export function ShootDetailsFields({
         )}
       </Field>
 
-      <Field label="場所" hint="マスタに同名があれば紐づきます。無ければ名前だけ残ります">
+      <Field label="場所" hint="ロケ地・スタジオマスタに無い場所は、保存すると登録されます">
         {(p) => (
           <>
             <input

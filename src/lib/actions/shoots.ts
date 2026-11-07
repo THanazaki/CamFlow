@@ -155,7 +155,7 @@ async function prepareShoot(
     : null
 
   // ── 場所 ─────────────────────────────────────────────────
-  const venue = await findVenue(venueName)
+  const venueId = await resolveVenue(userId, venueName, input.placeCategory)
 
   const sessionValues = {
     title: eventName || concept || fallbackShootTitle(input.shootCategory, modelName),
@@ -163,7 +163,7 @@ async function prepareShoot(
     session_date: input.shootDate,
     shoot_category: input.shootCategory,
     concept: concept || null,
-    venue_id: venue?.id ?? null,
+    venue_id: venueId,
     venue_name: venueName || null,
     place_category: input.placeCategory,
     meeting_point: meetingPoint || null,
@@ -256,10 +256,32 @@ async function linkSlotModel(userId: string, slotId: string, modelId: string | n
   }
 }
 
-/** 同名の場所マスタを探す。無ければ名前だけのテキストとして残す */
-export async function findVenue(venueName: string) {
+/** 場所区分に対応する場所マスタの種別 */
+export function venueKindOf(placeCategory: PlaceCategory): 'studio' | 'location' {
+  return placeCategory === 'outdoor' ? 'location' : 'studio'
+}
+
+/**
+ * 場所マスタの行を返す。空なら null。同名（大文字小文字は区別しない）が無ければ作る。
+ * 作るときの種別は場所区分から決める（屋外 → ロケ地、スタジオ → スタジオ）。
+ * 予約情報入力では呼ばない（予約段階で場所マスタが増え続けるのを避けるため）
+ */
+export async function resolveVenue(
+  userId: string,
+  venueName: string,
+  placeCategory: PlaceCategory,
+): Promise<string | null> {
+  const name = venueName.trim()
+  if (!name) return null
   const venues = await db.venues.toArray()
-  return venues.find((v) => !v.deleted_at && normalize(v.name) === normalize(venueName))
+  const existing = venues.find((v) => !v.deleted_at && normalize(v.name) === normalize(name))
+  if (existing) return existing.id
+  return createRow('venues', {
+    user_id: userId,
+    name,
+    kind: venueKindOf(placeCategory),
+    is_favorite: false,
+  })
 }
 
 /** 撮影会名が空のまま登録したモデルの所属 */
