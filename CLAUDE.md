@@ -155,6 +155,7 @@
 - Service Worker は `serwist.config.mjs` + `npm run build:sw` で生成する。
   `@serwist/next` のプラグイン方式は Turbopack では**何も生成されない**ので使わない。
 - 詳細は `README.md`（アーキテクチャ）と `docs/仕様書.md`（全仕様）を参照。
+  デプロイ先の Supabase 設定は `docs/デプロイ手順.md`。
 
 ---
 

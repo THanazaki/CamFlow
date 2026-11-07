@@ -44,7 +44,7 @@ npm run dev
 |---|---|---|---|
 | A. 同じ Wi-Fi から開く | `http://<PC の IP>:3000` | できない（HTTP のため） | 画面の見た目と操作の確認 |
 | B. VS Code のポート転送（公開） | `https://xxxx-3000.xxx.devtunnels.ms` | できる | 外出先からの確認、PWA の確認 |
-| C. 本番環境に公開（Vercel など） | 公開した URL | できる | 実際に使う |
+| C. 本番環境に公開（Vercel など） | 公開した URL | できる | 実際に使う（[デプロイ手順](docs/デプロイ手順.md)） |
 
 ### A. 同じ Wi-Fi から開く（Windows + WSL の場合）
 
