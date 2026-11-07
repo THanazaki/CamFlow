@@ -85,11 +85,54 @@ describe('モデル別情報', () => {
     expect((await loadHistoryStats(NOW)).models[0].shootCount).toBe(1)
   })
 
-  it('撮影日を過ぎていない撮影、モデルなしの撮影は数えない', async () => {
-    await confirmShoot(USER, confirmation({ shootDate: '2026-07-01' }))
+  it('モデルなしの撮影は数えない', async () => {
     await createShootHistory(USER, history({ shootCategory: 'session' }))
 
     expect((await loadHistoryStats(NOW)).models).toEqual([])
+  })
+
+  it('撮影日時になっていない確定済みの撮影は、撮影回数ではなく撮影予定回数に数える', async () => {
+    await createShootHistory(USER, history({ shootDate: '2026-01-10' }))
+    await confirmShoot(USER, confirmation({ shootDate: '2026-07-01' }))
+    await confirmShoot(USER, confirmation({ shootDate: '2026-08-01' }))
+
+    expect((await loadHistoryStats(NOW)).models).toEqual([
+      expect.objectContaining({
+        name: '葵',
+        shootCount: 1,
+        plannedCount: 2,
+        firstDate: '2026-01-10',
+        lastDate: '2026-01-10',
+      }),
+    ])
+  })
+
+  it('撮影予定しか無いモデルも出し、撮影日は null。実績のあるモデルより後に並べる', async () => {
+    await confirmShoot(USER, confirmation({ modelName: '栞奈', shootDate: '2026-07-01' }))
+    await createShootHistory(USER, history({ modelName: '葵', shootDate: '2026-01-10' }))
+
+    expect((await loadHistoryStats(NOW)).models).toMatchObject([
+      { name: '葵', shootCount: 1, plannedCount: 0 },
+      { name: '栞奈', shootCount: 0, plannedCount: 1, firstDate: null, lastDate: null },
+    ])
+  })
+
+  it('撮影予定も同じイベントの複数の枠は1回と数える。予約段階の撮影は数えない', async () => {
+    const { sessionId } = await confirmShoot(USER, confirmation({ shootDate: '2026-07-01' }))
+    const [link] = await db.slot_models.toArray()
+    const second = await createRow('slots', {
+      user_id: USER,
+      session_id: sessionId,
+      slot_no: 2,
+      start_at: new Date('2026-07-01T16:00:00').toISOString(),
+      storage_urls: [],
+    })
+    await createRow('slot_models', { user_id: USER, slot_id: second, model_id: link.model_id })
+    await db.sessions.update(sessionId, { status: 'planned' })
+
+    expect((await loadHistoryStats(NOW)).models).toEqual([])
+    await db.sessions.update(sessionId, { status: 'confirmed' })
+    expect((await loadHistoryStats(NOW)).models[0].plannedCount).toBe(1)
   })
 
   it('論理削除した撮影は数えない。マスタから削除したモデルは実績として残す', async () => {
@@ -129,11 +172,23 @@ describe('撮影会別情報', () => {
     expect((await loadHistoryStats(NOW)).organizers).toEqual([])
   })
 
-  it('撮影実績のない撮影会は出さない', async () => {
+  it('撮影実績も撮影予定も無い撮影会は出さない', async () => {
     await createRow('organizers', { user_id: USER, name: '未利用', is_favorite: false })
-    await confirmShoot(USER, confirmation({ eventName: '未来', shootDate: '2026-07-01' }))
 
     expect((await loadHistoryStats(NOW)).organizers).toEqual([])
+  })
+
+  it('撮影予定モデル数は、撮影日時になっていない確定済みの撮影のモデルを1人ずつ数える', async () => {
+    await createShootHistory(USER, history({ eventName: '秋', modelName: '葵', shootDate: '2026-01-10' }))
+    await confirmShoot(USER, confirmation({ eventName: '秋', modelName: '葵', shootDate: '2026-07-01' }))
+    await confirmShoot(USER, confirmation({ eventName: '秋', modelName: '栞奈', shootDate: '2026-07-02' }))
+    await confirmShoot(USER, confirmation({ eventName: '秋', modelName: '栞奈', shootDate: '2026-07-03' }))
+    await confirmShoot(USER, confirmation({ eventName: '未来', modelName: '葵', shootDate: '2026-07-01' }))
+
+    expect((await loadHistoryStats(NOW)).organizers).toMatchObject([
+      { name: '秋', modelCount: 1, plannedModelCount: 2, firstDate: '2026-01-10', lastDate: '2026-01-10' },
+      { name: '未来', modelCount: 0, plannedModelCount: 1, firstDate: null, lastDate: null },
+    ])
   })
 
   it('最新利用日の新しい順に並べる', async () => {

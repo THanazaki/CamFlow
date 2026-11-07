@@ -222,6 +222,28 @@ export async function loadShootArchive(now: Date = new Date()): Promise<ShootRec
   })
 }
 
+/**
+ * 撮影予定。確定済みで、まだ撮影日時になっていない枠を撮影日の古い順に返す。
+ * loadShootArchive と合わせると、確定済みの枠がちょうど1回ずつ現れる（予約段階・中止・不参加は含めない）。
+ */
+export async function loadUpcomingShoots(now: Date = new Date()): Promise<ShootRecord[]> {
+  const t = await loadTables()
+  const sessionMap = new Map(t.sessions.map((s) => [s.id, s]))
+  const venueMap = new Map(t.venues.map((v) => [v.id, v]))
+  const modelsBySlot = modelsBy(t.slotModels, 'slot_id', t.models)
+  const nowIso = now.toISOString()
+
+  return t.slots
+    .flatMap((slot) => {
+      const session = sessionMap.get(slot.session_id)
+      if (!session || !isConfirmedSlot(slot, session)) return []
+      // loadShootArchive の条件のちょうど裏返し
+      if (slot.shoot_status === 'shot' || slot.start_at < nowIso) return []
+      return [fromSlot(slot, session, modelsBySlot.get(slot.id) ?? [], venueMap)]
+    })
+    .sort((a, b) => a.shootDate.localeCompare(b.shootDate))
+}
+
 /** 詳細・編集の1件。見つからなければ null */
 export async function loadShootRecord(source: ShootSource, id: string): Promise<ShootRecord | null> {
   const t = await loadTables()

@@ -13,7 +13,7 @@ export default function HistoryStatsPage() {
       <header>
         <h1 className="text-2xl font-semibold tracking-tight">過去撮影情報</h1>
         <p className="text-muted mt-1 text-sm">
-          撮影日を過ぎた確定済みの撮影と、過去撮影登録で登録した撮影の実績です。
+          撮影日を過ぎた確定済みの撮影と、過去撮影登録で登録した撮影の実績です。撮影予定は、確定済みでまだ撮影日時になっていない撮影を数えます（予約中のものは含めません）。
         </p>
       </header>
 
@@ -23,28 +23,30 @@ export default function HistoryStatsPage() {
         <>
           <StatsTable
             title="モデル別情報"
-            columns={['モデル名', '撮影回数', '初撮影日', '最新撮影日']}
+            columns={['モデル名', '撮影回数', '撮影予定回数', '初撮影日', '最新撮影日']}
             rows={stats.models.map((m) => ({
               id: m.id,
               name: m.name,
               count: m.shootCount,
+              planned: m.plannedCount,
               firstDate: m.firstDate,
               lastDate: m.lastDate,
             }))}
-            emptyText="撮影実績のあるモデルはまだありません"
+            emptyText="撮影実績・撮影予定のあるモデルはまだありません"
           />
           <StatsTable
             title="撮影会別情報"
             hint="撮影会名を入力した撮影だけを集計します"
-            columns={['撮影会名', '撮影モデル数', '初利用日', '最新利用日']}
+            columns={['撮影会名', '撮影モデル数', '撮影予定モデル数', '初利用日', '最新利用日']}
             rows={stats.organizers.map((o) => ({
               id: o.id,
               name: o.name,
               count: o.modelCount,
+              planned: o.plannedModelCount,
               firstDate: o.firstDate,
               lastDate: o.lastDate,
             }))}
-            emptyText="撮影実績のある撮影会はまだありません"
+            emptyText="撮影実績・撮影予定のある撮影会はまだありません"
           />
         </>
       )}
@@ -61,8 +63,15 @@ function StatsTable({
 }: {
   title: string
   hint?: string
-  columns: [string, string, string, string]
-  rows: { id: string; name: string; count: number; firstDate: string; lastDate: string }[]
+  columns: [string, string, string, string, string]
+  rows: {
+    id: string
+    name: string
+    count: number
+    planned: number
+    firstDate: string | null
+    lastDate: string | null
+  }[]
   emptyText: string
 }) {
   return (
@@ -83,26 +92,28 @@ function StatsTable({
               <li key={row.id} className="bg-surface border-border rounded-lg border px-4 py-3">
                 <div className="flex items-baseline justify-between gap-3">
                   <span className="min-w-0 font-medium break-words">{row.name}</span>
-                  <span className="shrink-0 text-sm tabular-nums">
+                  <span className="shrink-0 text-right text-sm tabular-nums">
                     <span className="text-muted mr-1 text-xs">{columns[1]}</span>
                     {row.count}
+                    <span className="text-muted mr-1 ml-3 text-xs">{columns[2]}</span>
+                    {row.planned}
                   </span>
                 </div>
                 <dl className="text-muted mt-1 flex flex-wrap gap-x-4 text-xs tabular-nums">
                   <div className="flex gap-1">
-                    <dt>{columns[2]}</dt>
-                    <dd className="text-foreground">{row.firstDate}</dd>
+                    <dt>{columns[3]}</dt>
+                    <dd className="text-foreground">{row.firstDate ?? '—'}</dd>
                   </div>
                   <div className="flex gap-1">
-                    <dt>{columns[3]}</dt>
-                    <dd className="text-foreground">{row.lastDate}</dd>
+                    <dt>{columns[4]}</dt>
+                    <dd className="text-foreground">{row.lastDate ?? '—'}</dd>
                   </div>
                 </dl>
               </li>
             ))}
           </ul>
         <div className="bg-surface border-border hidden overflow-x-auto rounded-lg border sm:block">
-          <table className="w-full min-w-[32rem] text-left text-sm">
+          <table className="w-full min-w-[40rem] text-left text-sm">
             <thead className="border-border text-muted border-b text-xs">
               <tr>
                 <th scope="col" className="px-4 py-2.5 font-medium">
@@ -111,11 +122,14 @@ function StatsTable({
                 <th scope="col" className="w-28 px-4 py-2.5 text-right font-medium">
                   {columns[1]}
                 </th>
-                <th scope="col" className="w-32 px-4 py-2.5 font-medium">
+                <th scope="col" className="w-36 px-4 py-2.5 text-right font-medium">
                   {columns[2]}
                 </th>
                 <th scope="col" className="w-32 px-4 py-2.5 font-medium">
                   {columns[3]}
+                </th>
+                <th scope="col" className="w-32 px-4 py-2.5 font-medium">
+                  {columns[4]}
                 </th>
               </tr>
             </thead>
@@ -124,8 +138,9 @@ function StatsTable({
                 <tr key={row.id}>
                   <td className="px-4 py-3 font-medium break-words">{row.name}</td>
                   <td className="px-4 py-3 text-right tabular-nums">{row.count}</td>
-                  <td className="px-4 py-3 whitespace-nowrap tabular-nums">{row.firstDate}</td>
-                  <td className="px-4 py-3 whitespace-nowrap tabular-nums">{row.lastDate}</td>
+                  <td className="px-4 py-3 text-right tabular-nums">{row.planned}</td>
+                  <td className="px-4 py-3 whitespace-nowrap tabular-nums">{row.firstDate ?? '—'}</td>
+                  <td className="px-4 py-3 whitespace-nowrap tabular-nums">{row.lastDate ?? '—'}</td>
                 </tr>
               ))}
             </tbody>
