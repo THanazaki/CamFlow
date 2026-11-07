@@ -13,6 +13,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:schema": "node supabase/tests/schema.test.mjs",
+    "docs:tables": "node supabase/tools/gen-table-spec.mjs",
     "db:types": "supabase gen types typescript --local > src/types/database.ts"
   },
   "dependencies": {

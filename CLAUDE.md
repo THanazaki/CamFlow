@@ -122,7 +122,10 @@
 | `v_session_costs` | 撮影イベントごとの支出合計 |
 | `v_pending_deliveries` | 未納品一覧。**運用フロー分のみ。遡及登録分は未対応** |
 
-- 詳細は `docs/仕様書.md` と `supabase/README.md` を参照。
+- 詳細は `docs/仕様書.md` と `supabase/README.md` を参照。カラム単位の定義は `docs/テーブル仕様.md`。
+- **マイグレーションを足したら `npm run docs:tables` でテーブル仕様を作り直すこと。** `docs/テーブル仕様.md` は
+  自動生成なので直接編集しない。カラムの説明・画面の項目名は `supabase/tools/gen-table-spec.mjs` の表に書く
+  （説明の無いカラムがあるとコマンドが失敗する）
 
 ---
 

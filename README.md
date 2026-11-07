@@ -34,6 +34,7 @@ npm run dev
 | `npm start` | 本番サーバー。**オフライン動作の確認はこちら** |
 | `npm test` | 同期エンジンの単体テスト |
 | `npm run test:schema` | DB スキーマの検証（Docker 不要、PGlite 上で実行） |
+| `npm run docs:tables` | `docs/テーブル仕様.md` をマイグレーションから作り直す（Docker 不要） |
 | `npm run typecheck` / `npm run lint` | 型・Lint |
 
 ## スマホの実機で開く
