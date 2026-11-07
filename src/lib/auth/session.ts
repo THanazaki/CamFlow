@@ -145,8 +145,14 @@ export async function applySession(accessToken: string, refreshToken: string): P
  * Supabase のユーザーではないので**同期はされない**。
  * サーバに送ろうとしても RLS で弾かれるため、データはこの端末に残るだけ。
  */
-export async function applyLocalSession(userId: string, email: string): Promise<void> {
+export async function applyLocalSession(
+  userId: string,
+  email: string,
+  /** ユーザーを切り替えた後、アプリを出す前に行う準備（デモアカウントのサンプルデータ投入） */
+  prepare?: () => Promise<void>,
+): Promise<void> {
   await switchUser(userId)
+  await prepare?.()
   emit({ status: 'authenticated', user: { id: userId, email }, offlineFallback: true })
 }
 

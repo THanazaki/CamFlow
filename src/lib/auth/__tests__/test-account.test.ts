@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
-import { isTestAccountLogin, TEST_ACCOUNT_ENABLED } from '@/lib/auth/test-account'
+import {
+  DEMO_ACCOUNT_USER_ID,
+  findLocalAccount,
+  isTestAccountLogin,
+  TEST_ACCOUNT_ENABLED,
+  TEST_ACCOUNT_USER_ID,
+} from '@/lib/auth/test-account'
 
 describe('テストアカウント', () => {
   it('既定では有効（本番を含む）', () => {
@@ -18,5 +24,17 @@ describe('テストアカウント', () => {
 
   it('無効にしたら test / test も通さない', () => {
     expect(isTestAccountLogin('test', 'test', false)).toBe(false)
+  })
+
+  it('show / show はデモアカウント。test / test とは別のユーザー', () => {
+    expect(findLocalAccount(' Show ', 'show')).toEqual({ id: DEMO_ACCOUNT_USER_ID, email: 'show', demo: true })
+    expect(findLocalAccount('test', 'test')).toEqual({ id: TEST_ACCOUNT_USER_ID, email: 'test', demo: false })
+    expect(DEMO_ACCOUNT_USER_ID).not.toBe(TEST_ACCOUNT_USER_ID)
+    expect(findLocalAccount('show', 'test')).toBeNull()
+    expect(isTestAccountLogin('show', 'show')).toBe(false)
+  })
+
+  it('無効にしたら show / show も通さない', () => {
+    expect(findLocalAccount('show', 'show', false)).toBeNull()
   })
 })

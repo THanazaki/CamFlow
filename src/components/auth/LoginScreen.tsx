@@ -37,16 +37,22 @@ export function LoginScreen() {
         error?: string
         message?: string
         session?: { access_token: string; refresh_token: string } | null
-        localUser?: { id: string; email: string }
+        localUser?: { id: string; email: string; demo?: boolean }
       }
 
       if (!res.ok) {
         setError(json.error ?? '処理に失敗しました')
         return
       }
-      // テストアカウント。Supabase を通さずローカルだけで入る
+      // テスト・デモアカウント。Supabase を通さずローカルだけで入る
       if (json.localUser) {
-        await applyLocalSession(json.localUser.id, json.localUser.email)
+        const { id, email: name, demo } = json.localUser
+        await applyLocalSession(id, name, async () => {
+          if (!demo) return
+          // サンプルデータの生成はデモアカウントでしか使わないので、必要になってから読み込む
+          const { seedDemoDataIfNeeded } = await import('@/lib/demo/seed')
+          await seedDemoDataIfNeeded(id)
+        })
         return
       }
       if (!json.session) {
@@ -165,6 +171,8 @@ export function LoginScreen() {
                 テストアカウントで入れます（<code className="font-mono">test</code> /{' '}
                 <code className="font-mono">test</code>）。
                 Supabase を通さないため<strong>同期はされず</strong>、データはこの端末にのみ残ります。
+                サンプルデータ入りのデモアカウント（<code className="font-mono">show</code> /{' '}
+                <code className="font-mono">show</code>）もあります。
               </p>
               <button
                 type="button"

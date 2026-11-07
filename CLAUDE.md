@@ -145,6 +145,8 @@
   なおこれで守れるのはフォームだけで、Supabase の認証エンドポイント自体は守れない。
 - **ユーザーが変わったら IndexedDB を空にすること**（`switchUser` / `signOut`）。
   RLS が守るのはサーバだけで、ローカルの中身は端末を使う誰でも読める。
+- `show` / `show` はサンプルデータ入りのデモアカウント（人に見せる用。`src/lib/demo/seed.ts`）。
+  サインインのたびに、データが無ければ全テーブルに入れる。設定はテストアカウントと共通
 - `test` / `test` でサインインできる（Supabase 不要）。同期はされず
   データはその端末にだけ残る。**本番（デプロイ先）でも有効**で、
   `NEXT_PUBLIC_DISABLE_TEST_ACCOUNT=true` でビルドすると無効になる（`src/lib/auth/test-account.ts`）。
@@ -166,7 +168,7 @@
 - **開発サーバー起動**: `npm run dev`
 - **ビルド確認**: `npm run build`（Service Worker の生成を含む）
 - **オフライン動作確認**: `npm run build && npm start`（dev では SW が無効）
-- **テスト**: `npm test`（単体テスト288項目） / `npm run test:schema`（DBスキーマ142項目）
+- **テスト**: `npm test`（単体テスト294項目） / `npm run test:schema`（DBスキーマ142項目）
 - **型生成**: `npm run db:types`（要 Supabase ローカルスタック）
 
 ### 環境メモ

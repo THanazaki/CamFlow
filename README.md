@@ -81,7 +81,7 @@ HTTPS なので PWA も確認できる。**URL を知っていれば誰でも開
 ### スマホから開くときの注意
 
 - **Supabase の URL が `127.0.0.1` / `host.docker.internal` だとスマホからは届かない**（同期できない）。
-  `test` / `test` のテストアカウントで画面を確認するか、Supabase をクラウドの開発用プロジェクトにする
+  `test` / `test` のテストアカウント（サンプルデータ入りなら `show` / `show`）で画面を確認するか、Supabase をクラウドの開発用プロジェクトにする
 - 開発サーバーでは Service Worker を登録しない。ホーム画面への追加とオフライン動作は
   `npm run build && npm start` で確認する（B か C の HTTPS が必要）
 

@@ -15,12 +15,43 @@ export const TEST_ACCOUNT_ENABLED = process.env.NEXT_PUBLIC_DISABLE_TEST_ACCOUNT
 /** テストアカウントのユーザー ID。Supabase のユーザーとは重ならない固定値 */
 export const TEST_ACCOUNT_USER_ID = '00000000-0000-4000-8000-000000000001'
 
-/** テストアカウントでのサインインか */
+/** デモアカウント（show / show）のユーザー ID。人に見せる用で、サンプルデータが最初から入る */
+export const DEMO_ACCOUNT_USER_ID = '00000000-0000-4000-8000-000000000002'
+
+/** Supabase を通さない、端末の中だけのアカウント */
+export interface LocalAccount {
+  id: string
+  /** 画面に出すアカウント名 */
+  email: string
+  /** サインインしたときにサンプルデータを入れるか */
+  demo: boolean
+}
+
+const LOCAL_ACCOUNTS: (LocalAccount & { password: string })[] = [
+  { id: TEST_ACCOUNT_USER_ID, email: 'test', password: 'test', demo: false },
+  { id: DEMO_ACCOUNT_USER_ID, email: 'show', password: 'show', demo: true },
+]
+
+/**
+ * テストアカウント（test / test）かデモアカウント（show / show）でのサインインなら、そのアカウントを返す。
+ * どちらも TEST_ACCOUNT_ENABLED で一緒に有効・無効が切り替わる
+ */
+export function findLocalAccount(
+  email: string | undefined,
+  password: string | undefined,
+  enabled: boolean = TEST_ACCOUNT_ENABLED,
+): LocalAccount | null {
+  if (!enabled) return null
+  const name = email?.trim().toLowerCase()
+  const account = LOCAL_ACCOUNTS.find((a) => a.email === name && a.password === password)
+  return account ? { id: account.id, email: account.email, demo: account.demo } : null
+}
+
+/** テストアカウント（test / test）でのサインインか */
 export function isTestAccountLogin(
   email: string | undefined,
   password: string | undefined,
   enabled: boolean = TEST_ACCOUNT_ENABLED,
 ): boolean {
-  if (!enabled) return false
-  return email?.trim().toLowerCase() === 'test' && password === 'test'
+  return findLocalAccount(email, password, enabled)?.id === TEST_ACCOUNT_USER_ID
 }

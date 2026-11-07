@@ -2,7 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 
 import { RECAPTCHA_ENABLED } from '@/lib/auth/recaptcha'
-import { isTestAccountLogin, TEST_ACCOUNT_USER_ID } from '@/lib/auth/test-account'
+import { findLocalAccount } from '@/lib/auth/test-account'
 
 /**
  * サインイン / サインアップ。
@@ -100,10 +100,14 @@ export async function POST(request: Request) {
   // テストアカウント。Supabase も reCAPTCHA も無しで画面を触れるようにする。
   // 本番でも有効（NEXT_PUBLIC_DISABLE_TEST_ACCOUNT=true で無効）。入れるのは端末の中だけで、
   // Supabase のセッションは発行しないので、サーバのデータには触れられない
-  if (isTestAccountLogin(email, password)) {
+  // デモアカウント（show / show）も同じ扱い。サンプルデータは画面側で入れる
+  const localAccount = findLocalAccount(email, password)
+  if (localAccount) {
     return NextResponse.json({
-      localUser: { id: TEST_ACCOUNT_USER_ID, email: 'test' },
-      message: 'テストアカウントで入りました。データはこの端末にのみ保存され、同期はされません。',
+      localUser: localAccount,
+      message: localAccount.demo
+        ? 'デモアカウントで入りました。サンプルデータが入っています。データはこの端末にのみ保存され、同期はされません。'
+        : 'テストアカウントで入りました。データはこの端末にのみ保存され、同期はされません。',
     })
   }
 
