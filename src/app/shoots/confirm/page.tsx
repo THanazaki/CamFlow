@@ -10,12 +10,19 @@ import {
   inputClass,
   ShootDetailsFields,
 } from '@/components/forms/ShootDetailsFields'
-import { confirmShoot, type ShootConfirmInput, type ShootDetailsInput } from '@/lib/actions/shoots'
+import { EMPTY_SHOOT_OPTIONS, ShootOptionsFields } from '@/components/forms/ShootOptionsFields'
+import {
+  confirmShoot,
+  type ShootConfirmInput,
+  type ShootDetailsInput,
+  type ShootOptionsInput,
+} from '@/lib/actions/shoots'
 import { getActiveUserId } from '@/lib/auth/session'
 import { loadConfirmableReservations } from '@/lib/queries/shoots'
 
 const EMPTY: ShootConfirmInput = {
   ...EMPTY_SHOOT_DETAILS,
+  ...EMPTY_SHOOT_OPTIONS,
   fromSessionId: '',
   startTime: '',
   endTime: '',
@@ -34,6 +41,8 @@ export default function ShootConfirmPage() {
   const set = <K extends keyof ShootConfirmInput>(key: K, value: ShootConfirmInput[K]) =>
     setForm((f) => ({ ...f, [key]: value }))
   const setDetails = <K extends keyof ShootDetailsInput>(key: K, value: ShootDetailsInput[K]) =>
+    setForm((f) => ({ ...f, [key]: value }))
+  const setOptions = <K extends keyof ShootOptionsInput>(key: K, value: ShootOptionsInput[K]) =>
     setForm((f) => ({ ...f, [key]: value }))
 
   /** 予約を選んだら、その内容で埋める */
@@ -148,6 +157,8 @@ export default function ShootConfirmPage() {
               )}
             </Field>
           </div>
+
+          <ShootOptionsFields values={form} onChange={setOptions} />
         </section>
 
         <div className="flex flex-wrap items-center gap-3">

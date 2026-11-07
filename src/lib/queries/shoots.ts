@@ -16,6 +16,10 @@ export interface ConfirmedShoot {
   startTime: string
   endTime: string
   models: { name: string; x: string | null; instagram: string | null }[]
+  /** 撮影料（円）。未入力は0 */
+  shootFee: number
+  costumeOptions: string | null
+  shootingMethodOptions: string | null
   storageUrls: string[]
   /** 保存先が1つでも入っていれば撮影データ登録は済み */
   registered: boolean
@@ -157,6 +161,10 @@ export async function loadConfirmedShoots(now: Date = new Date()): Promise<Confi
         startTime: toTime(slot.start_at),
         endTime: toTime(end.toISOString()),
         models: modelsBySlot.get(slot.id) ?? [],
+        // 予約から作った枠のローカル行には booking_fee が無いことがある
+        shootFee: Number(slot.booking_fee ?? 0),
+        costumeOptions: slot.costume_options ?? null,
+        shootingMethodOptions: slot.shooting_method_options ?? null,
         storageUrls: urls,
         registered: urls.length > 0 || Boolean(slot.storage_path),
         past: start.getTime() < nowMs,

@@ -620,5 +620,20 @@ console.log('\n[12] model_former_names（旧名義）')
   audited === 2 ? ok('旧名義の操作もログに残る') : bad('旧名義のログ', `${audited}件`)
 }
 
+// ── 13. 確定撮影情報の撮影料とオプション ─────────────────────────────
+console.log('\n[13] slots の撮影料とオプション')
+{
+  const SLOT = 'c1000000-0000-4000-8000-0000000000ac'
+  await mustPass('撮影料とオプションを保存できる',
+    `update public.slots
+     set booking_fee = 15000, costume_options = '浴衣', shooting_method_options = '動画撮影'
+     where id = '${SLOT}'`)
+  await mustFail('負の撮影料', `update public.slots set booking_fee = -1 where id = '${SLOT}'`)
+  const cost = (await db.query(`
+    select booking_total::int as n from public.v_session_costs
+    where session_id = 'c1000000-0000-4000-8000-0000000000ab'`)).rows[0]
+  cost?.n === 15000 ? ok('撮影料が v_session_costs に集計される') : bad('撮影料の集計', JSON.stringify(cost))
+}
+
 console.log(`\n${'─'.repeat(60)}\n結果: ${pass} 成功 / ${fail} 失敗`)
 process.exit(fail > 0 ? 1 : 0)

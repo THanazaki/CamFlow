@@ -319,6 +319,8 @@ export type Database = {
           timer_finished_at: string | null
           extended_minutes: number
           booking_fee: number
+          costume_options: string | null
+          shooting_method_options: string | null
           theme: string | null
           shoot_status: Database['public']['Enums']['shoot_status']
           frame_count: number | null
@@ -350,6 +352,8 @@ export type Database = {
           timer_finished_at?: string | null
           extended_minutes?: number
           booking_fee?: number
+          costume_options?: string | null
+          shooting_method_options?: string | null
           theme?: string | null
           shoot_status?: Database['public']['Enums']['shoot_status']
           frame_count?: number | null
@@ -381,6 +385,8 @@ export type Database = {
           timer_finished_at?: string | null
           extended_minutes?: number
           booking_fee?: number
+          costume_options?: string | null
+          shooting_method_options?: string | null
           theme?: string | null
           shoot_status?: Database['public']['Enums']['shoot_status']
           frame_count?: number | null

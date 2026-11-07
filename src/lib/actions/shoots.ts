@@ -28,7 +28,18 @@ export interface ShootDetailsInput {
   shootDate: string
 }
 
-export interface ShootConfirmInput extends ShootDetailsInput {
+/** 撮影料とオプション。確定撮影情報入力と確定撮影情報で共通 */
+export interface ShootOptionsInput {
+  /** 撮影料（円）。入力欄の値のまま。空欄は0円 */
+  shootFee: string
+  costumeOptions: string
+  shootingMethodOptions: string
+}
+
+/** slots.booking_fee（numeric(10,0)）に入る上限 */
+const MAX_SHOOT_FEE = 9_999_999_999
+
+export interface ShootConfirmInput extends ShootDetailsInput, ShootOptionsInput {
   /** 予約から確定する場合はその session.id。新規なら空 */
   fromSessionId: string
   /** 開始・終了時刻（HH:mm） */
@@ -43,6 +54,23 @@ function normalize(name: string): string {
 /** 日付 + 時刻（ローカル）を ISO に */
 function toIso(date: string, time: string): string {
   return new Date(`${date}T${time}:00`).toISOString()
+}
+
+/** 入力を slots のカラムに変換する。撮影料が不正ならエラー */
+function toShootOptionColumns(input: ShootOptionsInput) {
+  const fee = input.shootFee.trim()
+  if (fee && !/^\d+$/.test(fee)) {
+    throw new Error('撮影料は0以上の整数で入力してください')
+  }
+  const bookingFee = Number(fee || 0)
+  if (bookingFee > MAX_SHOOT_FEE) {
+    throw new Error('撮影料が大きすぎます')
+  }
+  return {
+    booking_fee: bookingFee,
+    costume_options: input.costumeOptions.trim() || null,
+    shooting_method_options: input.shootingMethodOptions.trim() || null,
+  }
 }
 
 export function minutesBetween(date: string, start: string, end: string): number {
@@ -73,6 +101,9 @@ export async function confirmShoot(
   if (minutes <= 0) {
     throw new Error('終了時刻は開始時刻より後にしてください')
   }
+
+  // モデルなどを作る前に検証する。途中で失敗して行だけ残らないように
+  const options = toShootOptionColumns(input)
 
   // ── モデル ───────────────────────────────────────────────
   const modelId = hasModel ? await resolveModel(userId, modelName) : null
@@ -107,7 +138,7 @@ export async function confirmShoot(
       .sort((a, b) => a.slot_no - b.slot_no)[0]
 
     if (!slot) {
-      const slotId = await createSlot(userId, sessionId, startAt, minutes)
+      const slotId = await createSlot(userId, sessionId, startAt, minutes, options)
       if (modelId) await ensureSlotModel(userId, slotId, modelId)
       return { sessionId, slotId }
     }
@@ -115,6 +146,7 @@ export async function confirmShoot(
     await updateRow('slots', slot.id, {
       start_at: startAt,
       planned_minutes: minutes,
+      ...options,
     })
     if (modelId) {
       await ensureSlotModel(userId, slot.id, modelId)
@@ -127,7 +159,7 @@ export async function confirmShoot(
 
   // ── 予約を通さず直接登録する ─────────────────────────────
   const sessionId = await createRow('sessions', { user_id: userId, ...sessionValues })
-  const slotId = await createSlot(userId, sessionId, startAt, minutes)
+  const slotId = await createSlot(userId, sessionId, startAt, minutes, options)
   if (modelId) await ensureSlotModel(userId, slotId, modelId)
   return { sessionId, slotId }
 }
@@ -166,6 +198,7 @@ async function createSlot(
   sessionId: string,
   startAt: string,
   minutes: number,
+  options: ReturnType<typeof toShootOptionColumns>,
 ): Promise<string> {
   return createRow('slots', {
     user_id: userId,
@@ -173,6 +206,7 @@ async function createSlot(
     slot_no: 1,
     start_at: startAt,
     planned_minutes: minutes,
+    ...options,
     // サーバ側の既定は '{}'。ローカルで省くと undefined になり、
     // pull で入るサーバ行と形が食い違う（deleted_at と同じ罠）
     storage_urls: [],
@@ -184,6 +218,11 @@ export async function saveStorageUrls(slotId: string, urls: string[]): Promise<v
   await updateRow('slots', slotId, {
     storage_urls: normalizeStorageUrls(urls),
   })
+}
+
+/** 撮影料とオプションの更新。確定撮影情報画面から呼ぶ */
+export async function saveShootOptions(slotId: string, input: ShootOptionsInput): Promise<void> {
+  await updateRow('slots', slotId, toShootOptionColumns(input))
 }
 
 /** 同じモデルが既に紐づいていれば何もしない（unique(slot_id, model_id) 違反を避ける） */

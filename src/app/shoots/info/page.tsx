@@ -4,8 +4,9 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import Link from 'next/link'
 import { useState } from 'react'
 
+import { ShootOptionsFields } from '@/components/forms/ShootOptionsFields'
 import { StorageUrlsField } from '@/components/forms/StorageUrlsField'
-import { saveStorageUrls } from '@/lib/actions/shoots'
+import { saveShootOptions, saveStorageUrls, type ShootOptionsInput } from '@/lib/actions/shoots'
 import { placeCategoryLabel } from '@/lib/place-category'
 import { loadConfirmedShoots, type ConfirmedShoot } from '@/lib/queries/shoots'
 import { MAX_STORAGE_URLS, normalizeStorageUrls } from '@/lib/storage-urls'
@@ -30,7 +31,7 @@ export default function ShootInfoPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">確定撮影情報</h1>
           <p className="text-muted mt-1 text-sm">
-            確定した撮影の内容です。撮影後はここから保存先ストレージURLを登録してください。
+            確定した撮影の内容です。撮影料とオプションを編集でき、撮影後はここから保存先ストレージURLを登録してください。
           </p>
         </div>
         <Link
@@ -132,6 +133,8 @@ function ShootCard({ shoot }: { shoot: ConfirmedShoot }) {
         </dl>
       </div>
 
+      <ShootOptionsEditor shoot={shoot} />
+
       <div className="px-5 py-4">
         <StorageUrlsField
           label="保存先ストレージURL"
@@ -160,6 +163,67 @@ function ShootCard({ shoot }: { shoot: ConfirmedShoot }) {
         </div>
       </div>
     </li>
+  )
+}
+
+/** 撮影料は未入力を0で持つので、入力欄では空欄に戻す */
+function toOptionsInput(shoot: ConfirmedShoot): ShootOptionsInput {
+  return {
+    shootFee: shoot.shootFee > 0 ? String(shoot.shootFee) : '',
+    costumeOptions: shoot.costumeOptions ?? '',
+    shootingMethodOptions: shoot.shootingMethodOptions ?? '',
+  }
+}
+
+function ShootOptionsEditor({ shoot }: { shoot: ConfirmedShoot }) {
+  const [values, setValues] = useState<ShootOptionsInput>(() => toOptionsInput(shoot))
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const current = toOptionsInput(shoot)
+  const dirty = (Object.keys(current) as (keyof ShootOptionsInput)[]).some(
+    (key) => values[key].trim() !== current[key],
+  )
+
+  const onChange = <K extends keyof ShootOptionsInput>(key: K, value: ShootOptionsInput[K]) => {
+    setValues((v) => ({ ...v, [key]: value }))
+    setSaved(false)
+  }
+
+  const onSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSaving(true)
+    setError(null)
+    try {
+      await saveShootOptions(shoot.slotId, values)
+      setSaved(true)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <form onSubmit={onSubmit} className="border-border space-y-4 border-b px-5 py-4">
+      <ShootOptionsFields values={values} onChange={onChange} />
+
+      {error && <p className="text-xs text-red-700 dark:text-red-400">{error}</p>}
+
+      <div className="flex items-center gap-3">
+        <button
+          type="submit"
+          disabled={saving || !dirty}
+          className="bg-navy-900 hover:bg-navy-800 rounded-md px-3 py-1.5 text-sm font-medium text-white disabled:opacity-40"
+        >
+          {saving ? '保存中…' : '撮影料とオプションを保存'}
+        </button>
+        {saved && !dirty && (
+          <span className="text-xs text-emerald-700 dark:text-emerald-400">保存しました</span>
+        )}
+      </div>
+    </form>
   )
 }
 
