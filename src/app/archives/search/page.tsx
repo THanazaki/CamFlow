@@ -17,7 +17,10 @@ import {
 } from '@/lib/queries/archives'
 import { loadSuggestions } from '@/lib/queries/reservations'
 
-/** 条件と URL のクエリの対応。詳細から戻っても条件が残るよう URL に持つ */
+/** 検索したことを示すクエリ。条件が空のまま検索した状態も、戻ったときに復元するため */
+const SEARCHED_PARAM = 'searched'
+
+/** 条件と URL のクエリの対応。詳細から戻っても検索結果が残るよう URL に持つ */
 const PARAMS: Record<keyof ShootSearchConditions, string> = {
   eventName: 'event',
   modelName: 'model',
@@ -34,13 +37,17 @@ function readConditions(params: Pick<URLSearchParams, 'get'>): ShootSearchCondit
   return conditions
 }
 
-function writeConditions(conditions: ShootSearchConditions): void {
+/** 検索した条件を URL に残す。null は未検索 */
+function writeConditions(conditions: ShootSearchConditions | null): void {
   const params = new URLSearchParams()
-  for (const key of Object.keys(PARAMS) as (keyof ShootSearchConditions)[]) {
-    if (conditions[key]) params.set(PARAMS[key], conditions[key])
+  if (conditions) {
+    params.set(SEARCHED_PARAM, '1')
+    for (const key of Object.keys(PARAMS) as (keyof ShootSearchConditions)[]) {
+      if (conditions[key]) params.set(PARAMS[key], conditions[key])
+    }
   }
   const query = params.toString()
-  // router.replace はサーバに取りに行くので、入力のたびに通信が走りオフラインで失敗する
+  // router.replace はサーバに取りに行くので、オフラインで失敗する
   window.history.replaceState(null, '', query ? `?${query}` : window.location.pathname)
 }
 
@@ -55,11 +62,16 @@ export default function ShootSearchPage() {
 
 /**
  * 撮影情報検索。
- * 運用フローと過去撮影登録の両方から、撮影済みの撮影を探す。入力すると結果がすぐ変わる。
+ * 運用フローと過去撮影登録の両方から、撮影済みの撮影を探す。
+ * 「検索」を押したときの条件で結果を出し、入力の途中では結果を変えない。
  */
 function ShootSearch() {
   const params = useSearchParams()
   const [conditions, setConditions] = useState<ShootSearchConditions>(() => readConditions(params))
+  /** 検索に使った条件。null は未検索 */
+  const [applied, setApplied] = useState<ShootSearchConditions | null>(() =>
+    params.has(SEARCHED_PARAM) ? readConditions(params) : null,
+  )
 
   const records = useLiveQuery(() => loadShootArchive(), [], null)
   const suggestions = useLiveQuery(() => loadSuggestions(), [], {
@@ -68,23 +80,32 @@ function ShootSearch() {
     events: [],
   })
   const results = useMemo(
-    () => (records ? filterShootArchive(records, conditions) : null),
-    [records, conditions],
+    () => (records && applied ? filterShootArchive(records, applied) : null),
+    [records, applied],
   )
 
   const eventListId = useId()
   const modelListId = useId()
   const venueListId = useId()
 
-  const update = (next: ShootSearchConditions) => {
-    setConditions(next)
-    writeConditions(next)
-  }
   const set = (key: keyof ShootSearchConditions, value: string) =>
-    update({ ...conditions, [key]: value })
+    setConditions((c) => ({ ...c, [key]: value }))
 
   const reversedDates =
     conditions.dateFrom && conditions.dateTo && conditions.dateFrom > conditions.dateTo
+
+  const search = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (reversedDates) return
+    setApplied(conditions)
+    writeConditions(conditions)
+  }
+
+  const clear = () => {
+    setConditions(EMPTY_SHOOT_SEARCH)
+    setApplied(null)
+    writeConditions(null)
+  }
 
   return (
     <div className="space-y-6">
@@ -98,7 +119,7 @@ function ShootSearch() {
       <form
         role="search"
         aria-label="撮影情報の検索条件"
-        onSubmit={(e) => e.preventDefault()}
+        onSubmit={search}
         className="bg-surface border-border space-y-4 rounded-lg border p-5"
       >
         <div className="grid gap-4 sm:grid-cols-2">
@@ -191,10 +212,16 @@ function ShootSearch() {
           </p>
         )}
 
-        <div>
+        <div className="flex flex-wrap gap-3">
+          <button
+            type="submit"
+            className="bg-navy-900 hover:bg-navy-800 rounded-md px-4 py-2 text-sm font-medium text-white"
+          >
+            検索
+          </button>
           <button
             type="button"
-            onClick={() => update(EMPTY_SHOOT_SEARCH)}
+            onClick={clear}
             className="border-border hover:bg-navy-50 rounded-md border px-4 py-2 text-sm dark:hover:bg-white/5"
           >
             条件をクリア
@@ -203,7 +230,11 @@ function ShootSearch() {
       </form>
 
       <section aria-label="検索結果" className="space-y-3">
-        {results === null ? (
+        {applied === null ? (
+          <div className="border-border text-muted rounded-lg border border-dashed p-8 text-center text-sm">
+            条件を入力して「検索」を押してください。条件が空なら、すべての撮影を表示します
+          </div>
+        ) : results === null ? (
           <p className="text-muted text-sm">読み込み中…</p>
         ) : (
           <>
