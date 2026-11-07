@@ -262,7 +262,7 @@ export default function ReservationNewPage() {
               {(Object.keys(BOOKING_METHODS) as BookingMethod[]).map((key) => (
                 <label
                   key={key}
-                  className={`cursor-pointer rounded-md border px-3 py-1.5 text-sm ${
+                  className={`tap-target cursor-pointer rounded-md border px-3 py-1.5 text-sm ${
                     form.bookingMethod === key
                       ? 'border-navy-500 bg-navy-900 text-white'
                       : 'border-border hover:bg-navy-50 dark:hover:bg-white/5'
@@ -336,8 +336,9 @@ export default function ReservationNewPage() {
   )
 }
 
+// スマホでは 16px（iPhone の Safari が入力時に画面を拡大しないように）
 const inputClass =
-  'bg-background border-border focus:border-navy-500 focus:ring-navy-500/30 w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2'
+  'bg-background border-border focus:border-navy-500 focus:ring-navy-500/30 w-full rounded-md border px-3 py-2 text-base outline-none focus:ring-2 sm:text-sm'
 
 /** 入力要素に渡す属性。ラベルとヒントの関連付けを Field 側で持つ */
 interface FieldControlProps {

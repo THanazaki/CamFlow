@@ -22,7 +22,7 @@ export function ChoicePicker<T extends string>({
       {options.map((option) => (
         <label
           key={option.value}
-          className={`cursor-pointer rounded-md border px-3 py-1.5 text-sm has-[:focus-visible]:ring-2 ${
+          className={`tap-target cursor-pointer rounded-md border px-3 py-1.5 text-sm has-[:focus-visible]:ring-2 ${
             value === option.value
               ? 'border-navy-500 bg-navy-900 text-white'
               : 'border-border hover:bg-navy-50 dark:hover:bg-white/5'

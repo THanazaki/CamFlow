@@ -255,8 +255,12 @@ export function ShootTimeFields({
   )
 }
 
+/**
+ * 入力欄の共通スタイル。
+ * スマホでは文字を 16px にする。iPhone の Safari は 16px 未満の入力欄にフォーカスすると画面を拡大するため。
+ */
 export const inputClass =
-  'bg-background border-border focus:border-navy-500 focus:ring-navy-500/30 w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2'
+  'bg-background border-border focus:border-navy-500 focus:ring-navy-500/30 w-full rounded-md border px-3 py-2 text-base outline-none focus:ring-2 sm:text-sm'
 
 interface FieldControlProps {
   id: string

@@ -60,13 +60,13 @@ function ModelDetailView() {
           {/* 編集から来た場合も含め、常に一覧へ戻る */}
           <Link
             href="/masters/models"
-            className="border-border hover:bg-navy-50 rounded-md border px-4 py-2 text-sm dark:hover:bg-white/5"
+            className="tap-target border-border hover:bg-navy-50 rounded-md border px-4 py-2 text-sm dark:hover:bg-white/5"
           >
             戻る
           </Link>
           <Link
             href={`/masters/models/edit?id=${encodeURIComponent(model.id)}`}
-            className="bg-navy-900 hover:bg-navy-800 rounded-md px-4 py-2 text-sm font-medium text-white"
+            className="tap-target bg-navy-900 hover:bg-navy-800 rounded-md px-4 py-2 text-sm font-medium text-white"
           >
             編集
           </Link>

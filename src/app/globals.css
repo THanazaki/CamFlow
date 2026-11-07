@@ -53,6 +53,25 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/*
+ * タッチ操作の端末（スマホ・タブレット）では、押せる範囲を最低 44px にする（Apple HIG の目安）。
+ * ボタンはすべて対象。ボタンのように見えるリンクと選択肢のラベルは .tap-target を付けて対象にする。
+ * マウス操作の端末では見た目を変えない。
+ */
+@media (pointer: coarse) {
+  button,
+  .tap-target {
+    min-height: 44px;
+  }
+
+  a.tap-target,
+  label.tap-target {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
 /* PWA（standalone）でのセーフエリア */
 @supports (padding: env(safe-area-inset-bottom)) {
   body {

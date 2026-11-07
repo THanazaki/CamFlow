@@ -76,8 +76,32 @@ function StatsTable({
           {emptyText}
         </div>
       ) : (
-        // 横に広いので、狭い画面ではこの中だけ横スクロールさせる
-        <div className="bg-surface border-border overflow-x-auto rounded-lg border">
+        <>
+          {/* スマホではカード、それより広い画面では表 */}
+          <ul className="space-y-2 sm:hidden">
+            {rows.map((row) => (
+              <li key={row.id} className="bg-surface border-border rounded-lg border px-4 py-3">
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="min-w-0 font-medium break-words">{row.name}</span>
+                  <span className="shrink-0 text-sm tabular-nums">
+                    <span className="text-muted mr-1 text-xs">{columns[1]}</span>
+                    {row.count}
+                  </span>
+                </div>
+                <dl className="text-muted mt-1 flex flex-wrap gap-x-4 text-xs tabular-nums">
+                  <div className="flex gap-1">
+                    <dt>{columns[2]}</dt>
+                    <dd className="text-foreground">{row.firstDate}</dd>
+                  </div>
+                  <div className="flex gap-1">
+                    <dt>{columns[3]}</dt>
+                    <dd className="text-foreground">{row.lastDate}</dd>
+                  </div>
+                </dl>
+              </li>
+            ))}
+          </ul>
+        <div className="bg-surface border-border hidden overflow-x-auto rounded-lg border sm:block">
           <table className="w-full min-w-[32rem] text-left text-sm">
             <thead className="border-border text-muted border-b text-xs">
               <tr>
@@ -107,6 +131,7 @@ function StatsTable({
             </tbody>
           </table>
         </div>
+        </>
       )}
     </section>
   )

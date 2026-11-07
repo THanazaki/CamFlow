@@ -200,7 +200,7 @@ function ModelEditForm({ model }: { model: ModelDetail }) {
             <div className="mt-1.5 space-y-2" role="radiogroup" aria-label="メインの所属">
               {form.affiliations.map((affiliation, i) => (
                 <div key={i} className="flex items-center gap-2">
-                  <label className="flex shrink-0 items-center gap-1 text-xs whitespace-nowrap">
+                  <label className="tap-target flex shrink-0 items-center gap-1 text-xs whitespace-nowrap">
                     <input
                       type="radio"
                       name="mainAffiliation"
@@ -292,7 +292,7 @@ function ModelEditForm({ model }: { model: ModelDetail }) {
 
           <div>
             <p className="text-sm font-medium">お気に入り</p>
-            <label className="mt-1.5 flex items-center gap-2 py-2 text-sm">
+            <label className="tap-target mt-1.5 flex items-center gap-2 py-2 text-sm">
               <input
                 type="checkbox"
                 checked={form.isFavorite}

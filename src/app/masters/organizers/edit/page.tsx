@@ -185,7 +185,7 @@ function OrganizerEditForm({ organizer }: { organizer: OrganizerDetail }) {
 
           <div>
             <p className="text-sm font-medium">お気に入り</p>
-            <label className="mt-1.5 flex items-center gap-2 py-2 text-sm">
+            <label className="tap-target mt-1.5 flex items-center gap-2 py-2 text-sm">
               <input
                 type="checkbox"
                 checked={form.isFavorite}

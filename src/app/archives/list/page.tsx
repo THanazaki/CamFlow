@@ -24,7 +24,7 @@ export default function ShootListPage() {
         </div>
         <Link
           href="/archives/search"
-          className="border-border hover:bg-navy-50 shrink-0 rounded-md border px-4 py-2 text-sm dark:hover:bg-white/5"
+          className="tap-target border-border hover:bg-navy-50 shrink-0 rounded-md border px-4 py-2 text-sm dark:hover:bg-white/5"
         >
           条件で検索する
         </Link>

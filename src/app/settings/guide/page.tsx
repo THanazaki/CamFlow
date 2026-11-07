@@ -37,11 +37,12 @@ export default function GuidePage() {
 
       <nav aria-label="目次" className="bg-surface border-border rounded-lg border p-5">
         <h2 className="text-sm font-medium">目次</h2>
-        <ol className="mt-2 grid gap-x-6 gap-y-1 text-sm sm:grid-cols-2">
+        <ol className="mt-2 grid gap-x-6 text-sm sm:grid-cols-2 sm:gap-y-1">
           {SECTIONS.map((s, i) => (
             <li key={s.id}>
               {/* 素の <a> だとルーターの履歴に載らず、後で「戻る」と別画面の中身のままになる */}
-              <ScreenLink href={`#${s.id}`}>
+              {/* スマホでは押せる範囲を1行ぶんに広げる */}
+              <ScreenLink href={`#${s.id}`} className="block py-2 sm:inline sm:py-0">
                 {i + 1}. {s.title}
               </ScreenLink>
             </li>
@@ -364,9 +365,20 @@ function Step({ title, children }: { title: string; children: React.ReactNode })
   )
 }
 
-function ScreenLink({ href, children }: { href: string; children: React.ReactNode }) {
+function ScreenLink({
+  href,
+  className = '',
+  children,
+}: {
+  href: string
+  className?: string
+  children: React.ReactNode
+}) {
   return (
-    <Link href={href} className="text-navy-600 dark:text-navy-200 underline underline-offset-2">
+    <Link
+      href={href}
+      className={`text-navy-600 dark:text-navy-200 underline underline-offset-2 ${className}`}
+    >
       {children}
     </Link>
   )

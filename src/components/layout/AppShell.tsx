@@ -64,7 +64,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </aside>
 
       {/* SP: ヘッダー + ハンバーガー */}
-      <header className="bg-navy-900 sticky top-0 z-30 lg:hidden">
+      {/* ホーム画面から起動したとき（standalone）にステータスバーと重ならないよう、上端のセーフエリアを空ける */}
+      {/* 画面の高さを超えないよう max-h-dvh。メニューを開いたときはメニュー部分だけがスクロールする */}
+      <header className="bg-navy-900 sticky top-0 z-30 flex max-h-dvh flex-col pt-[env(safe-area-inset-top)] lg:hidden">
         <div className="flex items-center justify-between px-4 py-3">
           <Logo />
           <button
@@ -83,7 +85,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <AccountRow email={auth.user?.email} offlineFallback={auth.offlineFallback} />
         </div>
         {menuOpen && (
-          <nav id="mobile-nav" className="border-t border-white/10 px-3 pb-3">
+          // ヘッダーは画面上部に固定なので、メニューが画面より長いと下の項目に届かない。メニューの中でスクロールさせる
+          <nav
+            id="mobile-nav"
+            className="min-h-0 flex-1 overflow-y-auto overscroll-contain border-t border-white/10 px-3 pb-3"
+          >
             <NavList pathname={pathname} onNavigate={closeMenu} />
           </nav>
         )}

@@ -26,7 +26,7 @@ export default function ReservationSchedulePage() {
         </div>
         <Link
           href="/reservations/new"
-          className="bg-navy-900 hover:bg-navy-800 shrink-0 rounded-md px-4 py-2 text-sm font-medium text-white"
+          className="tap-target bg-navy-900 hover:bg-navy-800 shrink-0 rounded-md px-4 py-2 text-sm font-medium text-white"
         >
           予約を追加
         </Link>

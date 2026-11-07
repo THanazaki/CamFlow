@@ -217,5 +217,6 @@ export function LoginScreen() {
   )
 }
 
+// スマホでは 16px（iPhone の Safari が入力時に画面を拡大しないように）
 const inputClass =
-  'bg-background border-border focus:border-navy-500 focus:ring-navy-500/30 mt-1.5 w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2'
+  'bg-background border-border focus:border-navy-500 focus:ring-navy-500/30 mt-1.5 w-full rounded-md border px-3 py-2 text-base outline-none focus:ring-2 sm:text-sm'

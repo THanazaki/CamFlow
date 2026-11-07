@@ -106,15 +106,18 @@ export default function DashboardPage() {
 
       {/* 下段: 直近の撮影済み */}
       <section className="bg-surface border-border rounded-lg border">
-        <header className="border-border flex items-baseline justify-between border-b px-4 py-3">
-          <h2 className="text-sm font-medium">直近の撮影済みデータ</h2>
+        <header className="border-border flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 border-b px-4 py-3">
+          <h2 className="text-sm font-medium whitespace-nowrap">直近の撮影済みデータ</h2>
           <span className="text-muted text-xs">撮影管理の完了分と、遡及登録した過去分</span>
         </header>
 
         {data.recent.length === 0 ? (
           <p className="text-muted px-4 py-8 text-center text-xs">撮影済みのデータはまだありません</p>
         ) : (
-          <RecentTable rows={data.recent} />
+          <>
+            <RecentList rows={data.recent} />
+            <RecentTable rows={data.recent} />
+          </>
         )}
       </section>
 
@@ -123,10 +126,66 @@ export default function DashboardPage() {
   )
 }
 
+/** 保管先の表示。保管先パス、ストレージURLの件数、未登録のどれか */
+function StorageSummary({ row }: { row: ShootSummary }) {
+  if (row.storagePath) {
+    return (
+      <span className="block max-w-[14rem] truncate font-mono text-xs" title={row.storagePath}>
+        {row.storageLabel && <span className="text-muted">[{row.storageLabel}] </span>}
+        {row.storagePath}
+      </span>
+    )
+  }
+  if (row.storageUrls.length > 0) {
+    return (
+      <span className="text-muted block text-xs" title={row.storageUrls.join('\n')}>
+        URL {row.storageUrls.length}件
+      </span>
+    )
+  }
+  return <span className="text-amber-600 dark:text-amber-400">未登録</span>
+}
+
+/** スマホ向け。表は横に広く、スマホでは横スクロールになるため1件ずつ縦に並べる */
+function RecentList({ rows }: { rows: ShootSummary[] }) {
+  return (
+    <ul className="divide-border divide-y sm:hidden">
+      {rows.map((r) => (
+        <li key={`${r.source}:${r.sourceId}`} className="px-4 py-3 text-sm">
+          <div className="flex items-baseline justify-between gap-3">
+            <span className="min-w-0 truncate font-medium">
+              {r.title}
+              {r.slotNo !== null && <span className="text-muted"> ({r.slotNo}部)</span>}
+            </span>
+            <span className="text-muted shrink-0 text-xs tabular-nums">{r.shootDate}</span>
+          </div>
+          <p className="text-muted mt-0.5 truncate text-xs">
+            {[r.modelNames.join('・'), r.venueName].filter(Boolean).join(' / ') || '—'}
+          </p>
+          <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+            <span className="flex min-w-0 items-center gap-1">
+              <span className="text-muted shrink-0">保管先</span>
+              <StorageSummary row={r} />
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="text-muted">バックアップ</span>
+              {r.backedUpAt ? (
+                <span className="tabular-nums">{r.backedUpAt.slice(0, 10)}</span>
+              ) : (
+                <span className="text-amber-600 dark:text-amber-400">未</span>
+              )}
+            </span>
+          </div>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
 function RecentTable({ rows }: { rows: ShootSummary[] }) {
   return (
-    // 横に広いので、狭い画面ではこの中だけ横スクロールさせる
-    <div className="overflow-x-auto">
+    // スマホでは RecentList を出す
+    <div className="hidden overflow-x-auto sm:block">
       <table className="w-full min-w-[42rem] text-sm">
         <thead className="text-muted border-border border-b text-left text-xs">
           <tr>
@@ -154,18 +213,7 @@ function RecentTable({ rows }: { rows: ShootSummary[] }) {
               </td>
               <td className="px-4 py-2.5 text-right tabular-nums">{r.frameCount ?? '—'}</td>
               <td className="px-4 py-2.5">
-                {r.storagePath ? (
-                  <span className="block max-w-[14rem] truncate font-mono text-xs" title={r.storagePath}>
-                    {r.storageLabel && <span className="text-muted">[{r.storageLabel}] </span>}
-                    {r.storagePath}
-                  </span>
-                ) : r.storageUrls.length > 0 ? (
-                  <span className="text-muted block text-xs" title={r.storageUrls.join('\n')}>
-                    URL {r.storageUrls.length}件
-                  </span>
-                ) : (
-                  <span className="text-amber-600 dark:text-amber-400">未登録</span>
-                )}
+                <StorageSummary row={r} />
               </td>
               <td className="px-4 py-2.5 whitespace-nowrap">
                 {r.backedUpAt ? (

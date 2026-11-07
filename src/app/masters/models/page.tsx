@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { loadModelList } from '@/lib/queries/models'
 
 const BUTTON_CLASS =
-  'border-border hover:bg-navy-50 inline-block rounded-md border px-3 py-1 text-xs whitespace-nowrap dark:hover:bg-white/5'
+  'tap-target border-border hover:bg-navy-50 inline-block rounded-md border px-3 py-1 text-xs whitespace-nowrap dark:hover:bg-white/5'
 
 /**
  * モデルマスタ。
