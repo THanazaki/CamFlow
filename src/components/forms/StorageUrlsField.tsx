@@ -7,14 +7,18 @@ export function StorageUrlsField({
   hint,
   urls,
   onChange,
+  disabled = false,
 }: {
   label: string
   hint: string
   urls: string[]
   onChange: (urls: string[]) => void
+  /** 撮影が終わるまで操作させないときに使う */
+  disabled?: boolean
 }) {
   return (
-    <fieldset>
+    // fieldset の disabled で、中の入力欄とボタンをまとめて操作できなくする
+    <fieldset disabled={disabled} className="disabled:opacity-60">
       <legend className="text-sm font-medium">{label}</legend>
       <p className="text-muted mt-0.5 text-xs">{hint}</p>
       <div className="mt-1.5 space-y-2">

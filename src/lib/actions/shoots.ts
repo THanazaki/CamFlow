@@ -2,6 +2,7 @@ import { db } from '@/lib/db'
 import { feePaymentHasDate, type FeePaymentTiming } from '@/lib/fee-payment'
 import { categoryHasMeetingPoint, type PlaceCategory } from '@/lib/place-category'
 import { categoryHasModel, fallbackShootTitle, type ShootCategory } from '@/lib/shoot-category'
+import { isSlotFinished } from '@/lib/slot-time'
 import { normalizeStorageUrls } from '@/lib/storage-urls'
 import { createRow, deleteRow, updateRow } from '@/lib/sync/mutations'
 
@@ -47,6 +48,8 @@ export interface ShootPaymentInput {
   /** 支払日（YYYY-MM-DD）。事前以外では無視する */
   paymentDate: string
 }
+
+const STORAGE_URLS_LOCKED_MESSAGE = '保存先ストレージURLは撮影が終わるまで登録できません'
 
 /** 確定撮影情報入力と、確定した撮影の編集で共通の入力 */
 export interface ShootFormInput extends ShootDetailsInput, ShootOptionsInput, ShootPaymentInput {
@@ -307,7 +310,18 @@ async function createSlot(
 }
 
 /** 保存先ストレージURL の登録。確定撮影情報画面から撮影後に呼ぶ */
-export async function saveStorageUrls(slotId: string, urls: string[]): Promise<void> {
+export async function saveStorageUrls(
+  slotId: string,
+  urls: string[],
+  now: Date = new Date(),
+): Promise<void> {
+  const slot = await db.slots.get(slotId)
+  if (!slot) {
+    throw new Error('撮影が見つかりませんでした')
+  }
+  if (!isSlotFinished(slot, now)) {
+    throw new Error(STORAGE_URLS_LOCKED_MESSAGE)
+  }
   await updateRow('slots', slotId, {
     storage_urls: normalizeStorageUrls(urls),
   })
@@ -328,6 +342,10 @@ export async function updateConfirmedShoot(
   }
   // モデルなどを作る前に検証する
   const storageUrls = normalizeStorageUrls(input.storageUrls)
+  const urlsChanged = JSON.stringify(storageUrls) !== JSON.stringify(slot.storage_urls ?? [])
+  if (urlsChanged && !isSlotFinished(slot)) {
+    throw new Error(STORAGE_URLS_LOCKED_MESSAGE)
+  }
   const session = await db.sessions.get(slot.session_id)
   const { modelId, sessionValues, startAt, minutes, options } = await prepareShoot(
     userId,

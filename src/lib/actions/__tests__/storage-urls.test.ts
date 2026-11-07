@@ -18,7 +18,7 @@ async function createShoot(): Promise<string> {
     placeCategory: 'studio',
     venueName: '',
     meetingPoint: '',
-    shootDate: '2026-12-20',
+    shootDate: '2026-01-10',
     startTime: '13:00',
     endTime: '15:00',
     meetingTime: '',

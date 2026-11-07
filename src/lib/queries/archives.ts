@@ -3,6 +3,7 @@ import type { LocalShootHistory, LocalSession, LocalSlot, LocalVenue } from '@/l
 import type { FeePaymentTiming } from '@/lib/fee-payment'
 import type { PlaceCategory } from '@/lib/place-category'
 import type { ShootCategory } from '@/lib/shoot-category'
+import { isSlotFinished } from '@/lib/slot-time'
 
 import { toTime } from './shoots'
 
@@ -29,6 +30,8 @@ export interface ShootRecord {
   organizerId: string | null
   /** 撮影イベントの単位。同じ session の枠は同じ値になる */
   eventKey: string
+  /** 撮影が終わったか。終わるまで保存先ストレージURLは登録できない */
+  finished: boolean
   storageUrls: string[]
   /** 物理的な保管先。この画面からは入力しない */
   storagePath: string | null
@@ -127,6 +130,7 @@ function fromSlot(
     modelIds: models.map((m) => m.id),
     organizerId: session.organizer_id ?? null,
     eventKey: `session:${session.id}`,
+    finished: isSlotFinished(slot),
     storageUrls: slot.storage_urls ?? [],
     storagePath: slot.storage_path ?? null,
     meetingPoint: session.meeting_point ?? null,
@@ -160,6 +164,7 @@ function fromHistory(
     modelIds: models.map((m) => m.id),
     organizerId: history.organizer_id ?? null,
     eventKey: `history:${history.id}`,
+    finished: true,
     storageUrls: history.storage_urls ?? [],
     storagePath: history.storage_path ?? null,
     meetingPoint: null,

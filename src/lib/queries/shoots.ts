@@ -2,6 +2,7 @@ import { db } from '@/lib/db'
 import type { FeePaymentTiming } from '@/lib/fee-payment'
 import type { PlaceCategory } from '@/lib/place-category'
 import { DEFAULT_SHOOT_CATEGORY, type ShootCategory } from '@/lib/shoot-category'
+import { isSlotFinished } from '@/lib/slot-time'
 
 /** 確定撮影情報画面の1行（1枠 = 1行） */
 export interface ConfirmedShoot {
@@ -29,8 +30,10 @@ export interface ConfirmedShoot {
   storageUrls: string[]
   /** 保存先が1つでも入っていれば撮影データ登録は済み */
   registered: boolean
-  /** 撮影日を過ぎているか */
+  /** 撮影の開始時刻を過ぎているか */
   past: boolean
+  /** 撮影が終わったか。終わるまで保存先ストレージURLは登録できない */
+  finished: boolean
 }
 
 /** 確定撮影情報入力で「予約から選ぶ」ための候補 */
@@ -188,6 +191,7 @@ export async function loadConfirmedShoots(now: Date = new Date()): Promise<Confi
         storageUrls: urls,
         registered: urls.length > 0 || Boolean(slot.storage_path),
         past: start.getTime() < nowMs,
+        finished: isSlotFinished(slot, now),
       }
     })
     .sort((a, b) => {

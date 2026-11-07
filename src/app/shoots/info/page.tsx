@@ -2,7 +2,7 @@
 
 import { useLiveQuery } from 'dexie-react-hooks'
 import Link from 'next/link'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import { ShootOptionsFields } from '@/components/forms/ShootOptionsFields'
 import { ModelAccount } from '@/components/ModelAccount'
@@ -23,9 +23,16 @@ function toRows(urls: string[]): string[] {
  * 「確定撮影情報入力」で登録した内容を一覧し、撮影後に保存先ストレージURLを登録する。
  */
 export default function ShootInfoPage() {
-  const shoots = useLiveQuery(() => loadConfirmedShoots(), [], null)
+  // 開いたままでも撮影の開始・終了を反映するよう、1分ごとに読み直す
+  const [tick, setTick] = useState(0)
+  useEffect(() => {
+    const id = setInterval(() => setTick((t) => t + 1), 60_000)
+    return () => clearInterval(id)
+  }, [])
 
-  const pending = shoots?.filter((s) => s.past && !s.registered).length ?? 0
+  const shoots = useLiveQuery(() => loadConfirmedShoots(), [tick], null)
+
+  const pending = shoots?.filter((s) => s.finished && !s.registered).length ?? 0
 
   return (
     <div className="space-y-6">
@@ -153,9 +160,14 @@ function ShootCard({ shoot }: { shoot: ConfirmedShoot }) {
       <div className="px-5 py-4">
         <StorageUrlsField
           label="保存先ストレージURL"
-          hint={`最大${MAX_STORAGE_URLS}個。1つでも登録すると撮影リマインドから外れます`}
+          hint={
+            shoot.finished
+              ? `最大${MAX_STORAGE_URLS}個。1つでも登録すると撮影リマインドから外れます`
+              : '撮影が終わると登録できます'
+          }
           urls={urls}
           onChange={setUrls}
+          disabled={!shoot.finished}
         />
 
         {error && (
@@ -166,7 +178,7 @@ function ShootCard({ shoot }: { shoot: ConfirmedShoot }) {
           <button
             type="button"
             onClick={onSave}
-            disabled={saving || !dirty}
+            disabled={saving || !dirty || !shoot.finished}
             className="bg-navy-900 hover:bg-navy-800 rounded-md px-3 py-1.5 text-sm font-medium text-white disabled:opacity-40"
           >
             {saving ? '保存中…' : '保存先を登録'}
@@ -250,7 +262,7 @@ function StatusBadge({ shoot }: { shoot: ConfirmedShoot }) {
       </span>
     )
   }
-  if (shoot.past) {
+  if (shoot.finished) {
     return (
       <span className="shrink-0 rounded-md bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800 dark:bg-amber-500/15 dark:text-amber-300">
         データ未登録
@@ -259,7 +271,7 @@ function StatusBadge({ shoot }: { shoot: ConfirmedShoot }) {
   }
   return (
     <span className="bg-navy-100 text-navy-700 dark:text-navy-100 shrink-0 rounded-md px-2.5 py-1 text-xs font-medium dark:bg-white/10">
-      撮影前
+      {shoot.past ? '撮影中' : '撮影前'}
     </span>
   )
 }

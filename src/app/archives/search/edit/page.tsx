@@ -175,9 +175,14 @@ function ShootEditForm({ record }: { record: ShootRecord }) {
 
           <StorageUrlsField
             label="ストレージのURL"
-            hint={`最大${MAX_STORAGE_URLS}個。空欄は保存されません`}
+            hint={
+              record.finished
+                ? `最大${MAX_STORAGE_URLS}個。空欄は保存されません`
+                : '撮影が終わると登録できます'
+            }
             urls={storageUrls}
             onChange={setStorageUrls}
+            disabled={!record.finished}
           />
         </section>
 
