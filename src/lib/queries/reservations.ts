@@ -20,6 +20,7 @@ export interface ReservationRow {
   paymentDate: string | null
   costumeOptions: string | null
   shootingMethodOptions: string | null
+  memo: string | null
 }
 
 /**
@@ -81,6 +82,7 @@ export async function loadReservationSchedule(): Promise<ReservationRow[]> {
         paymentDate: slot?.fee_payment_date ?? null,
         costumeOptions: slot?.costume_options ?? null,
         shootingMethodOptions: slot?.shooting_method_options ?? null,
+        memo: s.memo ?? null,
       }
     })
     .sort((a, b) => {

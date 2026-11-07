@@ -153,6 +153,12 @@ function ShootCard({ shoot }: { shoot: ConfirmedShoot }) {
             )}
           </Row>
         </dl>
+        {shoot.memo && (
+          <p className="text-muted mt-2 text-sm whitespace-pre-wrap">
+            <span className="mr-2 text-xs">メモ</span>
+            <span className="text-foreground">{shoot.memo}</span>
+          </p>
+        )}
       </div>
 
       <ShootOptionsEditor shoot={shoot} />

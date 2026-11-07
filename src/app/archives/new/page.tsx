@@ -3,7 +3,11 @@
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 
-import { EMPTY_SHOOT_DETAILS, ShootDetailsFields } from '@/components/forms/ShootDetailsFields'
+import {
+  EMPTY_SHOOT_DETAILS,
+  MemoField,
+  ShootDetailsFields,
+} from '@/components/forms/ShootDetailsFields'
 import { StorageUrlsField } from '@/components/forms/StorageUrlsField'
 import { createShootHistory, localToday } from '@/lib/actions/archives'
 import type { ShootDetailsInput } from '@/lib/actions/shoots'
@@ -80,6 +84,7 @@ export default function ArchiveNewPage() {
             urls={storageUrls}
             onChange={setStorageUrls}
           />
+          <MemoField value={details.memo ?? ''} onChange={(v) => set('memo', v)} />
         </section>
 
         <div className="flex flex-wrap items-center gap-3">

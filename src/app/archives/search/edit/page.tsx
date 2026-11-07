@@ -5,7 +5,11 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Suspense, useState } from 'react'
 
-import { ShootDetailsFields, ShootTimeFields } from '@/components/forms/ShootDetailsFields'
+import {
+  MemoField,
+  ShootDetailsFields,
+  ShootTimeFields,
+} from '@/components/forms/ShootDetailsFields'
 import { ShootOptionsFields, ShootPaymentFields } from '@/components/forms/ShootOptionsFields'
 import { StorageUrlsField } from '@/components/forms/StorageUrlsField'
 import { localToday, updateShootHistory } from '@/lib/actions/archives'
@@ -84,6 +88,7 @@ function toFormValues(record: ShootRecord): ShootFormInput {
     shootingMethodOptions: record.shootingMethodOptions ?? '',
     paymentTiming: record.paymentTiming,
     paymentDate: record.paymentDate ?? '',
+    memo: record.memo ?? '',
   }
 }
 
@@ -184,6 +189,8 @@ function ShootEditForm({ record }: { record: ShootRecord }) {
             onChange={setStorageUrls}
             disabled={!record.finished}
           />
+
+          <MemoField value={form.memo ?? ''} onChange={(v) => setDetails('memo', v)} />
         </section>
 
         <div className="flex flex-wrap items-center gap-3">

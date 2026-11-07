@@ -23,6 +23,24 @@ export const EMPTY_SHOOT_DETAILS: ShootDetailsInput = {
   venueName: '',
   meetingPoint: '',
   shootDate: '',
+  memo: '',
+}
+
+/** メモ欄。予約情報入力・確定撮影情報入力・過去撮影登録・撮影情報の編集で共通 */
+export function MemoField({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  return (
+    <Field label="メモ">
+      {(p) => (
+        <textarea
+          {...p}
+          rows={3}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className={inputClass}
+        />
+      )}
+    </Field>
+  )
 }
 
 /** 撮影会名から撮影日までの入力欄。確定撮影情報入力と過去撮影登録で共通 */

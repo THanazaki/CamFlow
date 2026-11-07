@@ -24,6 +24,8 @@ export type BookingMethod = 'page' | 'email' | 'dm'
 
 /** 入力順は画面と同じ（撮影会名 → 撮影区分 → モデル名 → … → 予約URL） */
 export interface ReservationInput extends ShootOptionsInput, ShootPaymentInput {
+  /** メモ。省略時は空 */
+  memo?: string
   /** 撮影会名。任意。未入力ならコンセプトやモデル名からタイトルを組み立てる */
   eventName: string
   shootCategory: ShootCategory
@@ -105,6 +107,7 @@ export async function createReservation(
     concept: concept || null,
     venue_id: venue?.id ?? null,
     venue_name: venueName || null,
+    memo: input.memo?.trim() || null,
   })
 
   const slotId = await createRow('slots', {

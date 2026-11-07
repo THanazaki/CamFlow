@@ -14,6 +14,7 @@ export interface ConfirmedShoot {
   /** 導入前の行は NULL */
   placeCategory: PlaceCategory | null
   meetingPoint: string | null
+  memo: string | null
   shootDate: string
   startTime: string
   endTime: string
@@ -55,6 +56,7 @@ export interface ConfirmableReservation {
   shootingMethodOptions: string
   paymentTiming: FeePaymentTiming | null
   paymentDate: string
+  memo: string
 }
 
 function asRecord(value: unknown): Record<string, string> {
@@ -123,6 +125,7 @@ export async function loadConfirmableReservations(): Promise<ConfirmableReservat
         shootingMethodOptions: slot?.shooting_method_options ?? '',
         paymentTiming: slot?.fee_payment_timing ?? null,
         paymentDate: slot?.fee_payment_date ?? '',
+        memo: session.memo ?? '',
       }
     })
     .sort((a, b) => a.shootDate.localeCompare(b.shootDate))
@@ -177,6 +180,7 @@ export async function loadConfirmedShoots(now: Date = new Date()): Promise<Confi
           : session.venue_name,
         placeCategory: session.place_category ?? null,
         meetingPoint: session.meeting_point ?? null,
+        memo: session.memo ?? null,
         shootDate: session.session_date,
         startTime: toTime(slot.start_at),
         endTime: toTime(end.toISOString()),

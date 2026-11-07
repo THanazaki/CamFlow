@@ -114,6 +114,9 @@ function ShootDetail() {
           <StorageUrlList urls={record.storageUrls} />
         </Row>
         {record.storagePath && <Row label="保管先">{record.storagePath}</Row>}
+        <Row label="メモ">
+          {record.memo ? <span className="whitespace-pre-wrap">{record.memo}</span> : null}
+        </Row>
       </dl>
     </div>
   )

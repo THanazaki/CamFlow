@@ -19,6 +19,7 @@ export interface ShootRecord {
   id: string
   shootDate: string
   title: string
+  memo: string | null
   shootCategory: ShootCategory | null
   concept: string | null
   placeCategory: PlaceCategory | null
@@ -134,6 +135,7 @@ function fromSlot(
     storageUrls: slot.storage_urls ?? [],
     storagePath: slot.storage_path ?? null,
     meetingPoint: session.meeting_point ?? null,
+    memo: session.memo ?? null,
     meetingTime: slot.meeting_at ? toTime(slot.meeting_at) : null,
     startTime: toTime(slot.start_at),
     endTime: toTime(end.toISOString()),
@@ -168,6 +170,7 @@ function fromHistory(
     storageUrls: history.storage_urls ?? [],
     storagePath: history.storage_path ?? null,
     meetingPoint: null,
+    memo: history.memo ?? null,
     meetingTime: null,
     startTime: history.start_at ? toTime(history.start_at) : null,
     endTime: history.end_at ? toTime(history.end_at) : null,

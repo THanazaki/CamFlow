@@ -7,6 +7,7 @@ import { useId, useState } from 'react'
 import {
   EMPTY_SHOOT_DETAILS,
   inputClass,
+  MemoField,
   ShootDetailsFields,
   ShootTimeFields,
 } from '@/components/forms/ShootDetailsFields'
@@ -81,6 +82,7 @@ export default function ShootConfirmPage() {
       shootingMethodOptions: r.shootingMethodOptions,
       paymentTiming: r.paymentTiming,
       paymentDate: r.paymentDate,
+      memo: r.memo,
     }))
   }
 
@@ -155,6 +157,8 @@ export default function ShootConfirmPage() {
             onChange={setOptions}
             feeAside={<ShootPaymentFields values={form} onChange={setPayment} />}
           />
+
+          <MemoField value={form.memo ?? ''} onChange={(v) => set('memo', v)} />
         </section>
 
         <div className="flex flex-wrap items-center gap-3">

@@ -75,6 +75,7 @@ async function prepareShootHistory(
       venue_id: venue?.id ?? null,
       venue_name: venueName || null,
       storage_urls: storageUrls,
+      memo: input.memo?.trim() || null,
     },
   }
 }

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useId, useState } from 'react'
 
 import { ShootCategoryPicker } from '@/components/forms/ShootCategoryPicker'
+import { MemoField } from '@/components/forms/ShootDetailsFields'
 import {
   EMPTY_SHOOT_OPTIONS,
   EMPTY_SHOOT_PAYMENT,
@@ -26,6 +27,7 @@ import { categoryHasModel, DEFAULT_SHOOT_CATEGORY } from '@/lib/shoot-category'
 const EMPTY: ReservationInput = {
   ...EMPTY_SHOOT_OPTIONS,
   ...EMPTY_SHOOT_PAYMENT,
+  memo: '',
   eventName: '',
   shootCategory: DEFAULT_SHOOT_CATEGORY,
   modelName: '',
@@ -307,6 +309,8 @@ export default function ReservationNewPage() {
             />
           }
         />
+
+        <MemoField value={form.memo ?? ''} onChange={(v) => set('memo', v)} />
 
         <div className="border-border flex flex-wrap items-center gap-3 border-t pt-4">
           <button

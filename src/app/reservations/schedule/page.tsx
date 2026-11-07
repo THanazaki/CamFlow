@@ -90,6 +90,12 @@ function ReservationCard({ row, nowMs }: { row: ReservationRow; nowMs: number | 
             {row.costumeOptions && <Row label="衣装系" value={row.costumeOptions} />}
             {row.shootingMethodOptions && <Row label="撮影方法" value={row.shootingMethodOptions} />}
           </dl>
+          {row.memo && (
+            <p className="text-muted mt-2 text-xs whitespace-pre-wrap">
+              <span className="mr-2">メモ</span>
+              <span className="text-foreground">{row.memo}</span>
+            </p>
+          )}
           <BookingContact method={row.bookingMethod} contact={row.bookingContact} />
         </div>
 

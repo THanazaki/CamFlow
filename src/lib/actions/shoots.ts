@@ -28,6 +28,8 @@ export interface ShootDetailsInput {
   meetingPoint: string
   /** 撮影日（YYYY-MM-DD） */
   shootDate: string
+  /** メモ。省略時は空 */
+  memo?: string
 }
 
 /** 撮影料とオプション。確定撮影情報入力と確定撮影情報で共通 */
@@ -165,6 +167,7 @@ async function prepareShoot(
     venue_name: venueName || null,
     place_category: input.placeCategory,
     meeting_point: meetingPoint || null,
+    memo: input.memo?.trim() || null,
   }
 
   return {
