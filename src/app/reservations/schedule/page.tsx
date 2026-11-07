@@ -4,7 +4,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import Link from 'next/link'
 import { useSyncExternalStore } from 'react'
 
-import { feePaymentTimingLabel } from '@/lib/fee-payment'
+import { reservationFeePaymentTimingLabel } from '@/lib/fee-payment'
 import { loadReservationSchedule, type ReservationRow } from '@/lib/queries/reservations'
 
 /**
@@ -82,7 +82,7 @@ function ReservationCard({ row, nowMs }: { row: ReservationRow; nowMs: number | 
             {row.paymentTiming && (
               <Row
                 label="支払方法"
-                value={`${feePaymentTimingLabel(row.paymentTiming)}${
+                value={`${reservationFeePaymentTimingLabel(row.paymentTiming)}${
                   row.paymentDate ? `（支払日 ${row.paymentDate}）` : ''
                 }`}
               />

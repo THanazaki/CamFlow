@@ -20,9 +20,12 @@ export const EMPTY_SHOOT_PAYMENT: ShootPaymentInput = {
 export function ShootPaymentFields({
   values,
   onChange,
+  options = FEE_PAYMENT_TIMINGS,
 }: {
   values: ShootPaymentInput
   onChange: <K extends keyof ShootPaymentInput>(key: K, value: ShootPaymentInput[K]) => void
+  /** 選択肢の表示。予約情報入力では呼び方が変わる */
+  options?: typeof FEE_PAYMENT_TIMINGS
 }) {
   return (
     <div className="space-y-4">
@@ -32,7 +35,7 @@ export function ShootPaymentFields({
             id={p.id}
             name="paymentTiming"
             label="支払方法"
-            options={FEE_PAYMENT_TIMINGS}
+            options={options}
             value={values.paymentTiming}
             onChange={(v) => onChange('paymentTiming', v)}
           />

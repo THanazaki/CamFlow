@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 
 import { db } from '@/lib/db'
+import { feePaymentTimingLabel, reservationFeePaymentTimingLabel } from '@/lib/fee-payment'
 import { loadReservationSchedule } from '@/lib/queries/reservations'
 import { loadConfirmableReservations, loadConfirmedShoots } from '@/lib/queries/shoots'
 
@@ -117,6 +118,13 @@ describe('予約情報入力の撮影料とオプション', () => {
 
     expect(await db.sessions.count()).toBe(0)
     expect(await db.models.count()).toBe(0)
+  })
+
+  it('paid の呼び方は予約では「予約時」、確定後は「支払済み」', () => {
+    expect(reservationFeePaymentTimingLabel('paid')).toBe('予約時')
+    expect(feePaymentTimingLabel('paid')).toBe('支払済み')
+    expect(reservationFeePaymentTimingLabel('on_the_day')).toBe('当日')
+    expect(reservationFeePaymentTimingLabel('in_advance')).toBe('事前')
   })
 
   it('確定フォームの候補に入力内容を引き継ぐ', async () => {

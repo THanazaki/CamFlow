@@ -18,6 +18,7 @@ import {
 } from '@/lib/actions/reservations'
 import type { ShootOptionsInput, ShootPaymentInput } from '@/lib/actions/shoots'
 import { getActiveUserId } from '@/lib/auth/session'
+import { RESERVATION_FEE_PAYMENT_TIMINGS } from '@/lib/fee-payment'
 import { loadSuggestions } from '@/lib/queries/reservations'
 import { categoryHasModel, DEFAULT_SHOOT_CATEGORY } from '@/lib/shoot-category'
 
@@ -297,7 +298,13 @@ export default function ReservationNewPage() {
         <ShootOptionsFields
           values={form}
           onChange={setOptions}
-          feeAside={<ShootPaymentFields values={form} onChange={setPayment} />}
+          feeAside={
+            <ShootPaymentFields
+              values={form}
+              onChange={setPayment}
+              options={RESERVATION_FEE_PAYMENT_TIMINGS}
+            />
+          }
         />
 
         <div className="border-border flex flex-wrap items-center gap-3 border-t pt-4">
