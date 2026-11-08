@@ -42,6 +42,8 @@ export interface ReservationInput extends ShootOptionsInput, ShootPaymentInput {
   bookingMethod: BookingMethod
   /** 申込先。bookingMethod によって URL / メールアドレス / DM アカウント */
   bookingContact: string
+  /** 同名で所属が違うモデルがいるとき、新規作成せず撮影会名をそのモデルの所属に加える */
+  addAffiliation?: boolean
 }
 
 export interface ReservationResult {
@@ -79,7 +81,10 @@ export async function createReservation(
   // モデルはマスタに実体が要る（slot_models.model_id は NOT NULL で
   // テキストのフォールバックが無い）。モデル名と撮影会名の組み合わせが無ければ作る
   const eventName = input.eventName.trim()
-  const model = hasModel ? await resolveModel(userId, modelName, eventName) : null
+  const model = hasModel ? await resolveModel(userId, modelName, eventName, {
+        addAffiliation: input.addAffiliation,
+      })
+    : null
   const modelId = model?.id
 
   // 場所は venue_name のフォールバックがあるので、マスタに無ければ作らない。

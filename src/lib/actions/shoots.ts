@@ -30,6 +30,8 @@ export interface ShootDetailsInput {
   shootDate: string
   /** メモ。省略時は空 */
   memo?: string
+  /** 同名で所属が違うモデルがいるとき、新規作成せず撮影会名をそのモデルの所属に加える */
+  addAffiliation?: boolean
 }
 
 /** 撮影料とオプション。確定撮影情報入力と確定撮影情報で共通 */
@@ -151,7 +153,13 @@ async function prepareShoot(
   // ── モデル・撮影会 ───────────────────────────────────────
   const event = await resolveShootEvent(userId, eventName, current)
   const model = hasModel
-    ? await resolveShootModel(userId, modelName, event, currentModelIds)
+    ? await resolveShootModel(
+      userId,
+      modelName,
+      event,
+      currentModelIds,
+      input.addAffiliation,
+    )
     : null
 
   // ── 場所 ─────────────────────────────────────────────────
@@ -300,7 +308,10 @@ export async function resolveModel(
   userId: string,
   modelName: string,
   eventName: string,
-  { anyAffiliation = false }: { anyAffiliation?: boolean } = {},
+  {
+    anyAffiliation = false,
+    addAffiliation = false,
+  }: { anyAffiliation?: boolean; addAffiliation?: boolean } = {},
 ): Promise<{ id: string; created: boolean }> {
   const models = (await db.models.toArray()).filter(
     (m) => !m.deleted_at && normalize(m.name) === normalize(modelName),
@@ -320,6 +331,15 @@ export async function resolveModel(
     : (sameAffiliation ?? (isFree ? unset : undefined))
   if (existing) return { id: existing.id, created: false }
 
+  // 同名で所属が違うモデルに、この撮影会名を所属として加える（確認画面でOKされたとき）
+  const target = addAffiliation && !isFree ? models[0] : undefined
+  if (target) {
+    await updateRow('models', target.id, {
+      sub_affiliations: [...(target.sub_affiliations ?? []), affiliation],
+    })
+    return { id: target.id, created: false }
+  }
+
   const id = await createRow('models', {
     user_id: userId,
     name: modelName,
@@ -330,6 +350,43 @@ export async function resolveModel(
     sns_accounts: [],
   })
   return { id, created: true }
+}
+
+/** 登録前の確認画面に出す、所属が合わない同名モデルの情報 */
+export interface AffiliationConflict {
+  name: string
+  affiliations: string[]
+  eventName: string
+}
+
+/**
+ * 同名のモデルがマスタにいるが、撮影会名がどの所属とも合わないとき、そのモデルを返す。
+ * 撮影会名が空、または既存の予約の撮影会名を変えていないときは null。
+ */
+export async function findAffiliationConflict(
+  modelName: string,
+  eventName: string,
+  currentSessionId?: string,
+): Promise<AffiliationConflict | null> {
+  const event = eventName.trim()
+  const name = modelName.trim()
+  if (!event || !name) return null
+  if (currentSessionId) {
+    const current = await db.sessions.get(currentSessionId)
+    if (current && event === current.title) return null
+  }
+  const models = (await db.models.toArray()).filter(
+    (m) => !m.deleted_at && normalize(m.name) === normalize(name),
+  )
+  if (models.length === 0) return null
+  const all = (m: (typeof models)[number]) =>
+    [m.affiliation ?? '', ...(m.sub_affiliations ?? [])].filter(Boolean)
+  if (models.some((m) => all(m).some((a) => normalize(a) === normalize(event)))) return null
+  return { name: models[0].name, affiliations: all(models[0]), eventName: event }
+}
+
+export function affiliationConfirmMessage(c: AffiliationConflict): string {
+  return `モデルマスタに「${c.name}」（所属: ${c.affiliations.join('、') || 'なし'}）がいますが、撮影会名「${c.eventName}」は所属にありません。\n\n同じモデルとして、所属に「${c.eventName}」を追加しますか？\n（キャンセルすると登録を中止します）`
 }
 
 /** 撮影の入力から見た撮影会。モデルの照合と撮影会マスタの紐づけに使う */
@@ -372,6 +429,7 @@ export async function resolveShootModel(
   modelName: string,
   event: ShootEvent,
   currentModelIds: string[],
+  addAffiliation = false,
 ): Promise<{ id: string; created: boolean }> {
   if (event.unchanged) {
     const current = (await db.models.bulkGet(currentModelIds)).find(
@@ -379,7 +437,7 @@ export async function resolveShootModel(
     )
     if (current) return { id: current.id, created: false }
   }
-  return resolveModel(userId, modelName, event.name)
+  return resolveModel(userId, modelName, event.name, { addAffiliation })
 }
 
 /** 撮影会マスタの行を返す。空なら null。同名が無ければ作る */

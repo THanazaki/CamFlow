@@ -12,7 +12,7 @@ import {
   type ModelInput,
 } from '../models'
 import { createReservation } from '../reservations'
-import { resolveModel } from '../shoots'
+import { findAffiliationConflict, resolveModel } from '../shoots'
 
 const USER = '11111111-1111-4111-8111-111111111111'
 
@@ -350,6 +350,22 @@ describe('所属の照合', () => {
 
     expect(await resolveModel(USER, '葵', '秋の撮影会')).toEqual({ id, created: false })
     expect((await resolveModel(USER, '葵', '春の撮影会')).created).toBe(true)
+  })
+
+  it('所属が合わない同名モデルは確認の対象になり、addAffiliation なら所属に加える', async () => {
+    const id = await addModel('葵', { affiliation: 'フリー' })
+
+    expect(await findAffiliationConflict('葵', '秋の撮影会')).toMatchObject({ name: '葵' })
+    expect(await findAffiliationConflict('葵', 'フリー')).toBeNull()
+    expect(await findAffiliationConflict('葵', '')).toBeNull()
+    expect(await findAffiliationConflict('桜', '秋の撮影会')).toBeNull()
+
+    expect(await resolveModel(USER, '葵', '秋の撮影会', { addAffiliation: true })).toEqual({
+      id,
+      created: false,
+    })
+    expect((await db.models.get(id))?.sub_affiliations).toEqual(['秋の撮影会'])
+    expect(await findAffiliationConflict('葵', '秋の撮影会')).toBeNull()
   })
 
   it('新しく作るモデルの sub_affiliations は空の配列', async () => {

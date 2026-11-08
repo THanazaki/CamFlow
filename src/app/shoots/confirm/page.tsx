@@ -18,7 +18,9 @@ import {
   ShootPaymentFields,
 } from '@/components/forms/ShootOptionsFields'
 import {
+  affiliationConfirmMessage,
   confirmShoot,
+  findAffiliationConflict,
   type ShootConfirmInput,
   type ShootDetailsInput,
   type ShootOptionsInput,
@@ -26,6 +28,7 @@ import {
 } from '@/lib/actions/shoots'
 import { getActiveUserId } from '@/lib/auth/session'
 import { nextPathAfterSave } from '@/lib/new-model-prompt'
+import { categoryHasModel } from '@/lib/shoot-category'
 import { loadConfirmableReservations } from '@/lib/queries/shoots'
 
 const EMPTY: ShootConfirmInput = {
@@ -98,7 +101,15 @@ export default function ShootConfirmPage() {
         )
         return
       }
-      const { newModelId } = await confirmShoot(userId, form)
+      let addAffiliation = false
+      const conflict = categoryHasModel(form.shootCategory)
+        ? await findAffiliationConflict(form.modelName, form.eventName, form.fromSessionId)
+        : null
+      if (conflict) {
+        if (!confirm(affiliationConfirmMessage(conflict))) return
+        addAffiliation = true
+      }
+      const { newModelId } = await confirmShoot(userId, { ...form, addAffiliation })
       setForm(EMPTY)
       router.push(nextPathAfterSave(newModelId, '/'))
     } catch (err) {

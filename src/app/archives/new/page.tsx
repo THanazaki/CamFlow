@@ -10,9 +10,14 @@ import {
 } from '@/components/forms/ShootDetailsFields'
 import { StorageUrlsField } from '@/components/forms/StorageUrlsField'
 import { createShootHistory, localToday } from '@/lib/actions/archives'
-import type { ShootDetailsInput } from '@/lib/actions/shoots'
+import {
+  affiliationConfirmMessage,
+  findAffiliationConflict,
+  type ShootDetailsInput,
+} from '@/lib/actions/shoots'
 import { getActiveUserId } from '@/lib/auth/session'
 import { nextPathAfterSave } from '@/lib/new-model-prompt'
+import { categoryHasModel } from '@/lib/shoot-category'
 import { MAX_STORAGE_URLS } from '@/lib/storage-urls'
 
 /** 入力欄は最初から1つ出しておく */
@@ -45,7 +50,19 @@ export default function ArchiveNewPage() {
         )
         return
       }
-      const { newModelId } = await createShootHistory(userId, { ...details, storageUrls })
+      let addAffiliation = false
+      const conflict = categoryHasModel(details.shootCategory)
+        ? await findAffiliationConflict(details.modelName, details.eventName)
+        : null
+      if (conflict) {
+        if (!confirm(affiliationConfirmMessage(conflict))) return
+        addAffiliation = true
+      }
+      const { newModelId } = await createShootHistory(userId, {
+        ...details,
+        storageUrls,
+        addAffiliation,
+      })
       clear()
       router.push(nextPathAfterSave(newModelId, '/'))
     } catch (err) {

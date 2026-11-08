@@ -58,7 +58,13 @@ async function prepareShootHistory(
 
   const event = await resolveShootEvent(userId, eventName, current)
   const model = hasModel
-    ? await resolveShootModel(userId, modelName, event, currentModelIds)
+    ? await resolveShootModel(
+        userId,
+        modelName,
+        event,
+        currentModelIds,
+        input.addAffiliation,
+      )
     : null
   const venueId = await resolveVenue(userId, venueName, input.placeCategory)
 

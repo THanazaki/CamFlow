@@ -17,7 +17,12 @@ import {
   type BookingMethod,
   type ReservationInput,
 } from '@/lib/actions/reservations'
-import type { ShootOptionsInput, ShootPaymentInput } from '@/lib/actions/shoots'
+import {
+  affiliationConfirmMessage,
+  findAffiliationConflict,
+  type ShootOptionsInput,
+  type ShootPaymentInput,
+} from '@/lib/actions/shoots'
 import { getActiveUserId } from '@/lib/auth/session'
 import { RESERVATION_FEE_PAYMENT_TIMINGS } from '@/lib/fee-payment'
 import { nextPathAfterSave } from '@/lib/new-model-prompt'
@@ -102,7 +107,15 @@ export default function ReservationNewPage() {
         )
         return
       }
-      const { newModelId } = await createReservation(userId, form)
+      let addAffiliation = false
+      const conflict = categoryHasModel(form.shootCategory)
+        ? await findAffiliationConflict(form.modelName, form.eventName)
+        : null
+      if (conflict) {
+        if (!confirm(affiliationConfirmMessage(conflict))) return
+        addAffiliation = true
+      }
+      const { newModelId } = await createReservation(userId, { ...form, addAffiliation })
       setForm(EMPTY)
       router.push(nextPathAfterSave(newModelId, '/reservations/schedule'))
     } catch (err) {
