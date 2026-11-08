@@ -39,6 +39,8 @@ export interface ReservationInput extends ShootOptionsInput, ShootPaymentInput {
   shootDate: string
   /** 予約受付の開始日時（datetime-local の値） */
   bookingOpensAt: string
+  /** 予約受付の終了日時（datetime-local の値）。任意 */
+  bookingClosesAt?: string
   bookingMethod: BookingMethod
   /** 申込先。bookingMethod によって URL / メールアドレス / DM アカウント */
   bookingContact: string
@@ -106,6 +108,7 @@ export async function createReservation(
     // 予約段階。可否が決まったら confirmed / cancelled になる
     status: 'planned',
     booking_opens_at: new Date(input.bookingOpensAt).toISOString(),
+    booking_closes_at: input.bookingClosesAt ? new Date(input.bookingClosesAt).toISOString() : null,
     booking_method: input.bookingMethod,
     booking_contact: input.bookingContact.trim() || null,
     concept: concept || null,
@@ -181,6 +184,7 @@ export async function updateReservation(
     session_date: input.shootDate,
     shoot_category: input.shootCategory,
     booking_opens_at: new Date(input.bookingOpensAt).toISOString(),
+    booking_closes_at: input.bookingClosesAt ? new Date(input.bookingClosesAt).toISOString() : null,
     booking_method: input.bookingMethod,
     booking_contact: input.bookingContact.trim() || null,
     concept: concept || null,

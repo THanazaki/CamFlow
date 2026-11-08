@@ -29,6 +29,7 @@ export const EMPTY_RESERVATION: ReservationInput = {
   venueName: '',
   shootDate: '',
   bookingOpensAt: '',
+  bookingClosesAt: '',
   bookingMethod: 'page',
   bookingContact: '',
 }
@@ -248,6 +249,18 @@ export function ReservationForm({
               required
               value={form.bookingOpensAt}
               onChange={(e) => set('bookingOpensAt', e.target.value)}
+              className={inputClass}
+            />
+          )}
+        </Field>
+
+        <Field label="予約終了日時" hint="予約受付が締め切られる日時。分かれば入力します">
+          {(p) => (
+            <input
+              {...p}
+              type="datetime-local"
+              value={form.bookingClosesAt}
+              onChange={(e) => set('bookingClosesAt', e.target.value)}
               className={inputClass}
             />
           )}

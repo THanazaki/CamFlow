@@ -169,6 +169,7 @@ export async function loadReservationInput(sessionId: string): Promise<Reservati
     venueName: venue && !venue.deleted_at ? venue.name : (session.venue_name ?? ''),
     shootDate: session.session_date,
     bookingOpensAt: toDateTimeLocal(session.booking_opens_at),
+    bookingClosesAt: toDateTimeLocal(session.booking_closes_at),
     bookingMethod: session.booking_method ?? 'page',
     bookingContact: session.booking_contact ?? '',
     shootFee: slot && Number(slot.booking_fee) > 0 ? String(Number(slot.booking_fee)) : '',

@@ -219,6 +219,7 @@ export type Database = {
           organizer_id: string | null
           organizer: string | null
           booking_opens_at: string | null
+          booking_closes_at: string | null
           booking_method: Database['public']['Enums']['booking_method'] | null
           booking_contact: string | null
           concept: string | null
@@ -250,6 +251,7 @@ export type Database = {
           organizer_id?: string | null
           organizer?: string | null
           booking_opens_at?: string | null
+          booking_closes_at?: string | null
           booking_method?: Database['public']['Enums']['booking_method'] | null
           booking_contact?: string | null
           concept?: string | null
@@ -281,6 +283,7 @@ export type Database = {
           organizer_id?: string | null
           organizer?: string | null
           booking_opens_at?: string | null
+          booking_closes_at?: string | null
           booking_method?: Database['public']['Enums']['booking_method'] | null
           booking_contact?: string | null
           concept?: string | null

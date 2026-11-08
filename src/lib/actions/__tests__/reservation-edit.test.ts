@@ -43,6 +43,21 @@ beforeEach(async () => {
 })
 
 describe('予約の編集', () => {
+  it('予約終了日時は任意で、入力すれば保存・読み込みでき、消すこともできる', async () => {
+    const none = await createReservation(USER, reservation())
+    expect((await db.sessions.get(none.sessionId))?.booking_closes_at).toBeNull()
+    expect((await loadReservationInput(none.sessionId))?.bookingClosesAt).toBe('')
+
+    const { sessionId } = await createReservation(
+      USER,
+      reservation({ bookingClosesAt: '2026-11-25T23:59' }),
+    )
+    expect((await loadReservationInput(sessionId))?.bookingClosesAt).toBe('2026-11-25T23:59')
+
+    await updateReservation(sessionId, reservation({ bookingClosesAt: '' }))
+    expect((await db.sessions.get(sessionId))?.booking_closes_at).toBeNull()
+  })
+
   it('登録した内容を読み込める', async () => {
     const { sessionId } = await createReservation(
       USER,
