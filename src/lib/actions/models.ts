@@ -230,6 +230,7 @@ export async function findMergeCandidates(
  * source のモデルを target に統合し、source をモデルマスタから削除する（論理削除）。
  * 消したモデルを指したまま残らないよう、撮影の明細・撮影希望・別名義は target に付け替える。
  * 同じ枠（同じ過去撮影）に両方が入っていたときは、target 側の明細を残す。
+ * source の所属は、target の所属と同じものを除いて target の「それ以外の所属」に足す。
  */
 export async function mergeModelInto(targetId: string, sourceId: string): Promise<void> {
   if (targetId === sourceId) throw new Error('同じモデルは統合できません')
@@ -277,6 +278,25 @@ export async function mergeModelInto(targetId: string, sourceId: string): Promis
       await updateRow('model_former_names', row.id, { model_id: targetId })
       targetAliases.add(normalize(row.name))
     }
+  }
+
+  // source の所属を target の「それ以外の所属」に足す。target の所属と同じものは足さない。
+  // 足すと同じ名前・同じ所属のモデルが2人になるもの（予約などの入力で決められない）も足さない
+  const targetKeys = new Set(affiliationKeys(target.affiliation, target.sub_affiliations))
+  const others = (await db.models.toArray()).filter(
+    (m) =>
+      m.id !== targetId &&
+      m.id !== sourceId &&
+      !m.deleted_at &&
+      normalize(m.name) === normalize(target.name),
+  )
+  const taken = new Set(others.flatMap((m) => affiliationKeys(m.affiliation, m.sub_affiliations)))
+  const addedAffiliations = cleanList([source.affiliation ?? '', ...(source.sub_affiliations ?? [])])
+    .filter((a) => !targetKeys.has(normalize(a)) && !taken.has(normalize(a)))
+  if (addedAffiliations.length > 0) {
+    await updateRow('models', targetId, {
+      sub_affiliations: [...(target.sub_affiliations ?? []), ...addedAffiliations],
+    })
   }
 
   await softDeleteRow('models', sourceId)

@@ -435,7 +435,7 @@ function MergeDialog({
           </div>
         </dl>
         <p className="text-muted mt-3 text-xs">
-          OK を押すと、このモデルをモデルマスタから削除し、撮影実績や撮影希望は編集中のモデルに移します。キャンセルすると統合せずに別名義だけ保存します。
+          OK を押すと、このモデルをモデルマスタから削除し、撮影実績や撮影希望、所属は編集中のモデルに移します。キャンセルすると統合せずに別名義だけ保存します。
         </p>
 
         <div className="mt-4 flex justify-end gap-2">

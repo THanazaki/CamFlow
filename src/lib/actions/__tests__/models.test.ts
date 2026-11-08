@@ -487,3 +487,31 @@ describe('別名義と同名のモデルの統合', () => {
     expect(await aliasesOf(source)).toEqual([])
   })
 })
+
+describe('統合したモデルの所属', () => {
+  it('統合先の所属と同じものを除いて、それ以外の所属に足す', async () => {
+    const target = await addModel('栞奈', { affiliation: '春の撮影会', sub_affiliations: ['秋の撮影会'] })
+    const source = await addModel('旧名', {
+      affiliation: '夏の撮影会',
+      sub_affiliations: ['春の撮影会', ' 秋の撮影会 ', '冬の撮影会'],
+    })
+
+    await mergeModelInto(target, source)
+
+    expect((await db.models.get(target))?.sub_affiliations).toEqual([
+      '秋の撮影会',
+      '夏の撮影会',
+      '冬の撮影会',
+    ])
+  })
+
+  it('足すと同名・同所属のモデルが他にもいることになる所属は足さない', async () => {
+    const target = await addModel('栞奈', { affiliation: '春の撮影会', sub_affiliations: [] })
+    await addModel('栞奈', { affiliation: '夏の撮影会', sub_affiliations: [] })
+    const source = await addModel('旧名', { affiliation: '夏の撮影会', sub_affiliations: ['冬の撮影会'] })
+
+    await mergeModelInto(target, source)
+
+    expect((await db.models.get(target))?.sub_affiliations).toEqual(['冬の撮影会'])
+  })
+})
