@@ -9,6 +9,7 @@ import { ModelAccounts } from '@/components/ModelAccount'
 import { StorageUrlsField } from '@/components/forms/StorageUrlsField'
 import {
   cancelConfirmedShoot,
+  markFeePaid,
   saveShootOptions,
   saveStorageUrls,
   type ShootOptionsInput,
@@ -87,6 +88,7 @@ function ShootCard({ shoot }: { shoot: ConfirmedShoot }) {
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [cancelOpen, setCancelOpen] = useState(false)
+  const [paying, setPaying] = useState(false)
 
   // 空欄を増やしただけでは保存するものが変わらない
   const dirty =
@@ -106,6 +108,21 @@ function ShootCard({ shoot }: { shoot: ConfirmedShoot }) {
       setSaving(false)
     }
   }
+
+  const onPaid = async () => {
+    if (!confirm('撮影料を支払い済みにします。よろしいですか？')) return
+    setPaying(true)
+    setError(null)
+    try {
+      await markFeePaid(shoot.slotId)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setPaying(false)
+    }
+  }
+  // 支払方法が当日・事前のときだけ押せる（料金リマインドに出ているもの）
+  const payable = shoot.paymentTiming === 'on_the_day' || shoot.paymentTiming === 'in_advance'
 
   return (
     <li className="bg-surface border-border rounded-lg border">
@@ -153,6 +170,17 @@ function ShootCard({ shoot }: { shoot: ConfirmedShoot }) {
               {feePaymentTimingLabel(shoot.paymentTiming)}
               {shoot.paymentDate && (
                 <span className="tabular-nums">（支払日 {shoot.paymentDate}）</span>
+              )}
+              {payable && (
+                <button
+                  type="button"
+                  onClick={onPaid}
+                  disabled={paying}
+                  aria-label={`${shoot.title} の撮影料を支払い済みにする`}
+                  className="tap-target ml-2 rounded-md border border-emerald-400 px-2.5 py-0.5 text-xs whitespace-nowrap text-emerald-700 hover:bg-emerald-50 disabled:opacity-40 dark:border-emerald-500/50 dark:text-emerald-400 dark:hover:bg-emerald-500/10"
+                >
+                  {paying ? '登録中…' : '料金支払い済み'}
+                </button>
               )}
             </Row>
           )}

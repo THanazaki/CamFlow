@@ -555,6 +555,20 @@ export async function saveShootOptions(slotId: string, input: ShootOptionsInput)
   await updateRow('slots', slotId, toShootOptionColumns(input))
 }
 
+/**
+ * 撮影料を支払い済みにする。確定撮影情報画面の「料金支払い済み」から呼ぶ。
+ * 支払方法を「支払済み」にし、支払日（事前のときだけ持つ）は消す。
+ * 料金リマインドは支払済みを出さないので、これで一覧から消える
+ */
+export async function markFeePaid(slotId: string): Promise<void> {
+  const slot = await db.slots.get(slotId)
+  if (!slot || slot.deleted_at) {
+    throw new Error('撮影が見つかりませんでした')
+  }
+  if (slot.fee_payment_timing === 'paid') return
+  await updateRow('slots', slotId, { fee_payment_timing: 'paid', fee_payment_date: null })
+}
+
 /** 同じモデルが既に紐づいていれば何もしない（unique(slot_id, model_id) 違反を避ける） */
 async function ensureSlotModel(userId: string, slotId: string, modelId: string): Promise<void> {
   const existing = await db.slot_models

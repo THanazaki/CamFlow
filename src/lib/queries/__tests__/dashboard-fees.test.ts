@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 
 import { createReservation } from '@/lib/actions/reservations'
-import { confirmShoot, type ShootConfirmInput } from '@/lib/actions/shoots'
+import { confirmShoot, markFeePaid, type ShootConfirmInput } from '@/lib/actions/shoots'
 import { db } from '@/lib/db'
 import { loadDashboard } from '@/lib/queries/dashboard'
 import { softDeleteRow } from '@/lib/sync/mutations'
@@ -40,6 +40,21 @@ beforeEach(async () => {
 })
 
 describe('料金リマインド', () => {
+  it('料金支払い済みにすると支払方法が支払済みになり、リマインドから消える', async () => {
+    const advance = await confirmShoot(
+      USER,
+      input({ paymentTiming: 'in_advance', paymentDate: '2026-06-15' }),
+    )
+    const other = await confirmShoot(USER, input({ eventName: '別の撮影会', modelName: '茜' }))
+    expect((await fees()).totalCount).toBe(2)
+
+    await markFeePaid(advance.slotId)
+
+    const slot = await db.slots.get(advance.slotId)
+    expect(slot).toMatchObject({ fee_payment_timing: 'paid', fee_payment_date: null })
+    expect((await fees()).items.map((f) => f.slotId)).toEqual([other.slotId])
+  })
+
   it('当日払いは、撮影日の撮影開始時刻を期日にして撮影料を出す', async () => {
     const { slotId } = await confirmShoot(USER, input())
 
