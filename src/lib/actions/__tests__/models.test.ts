@@ -4,7 +4,13 @@ import { db } from '@/lib/db'
 import { loadModelDetail, loadModelList } from '@/lib/queries/models'
 import { createRow, softDeleteRow } from '@/lib/sync/mutations'
 
-import { splitAffiliations, updateModel, type ModelInput } from '../models'
+import {
+  findMergeCandidates,
+  mergeModelInto,
+  splitAffiliations,
+  updateModel,
+  type ModelInput,
+} from '../models'
 import { createReservation } from '../reservations'
 import { resolveModel } from '../shoots'
 
@@ -440,5 +446,44 @@ describe('モデルの詳細', () => {
 
     expect(await loadModelDetail('missing')).toBeNull()
     expect(await loadModelDetail(id)).toBeNull()
+  })
+})
+
+describe('別名義と同名のモデルの統合', () => {
+  it('新しく追加した別名義と同名のモデルだけを候補にする', async () => {
+    const id = await addModel('栞奈')
+    const other = await addModel('旧名', { affiliation: '春の撮影会', sub_affiliations: ['秋の撮影会'] })
+    await addModel('別人')
+
+    expect(await findMergeCandidates(id, [{ name: ' 旧名 ', kana: '' }])).toEqual([
+      { id: other, name: '旧名', affiliations: ['春の撮影会', '秋の撮影会'] },
+    ])
+
+    // 保存済みの別名義は、統合を断った後に毎回聞かない
+    await updateModel(id, input({ aliases: [{ name: '旧名', kana: '' }] }))
+    expect(await findMergeCandidates(id, [{ name: '旧名', kana: '' }])).toEqual([])
+  })
+
+  it('統合すると明細と別名義を移し、統合したモデルを削除する', async () => {
+    const target = await addModel('栞奈')
+    const source = await addModel('旧名')
+    await createRow('model_former_names', { user_id: USER, model_id: source, name: 'さらに旧名', name_kana: null })
+    await createRow('model_former_names', { user_id: USER, model_id: source, name: '栞奈', name_kana: null })
+
+    const both = 'slot-both'
+    const own = 'slot-own'
+    await createRow('slot_models', { user_id: USER, slot_id: both, model_id: target } as never)
+    const dup = await createRow('slot_models', { user_id: USER, slot_id: both, model_id: source } as never)
+    const moved = await createRow('slot_models', { user_id: USER, slot_id: own, model_id: source } as never)
+    const wish = await createRow('wishlist_models', { user_id: USER, model_id: source } as never)
+
+    await mergeModelInto(target, source)
+
+    expect((await db.models.get(source))?.deleted_at).toBeTruthy()
+    expect(await db.slot_models.get(dup)).toBeUndefined()
+    expect((await db.slot_models.get(moved))?.model_id).toBe(target)
+    expect((await db.wishlist_models.get(wish))?.model_id).toBe(target)
+    expect(await aliasesOf(target)).toEqual(['さらに旧名'])
+    expect(await aliasesOf(source)).toEqual([])
   })
 })

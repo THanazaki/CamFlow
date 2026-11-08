@@ -1,7 +1,7 @@
 import { db } from '@/lib/db'
 import { cleanAccounts, type ModelAccountEntry } from '@/lib/model-accounts'
 import type { SelectableModelStatus } from '@/lib/model-status'
-import { createRow, deleteRow, updateRow } from '@/lib/sync/mutations'
+import { createRow, deleteRow, softDeleteRow, updateRow } from '@/lib/sync/mutations'
 import type { Json } from '@/types/database'
 
 import { FREE_AFFILIATION, resolveOrganizer } from './shoots'
@@ -187,4 +187,97 @@ async function saveAliases(
       })
     }
   }
+}
+
+/** 別名義と同じ名前の、統合できそうなモデル */
+export interface MergeCandidate {
+  id: string
+  name: string
+  /** 所属（メイン → それ以外の順）。無ければ空 */
+  affiliations: string[]
+}
+
+/**
+ * 新しく追加した別名義と同じ名前のモデルを探す。
+ * 既に登録済みの別名義は、前に統合を断っていても毎回聞かないよう対象にしない。
+ */
+export async function findMergeCandidates(
+  modelId: string,
+  aliases: AliasInput[],
+): Promise<MergeCandidate[]> {
+  const saved = await db.model_former_names.where('model_id').equals(modelId).toArray()
+  const savedNames = new Set(saved.map((a) => normalize(a.name)))
+  const added = new Set(
+    cleanAliases(aliases)
+      .map((a) => normalize(a.name))
+      .filter((n) => !savedNames.has(n)),
+  )
+  if (added.size === 0) return []
+
+  const models = await db.models.toArray()
+  return models
+    .filter((m) => m.id !== modelId && !m.deleted_at && added.has(normalize(m.name)))
+    .map((m) => ({
+      id: m.id,
+      name: m.name,
+      affiliations: [m.affiliation, ...(m.sub_affiliations ?? [])].filter((a): a is string =>
+        Boolean(a?.trim()),
+      ),
+    }))
+}
+
+/**
+ * source のモデルを target に統合し、source をモデルマスタから削除する（論理削除）。
+ * 消したモデルを指したまま残らないよう、撮影の明細・撮影希望・別名義は target に付け替える。
+ * 同じ枠（同じ過去撮影）に両方が入っていたときは、target 側の明細を残す。
+ */
+export async function mergeModelInto(targetId: string, sourceId: string): Promise<void> {
+  if (targetId === sourceId) throw new Error('同じモデルは統合できません')
+  const target = await db.models.get(targetId)
+  const source = await db.models.get(sourceId)
+  if (!target || target.deleted_at || !source || source.deleted_at) {
+    throw new Error('モデルが見つかりませんでした')
+  }
+
+  const targetSlots = new Set(
+    (await db.slot_models.where('model_id').equals(targetId).toArray()).map((r) => r.slot_id),
+  )
+  for (const row of await db.slot_models.where('model_id').equals(sourceId).toArray()) {
+    if (targetSlots.has(row.slot_id)) await deleteRow('slot_models', row.id)
+    else await updateRow('slot_models', row.id, { model_id: targetId })
+  }
+
+  const targetHistories = new Set(
+    (await db.shoot_history_models.where('model_id').equals(targetId).toArray()).map(
+      (r) => r.shoot_history_id,
+    ),
+  )
+  for (const row of await db.shoot_history_models.where('model_id').equals(sourceId).toArray()) {
+    if (targetHistories.has(row.shoot_history_id)) await deleteRow('shoot_history_models', row.id)
+    else await updateRow('shoot_history_models', row.id, { model_id: targetId })
+  }
+
+  for (const row of await db.wishlist_models.where('model_id').equals(sourceId).toArray()) {
+    await updateRow('wishlist_models', row.id, { model_id: targetId })
+  }
+
+  // source の別名義も target の別名義にする。target の名前や既にある別名義と重なるものは捨てる
+  const targetAliases = new Set(
+    [
+      target.name,
+      ...(await db.model_former_names.where('model_id').equals(targetId).toArray()).map(
+        (a) => a.name,
+      ),
+    ].map(normalize),
+  )
+  for (const row of await db.model_former_names.where('model_id').equals(sourceId).toArray()) {
+    if (targetAliases.has(normalize(row.name))) {
+      await deleteRow('model_former_names', row.id)
+    } else {
+      await updateRow('model_former_names', row.id, { model_id: targetId })
+      targetAliases.add(normalize(row.name))
+    }
+  }
+
+  await softDeleteRow('models', sourceId)
 }

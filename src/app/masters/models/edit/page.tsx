@@ -3,12 +3,18 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Suspense, useState } from 'react'
+import { Suspense, useEffect, useId, useRef, useState } from 'react'
 
 import { AccountsField, toAccountRows } from '@/components/forms/AccountsField'
 import { ChoicePicker } from '@/components/forms/ChoicePicker'
 import { Field, inputClass } from '@/components/forms/ShootDetailsFields'
-import { updateModel, type ModelInput } from '@/lib/actions/models'
+import {
+  findMergeCandidates,
+  mergeModelInto,
+  updateModel,
+  type MergeCandidate,
+  type ModelInput,
+} from '@/lib/actions/models'
 import { MODEL_STATUSES } from '@/lib/model-status'
 import { loadModelDetail, type ModelDetail } from '@/lib/queries/models'
 
@@ -72,6 +78,20 @@ function ModelEditForm({ model }: { model: ModelDetail }) {
   const [form, setForm] = useState<ModelInput>(() => toFormValues(model))
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  /** 統合するか確認中のモデルと、答えを返す関数 */
+  const [asking, setAsking] = useState<MergeCandidate | null>(null)
+  const answerRef = useRef<((ok: boolean) => void) | null>(null)
+
+  const askMerge = (candidate: MergeCandidate) =>
+    new Promise<boolean>((resolve) => {
+      answerRef.current = resolve
+      setAsking(candidate)
+    })
+  const answer = (ok: boolean) => {
+    answerRef.current?.(ok)
+    answerRef.current = null
+    setAsking(null)
+  }
 
   const set = <K extends keyof ModelInput>(key: K, value: ModelInput[K]) =>
     setForm((f) => ({ ...f, [key]: value }))
@@ -99,7 +119,17 @@ function ModelEditForm({ model }: { model: ModelDetail }) {
     setError(null)
     setSaving(true)
     try {
+      // 新しく追加した別名義と同じ名前のモデルがあれば、1件ずつ統合するか聞く
+      const candidates = await findMergeCandidates(model.id, form.aliases)
+      const merging: MergeCandidate[] = []
+      for (const candidate of candidates) {
+        if (await askMerge(candidate)) merging.push(candidate)
+      }
+
       const { createdOrganizers } = await updateModel(model.id, form)
+      for (const candidate of merging) {
+        await mergeModelInto(model.id, candidate.id)
+      }
       if (createdOrganizers.length > 0) {
         alert(
           `撮影会マスタに${createdOrganizers.map((n) => `「${n}」`).join('')}を登録しました`,
@@ -352,6 +382,80 @@ function ModelEditForm({ model }: { model: ModelDetail }) {
           </span>
         </div>
       </form>
+
+      {asking && <MergeDialog candidate={asking} onAnswer={answer} />}
+    </div>
+  )
+}
+
+/**
+ * 別名義と同名のモデルを統合するかの確認。
+ * OK で、そのモデルの撮影実績などを編集中のモデルに移し、モデルマスタから削除する。
+ */
+function MergeDialog({
+  candidate,
+  onAnswer,
+}: {
+  candidate: MergeCandidate
+  onAnswer: (ok: boolean) => void
+}) {
+  const titleId = useId()
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onAnswer(false)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onAnswer])
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
+      onClick={() => onAnswer(false)}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        onClick={(e) => e.stopPropagation()}
+        className="bg-surface border-border w-full max-w-sm rounded-lg border p-5 shadow-lg"
+      >
+        <h2 id={titleId} className="text-base font-semibold">
+          同名のモデルが存在します。統合しますか？
+        </h2>
+        <dl className="mt-3 space-y-1 text-sm">
+          <div className="flex gap-2">
+            <dt className="text-muted w-12 shrink-0 text-xs leading-5">名前</dt>
+            <dd className="font-medium">{candidate.name}</dd>
+          </div>
+          <div className="flex gap-2">
+            <dt className="text-muted w-12 shrink-0 text-xs leading-5">所属</dt>
+            <dd>{candidate.affiliations.length > 0 ? candidate.affiliations.join('、') : 'なし'}</dd>
+          </div>
+        </dl>
+        <p className="text-muted mt-3 text-xs">
+          OK を押すと、このモデルをモデルマスタから削除し、撮影実績や撮影希望は編集中のモデルに移します。キャンセルすると統合せずに別名義だけ保存します。
+        </p>
+
+        <div className="mt-4 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={() => onAnswer(false)}
+            className="border-border hover:bg-navy-50 rounded-md border px-4 py-1.5 text-sm dark:hover:bg-white/5"
+          >
+            キャンセル
+          </button>
+          <button
+            type="button"
+            onClick={() => onAnswer(true)}
+            autoFocus
+            className="bg-navy-900 hover:bg-navy-800 rounded-md px-4 py-1.5 text-sm font-medium text-white"
+          >
+            OK
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
