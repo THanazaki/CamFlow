@@ -178,3 +178,78 @@ export async function loadReservationInput(sessionId: string): Promise<Reservati
     paymentDate: slot?.fee_payment_date ?? '',
   }
 }
+
+/** 予約成否分析の1行（モデル別） */
+export interface ReservationOutcomeRow {
+  modelId: string
+  modelName: string
+  successCount: number
+  failureCount: number
+  /** 予約開始日時（ISO）。無ければ null */
+  lastSuccessAt: string | null
+  lastFailureAt: string | null
+}
+
+/**
+ * 予約情報に入れたモデルごとの、予約成功・予約失敗の回数と最近の日時。
+ *
+ * 予約情報入力を通した撮影（`booking_opens_at` がある）だけを数える。
+ * - 予約失敗: 予約中のまま枠が中止の予約（予約スケジュールの「予約失敗」）
+ * - 予約成功: 確定・撮影済み、または確定後に中止した撮影（予約成功を押しただけで未確定のものは数えない）
+ * 成否を決めた日時は持っていないため、「日時」は予約開始日時で出す。
+ * 撮影日を過ぎて予約スケジュールから消えた予約失敗も数える。
+ */
+export async function loadReservationOutcomes(): Promise<ReservationOutcomeRow[]> {
+  const [sessions, slots, slotModels, models] = await Promise.all([
+    db.sessions.toArray(),
+    db.slots.toArray(),
+    db.slot_models.toArray(),
+    db.models.toArray(),
+  ])
+  const modelMap = new Map(models.map((m) => [m.id, m]))
+  const rows = new Map<string, ReservationOutcomeRow>()
+
+  for (const session of sessions) {
+    if (session.deleted_at || !session.booking_opens_at) continue
+    const slot = slots
+      .filter((sl) => !sl.deleted_at && sl.session_id === session.id)
+      .sort((a, b) => a.slot_no - b.slot_no)[0]
+    if (!slot) continue
+
+    let result: 'success' | 'failure' | null = null
+    if (session.status === 'planned') {
+      if (slot.shoot_status === 'cancelled') result = 'failure'
+    } else {
+      result = 'success'
+    }
+    if (!result) continue
+
+    for (const link of slotModels.filter((sm) => sm.slot_id === slot.id)) {
+      const model = modelMap.get(link.model_id)
+      if (!model) continue
+      const row = rows.get(model.id) ?? {
+        modelId: model.id,
+        modelName: model.name,
+        successCount: 0,
+        failureCount: 0,
+        lastSuccessAt: null,
+        lastFailureAt: null,
+      }
+      const at = session.booking_opens_at
+      if (result === 'success') {
+        row.successCount++
+        if (!row.lastSuccessAt || at > row.lastSuccessAt) row.lastSuccessAt = at
+      } else {
+        row.failureCount++
+        if (!row.lastFailureAt || at > row.lastFailureAt) row.lastFailureAt = at
+      }
+      rows.set(model.id, row)
+    }
+  }
+
+  const latest = (r: ReservationOutcomeRow) =>
+    [r.lastSuccessAt, r.lastFailureAt].filter(Boolean).sort().at(-1) ?? ''
+  return [...rows.values()].sort(
+    (a, b) => latest(b).localeCompare(latest(a)) || a.modelName.localeCompare(b.modelName, 'ja'),
+  )
+}

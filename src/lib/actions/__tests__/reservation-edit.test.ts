@@ -2,7 +2,11 @@ import { beforeEach, describe, expect, it } from 'vitest'
 
 import { db } from '@/lib/db'
 import { loadConfirmableReservations } from '@/lib/queries/shoots'
-import { loadReservationInput, loadReservationSchedule } from '@/lib/queries/reservations'
+import {
+  loadReservationInput,
+  loadReservationOutcomes,
+  loadReservationSchedule,
+} from '@/lib/queries/reservations'
 
 import {
   createReservation,
@@ -148,5 +152,29 @@ describe('予約の成否', () => {
     await expect(setReservationResult(sessionId, 'failure')).rejects.toThrow(
       '予約が見つかりませんでした',
     )
+  })
+})
+
+describe('予約成否分析', () => {
+  it('モデルごとに成功・失敗の回数と最近の日時を数える。未確定の予約は数えない', async () => {
+    const win = await createReservation(USER, reservation({ bookingOpensAt: '2026-10-01T10:00' }))
+    await updateRow('sessions', win.sessionId, { status: 'confirmed' })
+    const win2 = await createReservation(USER, reservation({ bookingOpensAt: '2026-10-05T10:00' }))
+    await updateRow('sessions', win2.sessionId, { status: 'confirmed' })
+    const lose = await createReservation(USER, reservation({ bookingOpensAt: '2026-10-03T10:00' }))
+    await setReservationResult(lose.sessionId, 'failure')
+    await createReservation(USER, reservation({ bookingOpensAt: '2026-10-09T10:00' }))
+    await createReservation(USER, reservation({ shootCategory: 'session', modelName: '' }))
+
+    const rows = await loadReservationOutcomes()
+
+    expect(rows).toHaveLength(1)
+    expect(rows[0]).toMatchObject({
+      modelName: '葵',
+      successCount: 2,
+      failureCount: 1,
+      lastSuccessAt: new Date('2026-10-05T10:00').toISOString(),
+      lastFailureAt: new Date('2026-10-03T10:00').toISOString(),
+    })
   })
 })
