@@ -29,6 +29,7 @@ function ShootRecordCards({ rows }: { rows: ShootRecord[] }) {
           <p className="text-muted mt-0.5 text-sm break-words">
             {row.modelNames.join('・') || 'モデルなし'}
           </p>
+          {row.concept && <p className="mt-0.5 text-sm break-words">{row.concept}</p>}
           <div className="mt-2 min-w-0">
             <StorageUrlList urls={row.storageUrls} />
           </div>
@@ -58,7 +59,7 @@ function ShootRecordGrid({ rows }: { rows: ShootRecord[] }) {
   return (
     // relative が無いと sr-only（絶対配置）の見出しがこの外に出て、ページごと横に広がる
     <div className="bg-surface border-border relative hidden overflow-x-auto rounded-lg border sm:block">
-      <table className="w-full min-w-[48rem] table-fixed text-left text-sm">
+      <table className="w-full min-w-[60rem] table-fixed text-left text-sm">
         <thead className="border-border text-muted border-b text-xs">
           <tr>
             <th scope="col" className="w-32 px-4 py-2.5 font-medium">
@@ -69,6 +70,9 @@ function ShootRecordGrid({ rows }: { rows: ShootRecord[] }) {
             </th>
             <th scope="col" className="w-48 px-4 py-2.5 font-medium">
               撮影会名
+            </th>
+            <th scope="col" className="w-48 px-4 py-2.5 font-medium">
+              撮影コンセプト
             </th>
             <th scope="col" className="px-4 py-2.5 font-medium">
               ストレージのURL
@@ -84,6 +88,7 @@ function ShootRecordGrid({ rows }: { rows: ShootRecord[] }) {
               <td className="px-4 py-3 whitespace-nowrap tabular-nums">{row.shootDate}</td>
               <td className="px-4 py-3 break-words">{row.modelNames.join('・') || '—'}</td>
               <td className="px-4 py-3 break-words">{row.eventName ?? '—'}</td>
+              <td className="px-4 py-3 break-words">{row.concept ?? '—'}</td>
               <td className="px-4 py-3">
                 <StorageUrlList urls={row.storageUrls} />
               </td>

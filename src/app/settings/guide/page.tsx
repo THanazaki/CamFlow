@@ -256,7 +256,7 @@ export default function GuidePage() {
       <Section id="search">
         <p>
           <ScreenLink href="/archives/list">過去撮影一覧</ScreenLink>
-          では、撮影日を過ぎた確定済みの撮影と、過去撮影登録で登録した撮影を、撮影日の新しい順にすべて確認できます。
+          では、撮影日を過ぎた確定済みの撮影と、過去撮影登録で登録した撮影を、撮影日の新しい順にすべて確認できます。撮影日、モデル、撮影会名、撮影コンセプト、ストレージのURLが表示されます。
         </p>
         <p>
           <ScreenLink href="/archives/search">撮影情報検索</ScreenLink>
