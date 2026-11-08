@@ -223,11 +223,13 @@ export async function updateReservation(
  * 予約失敗は「session は planned のまま、枠の shoot_status が cancelled」で表す
  * （撮影中止は枠が残らないと session も cancelled にするので、この組み合わせは失敗の予約だけ）。
  * 失敗にしても予約スケジュールに残り、撮影日当日までは予約成功に変えられる。
+ * 予約失敗の理由（任意）は `sessions.booking_failure_reason` に持ち、予約成功に変えると消す。
  * 予約成功は枠を元に戻す。session を confirmed にするのは確定撮影情報入力。
  */
 export async function setReservationResult(
   sessionId: string,
   result: 'success' | 'failure',
+  reason = '',
 ): Promise<void> {
   const session = await db.sessions.get(sessionId)
   if (!session || session.deleted_at || session.status !== 'planned') {
@@ -239,6 +241,10 @@ export async function setReservationResult(
   const wanted = result === 'failure' ? 'cancelled' : 'planned'
   for (const slot of slots) {
     if (slot.shoot_status !== wanted) await updateRow('slots', slot.id, { shoot_status: wanted })
+  }
+  const nextReason = result === 'failure' ? reason.trim() || null : null
+  if ((session.booking_failure_reason ?? null) !== nextReason) {
+    await updateRow('sessions', sessionId, { booking_failure_reason: nextReason })
   }
 }
 

@@ -43,6 +43,20 @@ beforeEach(async () => {
 })
 
 describe('予約の編集', () => {
+  it('予約失敗の理由を保存し、予約成功に変えると消す。分析には直近の失敗の理由が出る', async () => {
+    const { sessionId } = await createReservation(USER, reservation({ bookingOpensAt: '2026-10-01T10:00' }))
+    await setReservationResult(sessionId, 'failure', ' 満席 ')
+    expect((await db.sessions.get(sessionId))?.booking_failure_reason).toBe('満席')
+
+    const second = await createReservation(USER, reservation({ bookingOpensAt: '2026-10-05T10:00' }))
+    await setReservationResult(second.sessionId, 'failure', '通信エラー')
+    expect((await loadReservationOutcomes())[0].lastFailureReason).toBe('通信エラー')
+
+    await setReservationResult(second.sessionId, 'success')
+    expect((await db.sessions.get(second.sessionId))?.booking_failure_reason).toBeNull()
+    expect((await loadReservationOutcomes())[0].lastFailureReason).toBe('満席')
+  })
+
   it('予約終了日時は任意で、入力すれば保存・読み込みでき、消すこともできる', async () => {
     const none = await createReservation(USER, reservation())
     expect((await db.sessions.get(none.sessionId))?.booking_closes_at).toBeNull()

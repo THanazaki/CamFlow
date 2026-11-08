@@ -23,6 +23,8 @@ export interface ReservationRow {
   costumeOptions: string | null
   shootingMethodOptions: string | null
   memo: string | null
+  /** 予約失敗の理由。未入力は null */
+  failureReason: string | null
   /** 予約失敗にした予約。撮影日当日までは予約成功に変えられる */
   failed: boolean
 }
@@ -90,6 +92,7 @@ export async function loadReservationSchedule(): Promise<ReservationRow[]> {
           costumeOptions: slot?.costume_options ?? null,
           shootingMethodOptions: slot?.shooting_method_options ?? null,
           memo: s.memo ?? null,
+          failureReason: s.booking_failure_reason ?? null,
           failed: slot?.shoot_status === 'cancelled',
         }
       })
@@ -189,6 +192,8 @@ export interface ReservationOutcomeRow {
   /** 予約開始日時（ISO）。無ければ null */
   lastSuccessAt: string | null
   lastFailureAt: string | null
+  /** 最近の失敗（lastFailureAt の予約）の理由。未入力なら null */
+  lastFailureReason: string | null
 }
 
 /**
@@ -235,6 +240,7 @@ export async function loadReservationOutcomes(): Promise<ReservationOutcomeRow[]
         failureCount: 0,
         lastSuccessAt: null,
         lastFailureAt: null,
+        lastFailureReason: null,
       }
       const at = session.booking_opens_at
       if (result === 'success') {
@@ -242,7 +248,10 @@ export async function loadReservationOutcomes(): Promise<ReservationOutcomeRow[]
         if (!row.lastSuccessAt || at > row.lastSuccessAt) row.lastSuccessAt = at
       } else {
         row.failureCount++
-        if (!row.lastFailureAt || at > row.lastFailureAt) row.lastFailureAt = at
+        if (!row.lastFailureAt || at > row.lastFailureAt) {
+          row.lastFailureAt = at
+          row.lastFailureReason = session.booking_failure_reason?.trim() || null
+        }
       }
       rows.set(model.id, row)
     }

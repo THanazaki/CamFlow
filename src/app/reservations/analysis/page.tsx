@@ -4,7 +4,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 
 import { loadReservationOutcomes } from '@/lib/queries/reservations'
 
-const COLUMNS = ['モデル名', '予約成功回数', '予約失敗回数', '最近の成功日時', '最近の失敗日時']
+const COLUMNS = ['モデル名', '予約成功回数', '予約失敗回数', '最近の成功日時', '最近の失敗日時', '最近の失敗理由']
 
 /** 予約成否分析。予約情報に入れたモデルごとの、予約の成功・失敗を表示する */
 export default function ReservationAnalysisPage() {
@@ -15,7 +15,7 @@ export default function ReservationAnalysisPage() {
       <header>
         <h1 className="text-2xl font-semibold tracking-tight">予約成否分析</h1>
         <p className="text-muted mt-1 text-sm">
-          予約スケジュールで「予約成功」「予約失敗」を押した予約を、モデルごとに数えます。日時は予約開始日時です。
+          予約スケジュールで「予約成功」「予約失敗」を押した予約を、モデルごとに数えます。日時は予約開始日時です。最近の失敗理由は、最近の失敗にあたる予約で入力した理由です。
           予約成功は、確定撮影情報入力で確定したものから数えます。
         </p>
       </header>
@@ -53,12 +53,18 @@ export default function ReservationAnalysisPage() {
                     <dt>{COLUMNS[4]}</dt>
                     <dd className="text-foreground">{formatDateTime(row.lastFailureAt)}</dd>
                   </div>
+                  <div className="flex gap-1">
+                    <dt className="shrink-0">{COLUMNS[5]}</dt>
+                    <dd className="text-foreground min-w-0 break-words whitespace-pre-wrap">
+                      {row.lastFailureReason ?? '—'}
+                    </dd>
+                  </div>
                 </dl>
               </li>
             ))}
           </ul>
           <div className="bg-surface border-border hidden overflow-x-auto rounded-lg border sm:block">
-            <table className="w-full min-w-[44rem] text-left text-sm">
+            <table className="w-full min-w-[56rem] text-left text-sm">
               <thead className="border-border text-muted border-b text-xs">
                 <tr>
                   <th scope="col" className="px-4 py-2.5 font-medium">
@@ -76,6 +82,9 @@ export default function ReservationAnalysisPage() {
                   <th scope="col" className="w-44 px-4 py-2.5 font-medium">
                     {COLUMNS[4]}
                   </th>
+                  <th scope="col" className="px-4 py-2.5 font-medium">
+                    {COLUMNS[5]}
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-border divide-y">
@@ -89,6 +98,9 @@ export default function ReservationAnalysisPage() {
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap tabular-nums">
                       {formatDateTime(row.lastFailureAt)}
+                    </td>
+                    <td className="px-4 py-3 break-words whitespace-pre-wrap">
+                      {row.lastFailureReason ?? '—'}
                     </td>
                   </tr>
                 ))}

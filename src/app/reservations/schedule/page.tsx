@@ -56,6 +56,9 @@ export default function ReservationSchedulePage() {
 function ReservationCard({ row, nowMs }: { row: ReservationRow; nowMs: number | null }) {
   const router = useRouter()
   const [error, setError] = useState<string | null>(null)
+  // 予約失敗ボタンを押すと理由の入力欄を出す
+  const [failing, setFailing] = useState(false)
+  const [reason, setReason] = useState('')
   const opensMs = row.bookingOpensAt ? new Date(row.bookingOpensAt).getTime() : null
   // nowMs は初回レンダーでは null（サーバとクライアントで値がずれるのを避ける）
   const remainMs = opensMs !== null && nowMs !== null ? opensMs - nowMs : null
@@ -74,7 +77,9 @@ function ReservationCard({ row, nowMs }: { row: ReservationRow; nowMs: number | 
   const onFailure = async () => {
     if (!confirm('予約失敗として登録します。よろしいですか？')) return
     try {
-      await setReservationResult(row.sessionId, 'failure')
+      await setReservationResult(row.sessionId, 'failure', reason)
+      setFailing(false)
+      setReason('')
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     }
@@ -126,6 +131,45 @@ function ReservationCard({ row, nowMs }: { row: ReservationRow; nowMs: number | 
               <span className="text-foreground">{row.memo}</span>
             </p>
           )}
+          {row.failed && row.failureReason && (
+            <p className="mt-2 text-xs whitespace-pre-wrap">
+              <span className="text-muted mr-2">失敗の理由</span>
+              {row.failureReason}
+            </p>
+          )}
+          {failing && (
+            <div className="mt-3 space-y-2">
+              <label className="block text-xs">
+                <span className="text-muted">予約失敗の理由（任意）</span>
+                <textarea
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  rows={2}
+                  placeholder="例: 受付開始と同時に満席になった"
+                  className="border-border bg-surface mt-1 w-full rounded-md border px-3 py-2 text-sm"
+                />
+              </label>
+              <span className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={onFailure}
+                  className="tap-target rounded-md bg-red-600 px-3 py-1 text-xs font-medium text-white hover:bg-red-700"
+                >
+                  予約失敗を登録
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFailing(false)
+                    setReason('')
+                  }}
+                  className="border-border hover:bg-navy-50 tap-target rounded-md border px-3 py-1 text-xs dark:hover:bg-white/5"
+                >
+                  キャンセル
+                </button>
+              </span>
+            </div>
+          )}
           {error && <p className="mt-2 text-xs text-red-600 dark:text-red-400">{error}</p>}
           <BookingContact method={row.bookingMethod} contact={row.bookingContact} />
         </div>
@@ -153,10 +197,10 @@ function ReservationCard({ row, nowMs }: { row: ReservationRow; nowMs: number | 
               >
                 予約成功
               </button>
-              {!row.failed && (
+              {!row.failed && !failing && (
                 <button
                   type="button"
-                  onClick={onFailure}
+                  onClick={() => setFailing(true)}
                   className="tap-target rounded-md bg-red-600 px-3 py-1 text-xs font-medium text-white hover:bg-red-700"
                 >
                   予約失敗
