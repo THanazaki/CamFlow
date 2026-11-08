@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState, useSyncExternalStore } from 'react'
 
-import { markReservationFailed } from '@/lib/actions/reservations'
+import { setReservationResult } from '@/lib/actions/reservations'
 
 import { reservationFeePaymentTimingLabel } from '@/lib/fee-payment'
 import { loadReservationSchedule, type ReservationRow } from '@/lib/queries/reservations'
@@ -61,14 +61,20 @@ function ReservationCard({ row, nowMs }: { row: ReservationRow; nowMs: number | 
   const remainMs = opensMs !== null && nowMs !== null ? opensMs - nowMs : null
   const open = remainMs !== null && remainMs <= 0
 
-  const onSuccess = () => {
+  const onSuccess = async () => {
     if (!confirm('予約成功として登録します。よろしいですか？')) return
-    router.push(`/shoots/confirm?session=${encodeURIComponent(row.sessionId)}`)
+    try {
+      // 予約失敗にしていた予約は、確定撮影情報入力で選べるよう元に戻す
+      await setReservationResult(row.sessionId, 'success')
+      router.push(`/shoots/confirm?session=${encodeURIComponent(row.sessionId)}`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    }
   }
   const onFailure = async () => {
     if (!confirm('予約失敗として登録します。よろしいですか？')) return
     try {
-      await markReservationFailed(row.sessionId)
+      await setReservationResult(row.sessionId, 'failure')
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     }
@@ -77,7 +83,11 @@ function ReservationCard({ row, nowMs }: { row: ReservationRow; nowMs: number | 
   return (
     <li
       className={`bg-surface rounded-lg border p-4 ${
-        open ? 'border-emerald-400 dark:border-emerald-500/50' : 'border-border'
+        row.failed
+          ? 'border-red-300 dark:border-red-500/40'
+          : open
+            ? 'border-emerald-400 dark:border-emerald-500/50'
+            : 'border-border'
       }`}
     >
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -121,14 +131,20 @@ function ReservationCard({ row, nowMs }: { row: ReservationRow; nowMs: number | 
         </div>
 
         <div className="flex shrink-0 flex-col items-end gap-2 text-right">
-          <Countdown remainMs={remainMs} hasSchedule={opensMs !== null} />
+          {row.failed ? (
+            <span className="inline-block rounded-md bg-red-100 px-2.5 py-1 text-sm font-medium text-red-800 dark:bg-red-500/15 dark:text-red-300">
+              予約失敗
+            </span>
+          ) : (
+            <Countdown remainMs={remainMs} hasSchedule={opensMs !== null} />
+          )}
           <Link
             href={`/reservations/edit?id=${encodeURIComponent(row.sessionId)}`}
             className="border-border hover:bg-navy-50 tap-target rounded-md border px-3 py-1 text-xs dark:hover:bg-white/5"
           >
             編集
           </Link>
-          {open && (
+          {(open || row.failed) && (
             <span className="flex gap-2">
               <button
                 type="button"
@@ -137,13 +153,15 @@ function ReservationCard({ row, nowMs }: { row: ReservationRow; nowMs: number | 
               >
                 予約成功
               </button>
-              <button
-                type="button"
-                onClick={onFailure}
-                className="tap-target rounded-md bg-red-600 px-3 py-1 text-xs font-medium text-white hover:bg-red-700"
-              >
-                予約失敗
-              </button>
+              {!row.failed && (
+                <button
+                  type="button"
+                  onClick={onFailure}
+                  className="tap-target rounded-md bg-red-600 px-3 py-1 text-xs font-medium text-white hover:bg-red-700"
+                >
+                  予約失敗
+                </button>
+              )}
             </span>
           )}
         </div>

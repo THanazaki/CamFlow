@@ -215,19 +215,27 @@ export async function updateReservation(
 }
 
 /**
- * 予約が取れなかったことを記録する。
- * 予約スケジュールから外れ、枠も中止扱いにする（撮影中止と同じ。マスタと slot_models は残す）。
+ * 予約の成否を記録する。
+ * 予約失敗は「session は planned のまま、枠の shoot_status が cancelled」で表す
+ * （撮影中止は枠が残らないと session も cancelled にするので、この組み合わせは失敗の予約だけ）。
+ * 失敗にしても予約スケジュールに残り、撮影日当日までは予約成功に変えられる。
+ * 予約成功は枠を元に戻す。session を confirmed にするのは確定撮影情報入力。
  */
-export async function markReservationFailed(sessionId: string): Promise<void> {
+export async function setReservationResult(
+  sessionId: string,
+  result: 'success' | 'failure',
+): Promise<void> {
   const session = await db.sessions.get(sessionId)
   if (!session || session.deleted_at || session.status !== 'planned') {
     throw new Error('予約が見つかりませんでした')
   }
-  const slots = await db.slots.where('session_id').equals(sessionId).toArray()
-  for (const slot of slots.filter((s) => !s.deleted_at)) {
-    await updateRow('slots', slot.id, { shoot_status: 'cancelled' })
+  const slots = (await db.slots.where('session_id').equals(sessionId).toArray()).filter(
+    (s) => !s.deleted_at,
+  )
+  const wanted = result === 'failure' ? 'cancelled' : 'planned'
+  for (const slot of slots) {
+    if (slot.shoot_status !== wanted) await updateRow('slots', slot.id, { shoot_status: wanted })
   }
-  await updateRow('sessions', sessionId, { status: 'cancelled' })
 }
 
 export const reservationInternals = { placeholderStartAt, normalize }

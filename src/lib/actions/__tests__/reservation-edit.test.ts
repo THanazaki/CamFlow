@@ -1,11 +1,12 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 
 import { db } from '@/lib/db'
+import { loadConfirmableReservations } from '@/lib/queries/shoots'
 import { loadReservationInput, loadReservationSchedule } from '@/lib/queries/reservations'
 
 import {
   createReservation,
-  markReservationFailed,
+  setReservationResult,
   updateReservation,
   type ReservationInput,
 } from '../reservations'
@@ -109,23 +110,43 @@ describe('予約の編集', () => {
   })
 })
 
-describe('予約失敗', () => {
-  it('予約スケジュールから外れ、枠も中止にする。マスタと明細は残す', async () => {
-    const { sessionId } = await createReservation(USER, reservation())
+describe('予約の成否', () => {
+  it('予約失敗にしても撮影日当日までは予約スケジュールに残り、確定の候補からは外れる', async () => {
+    const { sessionId } = await createReservation(USER, reservation({ shootDate: '2999-01-01' }))
 
-    await markReservationFailed(sessionId)
+    await setReservationResult(sessionId, 'failure')
+
+    const [row] = await loadReservationSchedule()
+    expect(row).toMatchObject({ sessionId, failed: true })
+    expect((await db.sessions.get(sessionId))?.status).toBe('planned')
+    expect(await loadConfirmableReservations()).toHaveLength(0)
+    expect(await db.slot_models.count()).toBe(1)
+  })
+
+  it('撮影日を過ぎた予約失敗は予約スケジュールから外れる', async () => {
+    const { sessionId } = await createReservation(USER, reservation({ shootDate: '2000-01-01' }))
+
+    await setReservationResult(sessionId, 'failure')
 
     expect(await loadReservationSchedule()).toHaveLength(0)
-    expect((await db.sessions.get(sessionId))?.status).toBe('cancelled')
-    expect((await db.slots.toArray())[0].shoot_status).toBe('cancelled')
-    expect(await db.slot_models.count()).toBe(1)
-    expect(await db.models.count()).toBe(1)
+  })
+
+  it('予約失敗から予約成功に変えると、確定の候補に戻る', async () => {
+    const { sessionId } = await createReservation(USER, reservation({ shootDate: '2999-01-01' }))
+    await setReservationResult(sessionId, 'failure')
+
+    await setReservationResult(sessionId, 'success')
+
+    expect((await loadReservationSchedule())[0].failed).toBe(false)
+    expect(await loadConfirmableReservations()).toHaveLength(1)
   })
 
   it('可否が決まった予約はエラー', async () => {
     const { sessionId } = await createReservation(USER, reservation())
-    await markReservationFailed(sessionId)
+    await updateRow('sessions', sessionId, { status: 'confirmed' })
 
-    await expect(markReservationFailed(sessionId)).rejects.toThrow('予約が見つかりませんでした')
+    await expect(setReservationResult(sessionId, 'failure')).rejects.toThrow(
+      '予約が見つかりませんでした',
+    )
   })
 })

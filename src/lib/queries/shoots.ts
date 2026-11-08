@@ -89,6 +89,8 @@ export async function loadConfirmableReservations(): Promise<ConfirmableReservat
       const slot = liveSlots
         .filter((s) => s.session_id === session.id)
         .sort((a, b) => a.slot_no - b.slot_no)[0]
+      // 予約失敗にした予約は選べない（予約スケジュールで予約成功に変えてから確定する）
+      if (slot?.shoot_status === 'cancelled') return null
       const model = slot
         ? modelMap.get(slotModels.find((sm) => sm.slot_id === slot.id)?.model_id ?? '')
         : undefined
@@ -123,6 +125,7 @@ export async function loadConfirmableReservations(): Promise<ConfirmableReservat
         memo: session.memo ?? '',
       }
     })
+    .filter((r): r is ConfirmableReservation => r !== null)
     .sort((a, b) => a.shootDate.localeCompare(b.shootDate))
 }
 

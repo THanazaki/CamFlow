@@ -23,6 +23,8 @@ export interface ReservationRow {
   costumeOptions: string | null
   shootingMethodOptions: string | null
   memo: string | null
+  /** 予約失敗にした予約。撮影日当日までは予約成功に変えられる */
+  failed: boolean
 }
 
 /**
@@ -60,39 +62,51 @@ export async function loadReservationSchedule(): Promise<ReservationRow[]> {
     modelNamesBySlot.set(sm.slot_id, list)
   }
 
-  return sessions
-    .filter((s) => !s.deleted_at && s.status === 'planned')
-    .map((s) => {
-      const slotIds = slotsBySession.get(s.id) ?? []
-      const names = [...new Set(slotIds.flatMap((id) => modelNamesBySlot.get(id) ?? []))]
-      // 予約の枠は1つ（確定撮影情報入力の候補と同じく枠番号の若い枠を見る）
-      const slot = slots
-        .filter((sl) => !sl.deleted_at && sl.session_id === s.id)
-        .sort((a, b) => a.slot_no - b.slot_no)[0]
-      return {
-        sessionId: s.id,
-        bookingOpensAt: s.booking_opens_at,
-        bookingMethod: s.booking_method,
-        bookingContact: s.booking_contact,
-        shootDate: s.session_date,
-        modelNames: names,
-        concept: s.concept,
-        venueName: s.venue_id ? (venueMap.get(s.venue_id)?.name ?? s.venue_name) : s.venue_name,
-        title: s.title,
-        shootFee: Number(slot?.booking_fee ?? 0),
-        paymentTiming: slot?.fee_payment_timing ?? null,
-        paymentDate: slot?.fee_payment_date ?? null,
-        costumeOptions: slot?.costume_options ?? null,
-        shootingMethodOptions: slot?.shooting_method_options ?? null,
-        memo: s.memo ?? null,
-      }
-    })
-    .sort((a, b) => {
-      // 受付開始が未設定のものは末尾
-      if (a.bookingOpensAt === null) return b.bookingOpensAt === null ? 0 : 1
-      if (b.bookingOpensAt === null) return -1
-      return a.bookingOpensAt.localeCompare(b.bookingOpensAt)
-    })
+  const today = localDateString(new Date())
+
+  return (
+    sessions
+      .filter((s) => !s.deleted_at && s.status === 'planned')
+      .map((s) => {
+        const slotIds = slotsBySession.get(s.id) ?? []
+        const names = [...new Set(slotIds.flatMap((id) => modelNamesBySlot.get(id) ?? []))]
+        // 予約の枠は1つ（確定撮影情報入力の候補と同じく枠番号の若い枠を見る）
+        const slot = slots
+          .filter((sl) => !sl.deleted_at && sl.session_id === s.id)
+          .sort((a, b) => a.slot_no - b.slot_no)[0]
+        return {
+          sessionId: s.id,
+          bookingOpensAt: s.booking_opens_at,
+          bookingMethod: s.booking_method,
+          bookingContact: s.booking_contact,
+          shootDate: s.session_date,
+          modelNames: names,
+          concept: s.concept,
+          venueName: s.venue_id ? (venueMap.get(s.venue_id)?.name ?? s.venue_name) : s.venue_name,
+          title: s.title,
+          shootFee: Number(slot?.booking_fee ?? 0),
+          paymentTiming: slot?.fee_payment_timing ?? null,
+          paymentDate: slot?.fee_payment_date ?? null,
+          costumeOptions: slot?.costume_options ?? null,
+          shootingMethodOptions: slot?.shooting_method_options ?? null,
+          memo: s.memo ?? null,
+          failed: slot?.shoot_status === 'cancelled',
+        }
+      })
+      // 予約失敗は撮影日当日まで残し、過ぎたら予約スケジュールから外す
+      .filter((r) => !r.failed || r.shootDate >= today)
+      .sort((a, b) => {
+        // 受付開始が未設定のものは末尾
+        if (a.bookingOpensAt === null) return b.bookingOpensAt === null ? 0 : 1
+        if (b.bookingOpensAt === null) return -1
+        return a.bookingOpensAt.localeCompare(b.bookingOpensAt)
+      })
+  )
+}
+
+function localDateString(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 }
 
 /** 入力補助（datalist）用の候補 */
