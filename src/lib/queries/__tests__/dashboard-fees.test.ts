@@ -154,3 +154,38 @@ describe('料金リマインド', () => {
     expect((await fees()).totalCount).toBe(0)
   })
 })
+
+describe('予約リマインド', () => {
+  it('予約日時が近い順に並べ、受付が始まったものは後ろに回す', async () => {
+    const reserve = (eventName: string, bookingOpensAt: string) =>
+      createReservation(USER, {
+        eventName,
+        shootCategory: 'solo',
+        modelName: '葵',
+        concept: '',
+        venueName: '',
+        shootDate: '2026-07-20',
+        bookingOpensAt,
+        bookingMethod: 'page',
+        bookingContact: 'https://example.com',
+        shootFee: '',
+        costumeOptions: '',
+        shootingMethodOptions: '',
+        paymentTiming: null,
+        paymentDate: '',
+      })
+    await reserve('遠い', '2026-06-30T10:00')
+    await reserve('受付中(古)', '2026-06-01T10:00')
+    await reserve('近い', '2026-06-11T10:00')
+    await reserve('受付中(新)', '2026-06-09T10:00')
+
+    const { reservations } = await loadDashboard(NOW)
+    expect(reservations.items.map((r) => r.title)).toEqual([
+      '近い',
+      '遠い',
+      '受付中(新)',
+      '受付中(古)',
+    ])
+    expect(reservations.items[0].bookingOpensAt).toBe(new Date('2026-06-11T10:00').toISOString())
+  })
+})

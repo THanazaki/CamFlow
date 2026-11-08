@@ -3,10 +3,11 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useState, useSyncExternalStore } from 'react'
+import { useState } from 'react'
 
 import { setReservationResult } from '@/lib/actions/reservations'
 
+import { pad2 as pad, splitDuration, useNow } from '@/lib/use-now'
 import { reservationFeePaymentTimingLabel } from '@/lib/fee-payment'
 import { loadReservationSchedule, type ReservationRow } from '@/lib/queries/reservations'
 
@@ -289,45 +290,6 @@ function Row({ label, value }: { label: string; value: string }) {
     </span>
   )
 }
-
-/**
- * 1秒ごとの現在時刻。
- *
- * 時計は React の外にある可変の値なので useSyncExternalStore で購読する。
- * サーバ側のスナップショットは 0（= null 扱い）にしてあり、時刻の表示は
- * マウント後に始まる。サーバ描画と初回クライアント描画で値が食い違うと
- * ハイドレーションが壊れるため。
- */
-let clockNow = 0
-
-function subscribeClock(onChange: () => void): () => void {
-  clockNow = Date.now()
-  const id = setInterval(() => {
-    clockNow = Date.now()
-    onChange()
-  }, 1000)
-  return () => clearInterval(id)
-}
-
-const getClock = () => clockNow
-const getServerClock = () => 0
-
-function useNow(): number | null {
-  const now = useSyncExternalStore(subscribeClock, getClock, getServerClock)
-  return now === 0 ? null : now
-}
-
-function splitDuration(ms: number) {
-  const total = Math.floor(ms / 1000)
-  return {
-    days: Math.floor(total / 86400),
-    hours: Math.floor((total % 86400) / 3600),
-    minutes: Math.floor((total % 3600) / 60),
-    seconds: total % 60,
-  }
-}
-
-const pad = (n: number) => String(n).padStart(2, '0')
 
 function formatDateTime(iso: string): string {
   return new Date(iso).toLocaleString('ja-JP', {

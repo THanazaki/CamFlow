@@ -61,6 +61,8 @@ export interface ReminderItem {
   modelNames: string[]
   sessionStatus: LocalSession['status']
   stage: ReminderStage
+  /** 予約リマインドのみ。予約受付の開始日時。未設定なら null */
+  bookingOpensAt: string | null
   /** 開始までの日数。負なら過ぎている。レンダー中に Date.now() を呼ばないためここで出す */
   daysUntil: number
 }
@@ -203,6 +205,7 @@ export async function loadDashboard(now: Date = new Date()): Promise<DashboardDa
       modelNames: modelNamesBySlot.get(slot.id) ?? [],
       sessionStatus: session.status,
       stage,
+      bookingOpensAt: session.booking_opens_at ?? null,
       daysUntil: Math.ceil((new Date(slot.start_at).getTime() - now.getTime()) / 86_400_000),
     }
   }
@@ -223,6 +226,22 @@ export async function loadDashboard(now: Date = new Date()): Promise<DashboardDa
     return aOver ? a.startAt.localeCompare(b.startAt) : a.startAt.localeCompare(b.startAt)
   }
 
+  /**
+   * 予約日時（予約受付の開始日時）が近い順。これから始まるものを近い順に並べ、
+   * 受付が始まっているものはその後ろに新しい順で並べる。予約日時が未設定のものは最後
+   */
+  const byBookingOpensAt = (nowIso: string) => (a: ReminderItem, b: ReminderItem) => {
+    if (!a.bookingOpensAt || !b.bookingOpensAt) {
+      return a.bookingOpensAt === b.bookingOpensAt ? 0 : a.bookingOpensAt ? -1 : 1
+    }
+    const aUpcoming = a.bookingOpensAt >= nowIso
+    const bUpcoming = b.bookingOpensAt >= nowIso
+    if (aUpcoming !== bUpcoming) return aUpcoming ? -1 : 1
+    return aUpcoming
+      ? a.bookingOpensAt.localeCompare(b.bookingOpensAt)
+      : b.bookingOpensAt.localeCompare(a.bookingOpensAt)
+  }
+
   const group = (items: ReminderItem[]): ReminderGroup => ({
     items: items.slice(0, LIMIT),
     totalCount: items.length,
@@ -239,7 +258,7 @@ export async function loadDashboard(now: Date = new Date()): Promise<DashboardDa
       return toReminder(slot, slot.start_at < nowIso ? 'overdue_decision' : 'awaiting_decision')
     })
     .filter((r): r is ReminderItem => r !== null)
-    .sort(sortByUrgency)
+    .sort(byBookingOpensAt(nowIso))
 
   // 撮影リマインド: 撮影確定（予約成功を含む）〜 撮影データ登録。
   // 確定済みで、まだ保管先が登録されていない枠。撮影前も撮影後も含み、

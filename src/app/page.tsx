@@ -11,6 +11,7 @@ import {
   type ShootSummary,
 } from '@/lib/queries/dashboard'
 import { useSync } from '@/lib/sync/useSync'
+import { pad2, splitDuration, useNow } from '@/lib/use-now'
 
 /**
  * ダッシュボード。
@@ -24,6 +25,7 @@ import { useSync } from '@/lib/sync/useSync'
 export default function DashboardPage() {
   const data = useLiveQuery(() => loadDashboard(), [], null)
   const { phase } = useSync()
+  const nowMs = useNow()
 
   if (data === null) {
     return <p className="text-muted py-10 text-sm">読み込み中…</p>
@@ -62,7 +64,7 @@ export default function DashboardPage() {
               key={r.slotId}
               primary={<Primary item={r} />}
               secondary={[r.venueName, r.modelNames.join('・')].filter(Boolean).join(' / ') || undefined}
-              trailing={<DateTime iso={r.startAt} daysUntil={r.daysUntil} />}
+              trailing={<BookingCountdown iso={r.bookingOpensAt} nowMs={nowMs} />}
             />
           ))}
         </ReminderCard>
@@ -255,6 +257,42 @@ function Primary({ item }: { item: ReminderItem }) {
         {item.title}
         {item.label && <span className="text-muted">（{item.label}）</span>}
       </span>
+    </span>
+  )
+}
+
+/**
+ * 予約リマインドの日時。予約日時と、そこまでの日数を出す。
+ * 1日未満になったら、残り時間を秒単位で刻む。
+ */
+function BookingCountdown({ iso, nowMs }: { iso: string | null; nowMs: number | null }) {
+  if (!iso) return <span className="text-muted text-xs">予約日時 未設定</span>
+  const remainMs = nowMs === null ? null : new Date(iso).getTime() - nowMs
+  const when = new Date(iso).toLocaleString('ja-JP', {
+    month: 'numeric',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+
+  let remain: React.ReactNode = '—'
+  let tone = 'text-muted'
+  if (remainMs !== null) {
+    if (remainMs <= 0) {
+      remain = '受付中'
+      tone = 'text-emerald-600 dark:text-emerald-400'
+    } else if (remainMs < 86_400_000) {
+      const { hours, minutes, seconds } = splitDuration(remainMs)
+      remain = `あと ${pad2(hours)}:${pad2(minutes)}:${pad2(seconds)}`
+      tone = remainMs < 3_600_000 ? 'text-amber-600 dark:text-amber-400' : 'text-foreground'
+    } else {
+      remain = `あと${splitDuration(remainMs).days}日`
+    }
+  }
+  return (
+    <span className="text-right">
+      <span className="block whitespace-nowrap">{when}</span>
+      <span className={`block whitespace-nowrap tabular-nums ${tone}`}>{remain}</span>
     </span>
   )
 }
