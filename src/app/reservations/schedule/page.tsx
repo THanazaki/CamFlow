@@ -2,7 +2,10 @@
 
 import { useLiveQuery } from 'dexie-react-hooks'
 import Link from 'next/link'
-import { useSyncExternalStore } from 'react'
+import { useRouter } from 'next/navigation'
+import { useState, useSyncExternalStore } from 'react'
+
+import { markReservationFailed } from '@/lib/actions/reservations'
 
 import { reservationFeePaymentTimingLabel } from '@/lib/fee-payment'
 import { loadReservationSchedule, type ReservationRow } from '@/lib/queries/reservations'
@@ -51,10 +54,28 @@ export default function ReservationSchedulePage() {
 }
 
 function ReservationCard({ row, nowMs }: { row: ReservationRow; nowMs: number | null }) {
+  const router = useRouter()
+  const [deciding, setDeciding] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const opensMs = row.bookingOpensAt ? new Date(row.bookingOpensAt).getTime() : null
   // nowMs は初回レンダーでは null（サーバとクライアントで値がずれるのを避ける）
   const remainMs = opensMs !== null && nowMs !== null ? opensMs - nowMs : null
   const open = remainMs !== null && remainMs <= 0
+
+  const onSuccess = () =>
+    router.push(`/shoots/confirm?session=${encodeURIComponent(row.sessionId)}`)
+  const onFailure = async () => {
+    if (
+      !confirm(`「${row.title}」を予約失敗にします。予約スケジュールから外れます。よろしいですか？`)
+    ) {
+      return
+    }
+    try {
+      await markReservationFailed(row.sessionId)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    }
+  }
 
   return (
     <li
@@ -98,6 +119,7 @@ function ReservationCard({ row, nowMs }: { row: ReservationRow; nowMs: number | 
               <span className="text-foreground">{row.memo}</span>
             </p>
           )}
+          {error && <p className="mt-2 text-xs text-red-600 dark:text-red-400">{error}</p>}
           <BookingContact method={row.bookingMethod} contact={row.bookingContact} />
         </div>
 
@@ -109,6 +131,33 @@ function ReservationCard({ row, nowMs }: { row: ReservationRow; nowMs: number | 
           >
             編集
           </Link>
+          {open && !deciding && (
+            <button
+              type="button"
+              onClick={() => setDeciding(true)}
+              className="bg-navy-900 hover:bg-navy-800 tap-target rounded-md px-3 py-1 text-xs font-medium text-white"
+            >
+              予約可否入力
+            </button>
+          )}
+          {open && deciding && (
+            <span className="flex gap-2">
+              <button
+                type="button"
+                onClick={onSuccess}
+                className="tap-target rounded-md bg-emerald-600 px-3 py-1 text-xs font-medium text-white hover:bg-emerald-700"
+              >
+                予約成功
+              </button>
+              <button
+                type="button"
+                onClick={onFailure}
+                className="tap-target rounded-md bg-red-600 px-3 py-1 text-xs font-medium text-white hover:bg-red-700"
+              >
+                予約失敗
+              </button>
+            </span>
+          )}
         </div>
       </div>
     </li>

@@ -3,7 +3,12 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { db } from '@/lib/db'
 import { loadReservationInput, loadReservationSchedule } from '@/lib/queries/reservations'
 
-import { createReservation, updateReservation, type ReservationInput } from '../reservations'
+import {
+  createReservation,
+  markReservationFailed,
+  updateReservation,
+  type ReservationInput,
+} from '../reservations'
 import { updateRow } from '@/lib/sync/mutations'
 
 const USER = '11111111-1111-4111-8111-111111111111'
@@ -101,5 +106,26 @@ describe('予約の編集', () => {
     ).rejects.toThrow()
 
     expect((await db.models.toArray()).map((m) => m.name)).toEqual(['葵'])
+  })
+})
+
+describe('予約失敗', () => {
+  it('予約スケジュールから外れ、枠も中止にする。マスタと明細は残す', async () => {
+    const { sessionId } = await createReservation(USER, reservation())
+
+    await markReservationFailed(sessionId)
+
+    expect(await loadReservationSchedule()).toHaveLength(0)
+    expect((await db.sessions.get(sessionId))?.status).toBe('cancelled')
+    expect((await db.slots.toArray())[0].shoot_status).toBe('cancelled')
+    expect(await db.slot_models.count()).toBe(1)
+    expect(await db.models.count()).toBe(1)
+  })
+
+  it('可否が決まった予約はエラー', async () => {
+    const { sessionId } = await createReservation(USER, reservation())
+    await markReservationFailed(sessionId)
+
+    await expect(markReservationFailed(sessionId)).rejects.toThrow('予約が見つかりませんでした')
   })
 })

@@ -214,4 +214,20 @@ export async function updateReservation(
   return { sessionId, newModelId: model?.created ? model.id : null }
 }
 
+/**
+ * 予約が取れなかったことを記録する。
+ * 予約スケジュールから外れ、枠も中止扱いにする（撮影中止と同じ。マスタと slot_models は残す）。
+ */
+export async function markReservationFailed(sessionId: string): Promise<void> {
+  const session = await db.sessions.get(sessionId)
+  if (!session || session.deleted_at || session.status !== 'planned') {
+    throw new Error('予約が見つかりませんでした')
+  }
+  const slots = await db.slots.where('session_id').equals(sessionId).toArray()
+  for (const slot of slots.filter((s) => !s.deleted_at)) {
+    await updateRow('slots', slot.id, { shoot_status: 'cancelled' })
+  }
+  await updateRow('sessions', sessionId, { status: 'cancelled' })
+}
+
 export const reservationInternals = { placeholderStartAt, normalize }

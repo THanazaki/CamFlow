@@ -1,8 +1,8 @@
 'use client'
 
 import { useLiveQuery } from 'dexie-react-hooks'
-import { useRouter } from 'next/navigation'
-import { useId, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { Suspense, useId, useState } from 'react'
 
 import {
   EMPTY_SHOOT_DETAILS,
@@ -42,7 +42,18 @@ const EMPTY: ShootConfirmInput = {
 }
 
 export default function ShootConfirmPage() {
+  return (
+    <Suspense fallback={<p className="text-muted text-sm">読み込み中…</p>}>
+      <ShootConfirm />
+    </Suspense>
+  )
+}
+
+function ShootConfirm() {
   const router = useRouter()
+  // 予約スケジュールの「予約成功」から来たときは、その予約を選んだ状態で開く
+  const presetSessionId = useSearchParams().get('session') ?? ''
+  const [presetApplied, setPresetApplied] = useState(false)
   const reservations = useLiveQuery(() => loadConfirmableReservations(), [], [])
 
   const [form, setForm] = useState<ShootConfirmInput>(EMPTY)
@@ -87,6 +98,16 @@ export default function ShootConfirmPage() {
       paymentDate: r.paymentDate,
       memo: r.memo,
     }))
+  }
+
+  // 予約の読み込みが終わったら一度だけ選ぶ（描画中の state 更新は React が認める書き方）
+  if (
+    !presetApplied &&
+    presetSessionId &&
+    reservations.some((x) => x.sessionId === presetSessionId)
+  ) {
+    setPresetApplied(true)
+    pickReservation(presetSessionId)
   }
 
   const onSubmit = async (e: React.FormEvent) => {
