@@ -127,8 +127,8 @@ function ShootConfirm() {
         ? await findAffiliationConflict(form.modelName, form.eventName, form.fromSessionId)
         : null
       if (conflict) {
-        if (!confirm(affiliationConfirmMessage(conflict))) return
-        addAffiliation = true
+        // キャンセルなら登録は続け、同名の別モデルとして登録する
+        addAffiliation = confirm(affiliationConfirmMessage(conflict))
       }
       const { newModelId } = await confirmShoot(userId, { ...form, addAffiliation })
       setForm(EMPTY)

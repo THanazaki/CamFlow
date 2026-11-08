@@ -55,8 +55,8 @@ export default function ArchiveNewPage() {
         ? await findAffiliationConflict(details.modelName, details.eventName)
         : null
       if (conflict) {
-        if (!confirm(affiliationConfirmMessage(conflict))) return
-        addAffiliation = true
+        // キャンセルなら登録は続け、同名の別モデルとして登録する
+        addAffiliation = confirm(affiliationConfirmMessage(conflict))
       }
       const { newModelId } = await createShootHistory(userId, {
         ...details,

@@ -386,7 +386,7 @@ export async function findAffiliationConflict(
 }
 
 export function affiliationConfirmMessage(c: AffiliationConflict): string {
-  return `モデルマスタに「${c.name}」（所属: ${c.affiliations.join('、') || 'なし'}）がいますが、撮影会名「${c.eventName}」は所属にありません。\n\n同じモデルとして、所属に「${c.eventName}」を追加しますか？\n（キャンセルすると登録を中止します）`
+  return `モデルマスタに「${c.name}」（所属: ${c.affiliations.join('、') || 'なし'}）がいますが、撮影会名「${c.eventName}」は所属にありません。\n\n同じモデルとして、所属に「${c.eventName}」を追加しますか？\n（キャンセルすると、同名の別モデルとして登録します）`
 }
 
 /** 撮影の入力から見た撮影会。モデルの照合と撮影会マスタの紐づけに使う */
