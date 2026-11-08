@@ -129,10 +129,10 @@ function ShootCard({ shoot }: { shoot: ConfirmedShoot }) {
             <button
               type="button"
               onClick={() => setCancelOpen(true)}
-              aria-label={`${shoot.title} を取り消す`}
+              aria-label={`${shoot.title} を撮影中止にする`}
               className="tap-target rounded-md border border-red-300 px-3 py-1 text-xs whitespace-nowrap text-red-700 hover:bg-red-50 dark:border-red-500/40 dark:text-red-400 dark:hover:bg-red-500/10"
             >
-              取り消し
+              撮影中止
             </button>
           </div>
         </div>
@@ -286,7 +286,7 @@ function ShootOptionsEditor({ shoot }: { shoot: ConfirmedShoot }) {
 }
 
 /**
- * 撮影の取り消し確認。OK で撮影予定から外す。
+ * 撮影中止の確認。OK で確定撮影情報から削除する。
  * モデルや撮影会などの入力内容はマスタに残る。
  */
 function CancelShootDialog({ shoot, onClose }: { shoot: ConfirmedShoot; onClose: () => void }) {
@@ -327,7 +327,7 @@ function CancelShootDialog({ shoot, onClose }: { shoot: ConfirmedShoot; onClose:
         className="bg-surface border-border w-full max-w-sm rounded-lg border p-5 shadow-lg"
       >
         <h2 id={titleId} className="text-base font-semibold">
-          この撮影を取り消しますか？
+          この撮影を中止しますか？
         </h2>
         <p className="mt-2 text-sm">
           <span className="font-medium">{shoot.title}</span>
@@ -336,7 +336,7 @@ function CancelShootDialog({ shoot, onClose }: { shoot: ConfirmedShoot; onClose:
           </span>
         </p>
         <p className="text-muted mt-2 text-xs">
-          キャンセル・中止になった撮影を撮影予定から削除します。入力したモデルや撮影会の情報はマスタに残ります。
+          OK を押すと、この撮影を確定撮影情報から削除します。入力したモデルや撮影会の情報はマスタに残ります。
         </p>
 
         {error && <p className="mt-2 text-xs text-red-700 dark:text-red-400">{error}</p>}
@@ -357,7 +357,7 @@ function CancelShootDialog({ shoot, onClose }: { shoot: ConfirmedShoot; onClose:
             autoFocus
             className="rounded-md bg-red-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
           >
-            {busy ? '取り消し中…' : 'OK'}
+            {busy ? '削除中…' : 'OK'}
           </button>
         </div>
       </div>
