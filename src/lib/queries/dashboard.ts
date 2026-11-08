@@ -38,17 +38,15 @@ export interface ShootSummary {
  * リマインドが対象とする工程。
  *
  *   予約情報入力 ──[予約可否決定]── 撮影確定 ──[撮影]── 撮影データ登録 ── 完了
- *      └─ 予約リマインド ─┘        └──────── 撮影リマインド ────────┘
+ *      └─ 予約リマインド ─┘        └ 撮影リマインド ┘
  */
 export type ReminderStage =
   /** 予約を入れたが可否がまだ決まっていない */
   | 'awaiting_decision'
   /** 可否が決まらないまま予定日を過ぎた */
   | 'overdue_decision'
-  /** 確定済みでこれから撮る */
+  /** 確定済みでまだ撮影が終わっていない */
   | 'before_shoot'
-  /** 撮影日を過ぎたが保管先が未登録 */
-  | 'awaiting_data'
 
 export interface ReminderItem {
   slotId: string
@@ -216,17 +214,6 @@ export async function loadDashboard(now: Date = new Date()): Promise<DashboardDa
   )
 
   /**
-   * 期限超過を先頭に、超過が深いものから。残りは予定日の近い順。
-   * 「放置されているもの」から目に入るようにするため。
-   */
-  const sortByUrgency = (a: ReminderItem, b: ReminderItem) => {
-    const aOver = a.daysUntil < 0
-    const bOver = b.daysUntil < 0
-    if (aOver !== bOver) return aOver ? -1 : 1
-    return aOver ? a.startAt.localeCompare(b.startAt) : a.startAt.localeCompare(b.startAt)
-  }
-
-  /**
    * 予約日時（予約受付の開始日時）が近い順。これから始まるものを近い順に並べ、
    * 受付が始まっているものはその後ろに新しい順で並べる。予約日時が未設定のものは最後
    */
@@ -260,19 +247,17 @@ export async function loadDashboard(now: Date = new Date()): Promise<DashboardDa
     .filter((r): r is ReminderItem => r !== null)
     .sort(byBookingOpensAt(nowIso))
 
-  // 撮影リマインド: 撮影確定（予約成功を含む）〜 撮影データ登録。
-  // 確定済みで、まだ保管先が登録されていない枠。撮影前も撮影後も含み、
-  // データ登録が済んだ時点で消える
+  // 撮影リマインド: 撮影確定（予約成功を含む）で、まだ撮影が終わっていない枠（確定撮影情報の「撮影前」タブと同じ）。
+  // 撮影日時の近い順。撮影が終わったものは出さない（保存先の登録は確定撮影情報の「撮影後」タブで行う）
   const shoots = live
+    .filter((slot) => !isSlotFinished(slot, now))
     .map((slot) => {
       const session = sessionMap.get(slot.session_id)
       if (!session || session.status !== 'confirmed') return null
-      // 保管先パスでもストレージURLでも、入っていればデータ登録は済み
-      if (slot.storage_path || (slot.storage_urls?.length ?? 0) > 0) return null
-      return toReminder(slot, slot.start_at < nowIso ? 'awaiting_data' : 'before_shoot')
+      return toReminder(slot, 'before_shoot')
     })
     .filter((r): r is ReminderItem => r !== null)
-    .sort(sortByUrgency)
+    .sort((a, b) => a.startAt.localeCompare(b.startAt))
 
   // 料金リマインド: 確定した撮影の撮影料を、支払方法に応じた期日で出す。
   //   当日 … 撮影日の撮影開始時刻

@@ -39,7 +39,16 @@ export default function ShootInfoPage() {
 
   const shoots = useLiveQuery(() => loadConfirmedShoots(), [tick], null)
 
-  const pending = shoots?.filter((s) => s.finished && !s.registered).length ?? 0
+  const [tab, setTab] = useState<'before' | 'after'>('before')
+
+  // 撮影前: まだ終わっていない撮影（撮影中を含む）を撮影日が近い順に。
+  // 撮影後: 終わった撮影を新しい順に（読み込み時の並びのまま）
+  const before = (shoots ?? [])
+    .filter((s) => !s.finished)
+    .sort((a, b) => `${a.shootDate} ${a.startTime}`.localeCompare(`${b.shootDate} ${b.startTime}`))
+  const after = (shoots ?? []).filter((s) => s.finished)
+  const pending = after.filter((s) => !s.registered).length
+  const visible = tab === 'before' ? before : after
 
   return (
     <div className="space-y-6">
@@ -47,7 +56,7 @@ export default function ShootInfoPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">確定撮影情報</h1>
           <p className="text-muted mt-1 text-sm">
-            確定した撮影の内容です。「編集」で日時・場所・モデル・オプションなどを修正できます。撮影後はここから保存先ストレージURLを登録してください。
+            確定した撮影の内容です。「撮影前」「撮影後」のタブで切り替えます。「編集」で日時・場所・モデル・オプションなどを修正できます。撮影後は「撮影後」タブから保存先ストレージURLを登録してください。
           </p>
         </div>
         <Link
@@ -58,7 +67,7 @@ export default function ShootInfoPage() {
         </Link>
       </header>
 
-      {pending > 0 && (
+      {tab === 'after' && pending > 0 && (
         <p className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300">
           撮影済みで保存先が未登録のものが {pending} 件あります
         </p>
@@ -72,11 +81,44 @@ export default function ShootInfoPage() {
           <p className="mt-1">「撮影を確定する」から登録してください。</p>
         </div>
       ) : (
-        <ul className="space-y-4">
-          {shoots.map((shoot) => (
-            <ShootCard key={shoot.slotId} shoot={shoot} />
-          ))}
-        </ul>
+        <>
+          <div role="tablist" aria-label="撮影の時期" className="border-border flex gap-1 border-b">
+            {(
+              [
+                ['before', '撮影前', before.length],
+                ['after', '撮影後', after.length],
+              ] as const
+            ).map(([key, label, count]) => (
+              <button
+                key={key}
+                type="button"
+                role="tab"
+                aria-selected={tab === key}
+                onClick={() => setTab(key)}
+                className={`tap-target -mb-px border-b-2 px-4 py-2 text-sm font-medium whitespace-nowrap ${
+                  tab === key
+                    ? 'border-navy-700 text-foreground dark:border-navy-100'
+                    : 'text-muted hover:text-foreground border-transparent'
+                }`}
+              >
+                {label}
+                <span className="text-muted ml-1.5 text-xs tabular-nums">{count}</span>
+              </button>
+            ))}
+          </div>
+
+          {visible.length === 0 ? (
+            <div className="border-border text-muted rounded-lg border border-dashed p-8 text-center text-sm">
+              {tab === 'before' ? '撮影前の撮影はありません' : '撮影後の撮影はまだありません'}
+            </div>
+          ) : (
+            <ul className="space-y-4">
+              {visible.map((shoot) => (
+                <ShootCard key={shoot.slotId} shoot={shoot} />
+              ))}
+            </ul>
+          )}
+        </>
       )}
     </div>
   )
@@ -221,7 +263,7 @@ function ShootCard({ shoot }: { shoot: ConfirmedShoot }) {
           label="保存先ストレージURL"
           hint={
             shoot.finished
-              ? `最大${MAX_STORAGE_URLS}個。1つでも登録すると撮影リマインドから外れます`
+              ? `最大${MAX_STORAGE_URLS}個`
               : '撮影が終わると登録できます'
           }
           urls={urls}

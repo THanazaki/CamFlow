@@ -204,3 +204,15 @@ describe('予約リマインド', () => {
     expect(reservations.items[0].bookingOpensAt).toBe(new Date('2026-06-11T10:00').toISOString())
   })
 })
+
+describe('撮影リマインド', () => {
+  it('撮影前の撮影だけを、撮影日時が近い順に出す', async () => {
+    await confirmShoot(USER, input({ eventName: '遠い', shootDate: '2026-06-30', shootFee: '' }))
+    await confirmShoot(USER, input({ eventName: '近い', shootDate: '2026-06-12', shootFee: '' }))
+    await confirmShoot(USER, input({ eventName: '撮影後', shootDate: '2026-06-01', shootFee: '' }))
+
+    const { shoots } = await loadDashboard(NOW)
+    expect(shoots.items.map((s) => s.title)).toEqual(['近い', '遠い'])
+    expect(shoots.totalCount).toBe(2)
+  })
+})

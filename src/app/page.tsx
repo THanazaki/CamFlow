@@ -89,11 +89,7 @@ export default function DashboardPage() {
         <ReminderCard
           title="撮影リマインド"
           count={data.shoots.totalCount}
-          tone={data.shoots.overdueCount > 0 ? 'alert' : 'neutral'}
-          summary={
-            data.shoots.overdueCount > 0 ? `データ未登録 ${data.shoots.overdueCount}` : undefined
-          }
-          emptyText="対応中の撮影はありません"
+          emptyText="撮影前の撮影はありません"
         >
           {data.shoots.items.map((s) => (
             <ReminderRow
@@ -236,12 +232,11 @@ const STAGE_LABEL: Record<ReminderStage, string> = {
   awaiting_decision: '可否待ち',
   overdue_decision: '可否未決',
   before_shoot: '撮影前',
-  awaiting_data: 'データ未登録',
 }
 
 /** 工程が一目で分かるようタイトルの前にバッジを出す */
 function Primary({ item }: { item: ReminderItem }) {
-  const urgent = item.stage === 'overdue_decision' || item.stage === 'awaiting_data'
+  const urgent = item.stage === 'overdue_decision'
   return (
     <span className="flex items-center gap-1.5">
       <span
