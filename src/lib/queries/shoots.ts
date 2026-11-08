@@ -157,7 +157,11 @@ export async function loadConfirmedShoots(now: Date = new Date()): Promise<Confi
   const nowMs = now.getTime()
 
   return slots
-    .filter((slot) => !slot.deleted_at && sessionMap.has(slot.session_id))
+    // 取り消した枠（中止）は撮影予定から外す
+    .filter(
+      (slot) =>
+        !slot.deleted_at && slot.shoot_status !== 'cancelled' && sessionMap.has(slot.session_id),
+    )
     .map((slot) => {
       const session = sessionMap.get(slot.session_id)!
       const start = new Date(slot.start_at)

@@ -2,12 +2,17 @@
 
 import { useLiveQuery } from 'dexie-react-hooks'
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 
 import { ShootOptionsFields } from '@/components/forms/ShootOptionsFields'
 import { ModelAccounts } from '@/components/ModelAccount'
 import { StorageUrlsField } from '@/components/forms/StorageUrlsField'
-import { saveShootOptions, saveStorageUrls, type ShootOptionsInput } from '@/lib/actions/shoots'
+import {
+  cancelConfirmedShoot,
+  saveShootOptions,
+  saveStorageUrls,
+  type ShootOptionsInput,
+} from '@/lib/actions/shoots'
 import { feePaymentTimingLabel } from '@/lib/fee-payment'
 import { placeCategoryLabel } from '@/lib/place-category'
 import { shootRecordHref } from '@/lib/queries/archives'
@@ -81,6 +86,7 @@ function ShootCard({ shoot }: { shoot: ConfirmedShoot }) {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [cancelOpen, setCancelOpen] = useState(false)
 
   // 空欄を増やしただけでは保存するものが変わらない
   const dirty =
@@ -120,6 +126,14 @@ function ShootCard({ shoot }: { shoot: ConfirmedShoot }) {
             >
               編集
             </Link>
+            <button
+              type="button"
+              onClick={() => setCancelOpen(true)}
+              aria-label={`${shoot.title} を取り消す`}
+              className="tap-target rounded-md border border-red-300 px-3 py-1 text-xs whitespace-nowrap text-red-700 hover:bg-red-50 dark:border-red-500/40 dark:text-red-400 dark:hover:bg-red-500/10"
+            >
+              取り消し
+            </button>
           </div>
         </div>
 
@@ -171,6 +185,8 @@ function ShootCard({ shoot }: { shoot: ConfirmedShoot }) {
       </div>
 
       <ShootOptionsEditor shoot={shoot} />
+
+      {cancelOpen && <CancelShootDialog shoot={shoot} onClose={() => setCancelOpen(false)} />}
 
       <div className="px-5 py-4">
         <StorageUrlsField
@@ -266,6 +282,86 @@ function ShootOptionsEditor({ shoot }: { shoot: ConfirmedShoot }) {
         )}
       </div>
     </form>
+  )
+}
+
+/**
+ * 撮影の取り消し確認。OK で撮影予定から外す。
+ * モデルや撮影会などの入力内容はマスタに残る。
+ */
+function CancelShootDialog({ shoot, onClose }: { shoot: ConfirmedShoot; onClose: () => void }) {
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const titleId = useId()
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !busy) onClose()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [busy, onClose])
+
+  const onOk = async () => {
+    setBusy(true)
+    setError(null)
+    try {
+      // 成功するとカードごと一覧から消えるので、閉じる処理は要らない
+      await cancelConfirmedShoot(shoot.slotId)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
+      onClick={() => !busy && onClose()}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        onClick={(e) => e.stopPropagation()}
+        className="bg-surface border-border w-full max-w-sm rounded-lg border p-5 shadow-lg"
+      >
+        <h2 id={titleId} className="text-base font-semibold">
+          この撮影を取り消しますか？
+        </h2>
+        <p className="mt-2 text-sm">
+          <span className="font-medium">{shoot.title}</span>
+          <span className="text-muted ml-2 tabular-nums">
+            {shoot.shootDate} {shoot.startTime}〜{shoot.endTime}
+          </span>
+        </p>
+        <p className="text-muted mt-2 text-xs">
+          キャンセル・中止になった撮影を撮影予定から削除します。入力したモデルや撮影会の情報はマスタに残ります。
+        </p>
+
+        {error && <p className="mt-2 text-xs text-red-700 dark:text-red-400">{error}</p>}
+
+        <div className="mt-4 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={busy}
+            className="border-border hover:bg-navy-50 rounded-md border px-4 py-1.5 text-sm disabled:opacity-50 dark:hover:bg-white/5"
+          >
+            戻る
+          </button>
+          <button
+            type="button"
+            onClick={onOk}
+            disabled={busy}
+            autoFocus
+            className="rounded-md bg-red-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+          >
+            {busy ? '取り消し中…' : 'OK'}
+          </button>
+        </div>
+      </div>
+    </div>
   )
 }
 

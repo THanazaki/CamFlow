@@ -507,3 +507,27 @@ async function ensureSlotModel(userId: string, slotId: string, modelId: string):
   if (existing) return
   await createRow('slot_models', { user_id: userId, slot_id: slotId, model_id: modelId })
 }
+
+/**
+ * 確定した撮影の取り消し（キャンセル・中止）。確定撮影情報画面から呼ぶ。
+ *
+ * 行は消さず、枠を `shoot_status = 'cancelled'` にして撮影予定から外す。
+ * 同じ撮影イベントに残る枠が無くなったら、イベントも `status = 'cancelled'` にする。
+ * モデル・撮影会・ロケ地のマスタと slot_models は触らない（入力した情報は残す）。
+ */
+export async function cancelConfirmedShoot(slotId: string): Promise<void> {
+  const slot = await db.slots.get(slotId)
+  if (!slot || slot.deleted_at) {
+    throw new Error('撮影が見つかりませんでした')
+  }
+  await updateRow('slots', slotId, { shoot_status: 'cancelled' })
+
+  const remaining = await db.slots
+    .where('session_id')
+    .equals(slot.session_id)
+    .filter((s) => s.id !== slotId && !s.deleted_at && s.shoot_status !== 'cancelled')
+    .count()
+  if (remaining === 0) {
+    await updateRow('sessions', slot.session_id, { status: 'cancelled' })
+  }
+}
