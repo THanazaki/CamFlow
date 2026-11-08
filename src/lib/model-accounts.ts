@@ -2,7 +2,7 @@ import type { Json } from '@/types/database'
 
 /**
  * モデルアカウント（models.sns_accounts の1件）。
- * service は 'x' / 'instagram' / 'other'。移行前の sns_links にあった種類（tiktok など）もそのまま入りうる。
+ * service は 'x' / 'instagram' / 'threads' / 'tiktok' / 'other'。移行前の sns_links にあった種類もそのまま入りうる。
  */
 export interface ModelAccountEntry {
   service: string
@@ -14,12 +14,26 @@ export interface ModelAccountEntry {
 export const ACCOUNT_SERVICES = [
   { value: 'x', label: 'X' },
   { value: 'instagram', label: 'Instagram' },
+  { value: 'threads', label: 'Threads' },
+  { value: 'tiktok', label: 'TikTok' },
   { value: 'other', label: 'その他' },
 ] as const
 
-const LABELS: Record<string, string> = { x: 'X', instagram: 'Instagram', other: 'その他' }
+const LABELS: Record<string, string> = {
+  x: 'X',
+  instagram: 'Instagram',
+  threads: 'Threads',
+  tiktok: 'TikTok',
+  other: 'その他',
+}
 /** 一覧などの狭い場所で使う短い表記 */
-const SHORT_LABELS: Record<string, string> = { x: 'X', instagram: 'IG', other: 'SNS' }
+const SHORT_LABELS: Record<string, string> = {
+  x: 'X',
+  instagram: 'IG',
+  threads: 'Threads',
+  tiktok: 'TikTok',
+  other: 'SNS',
+}
 
 export function accountLabel(service: string, short = false): string {
   return (short ? SHORT_LABELS[service] : LABELS[service]) ?? service

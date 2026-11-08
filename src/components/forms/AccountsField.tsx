@@ -14,7 +14,7 @@ export const EMPTY_ACCOUNT: ModelAccountEntry = { service: 'x', value: '' }
 
 /**
  * アカウントの入力欄（モデルマスタ・撮影会マスタの編集で共通）。
- * 1行 = 種類（X / Instagram / その他）+ URL か @ハンドル。「アカウントを追加」で行を増やす。
+ * 1行 = 種類（X / Instagram / Threads / TikTok / その他）+ URL か @ハンドル。「アカウントを追加」で行を増やす。
  */
 export function AccountsField({
   label,
@@ -48,7 +48,7 @@ export function AccountsField({
                   {s.label}
                 </option>
               ))}
-              {/* 移行前のデータにある種類（tiktok など）も選んだままにできるように */}
+              {/* 移行前のデータにある種類（Threads・TikTok 以外など）も選んだままにできるように */}
               {!ACCOUNT_SERVICES.some((s) => s.value === account.service) && (
                 <option value={account.service}>{account.service}</option>
               )}
