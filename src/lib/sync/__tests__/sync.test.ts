@@ -349,12 +349,39 @@ describe('pull', () => {
     await db.models.put({ id: 'stale', user_id: USER, name: 'ゴミ', _dirty: 0 } as never)
     const old = new Date(Date.now() - pullInternals.TOMBSTONE_RETENTION_MS - 60_000).toISOString()
     await setMeta(metaKeys.lastPulledAt('models'), old)
+    await setMeta(metaKeys.lastPullRunAt('models'), old)
 
     const result = await pullAll(transport)
 
     expect(result.fullResynced).toContain('models')
     expect(await db.models.get('stale')).toBeUndefined()
     expect(await db.models.get('m1')).toBeDefined()
+  })
+})
+
+describe('サーバに行が無いテーブル', () => {
+  it('2回目以降の pull でもローカルの行を消さない', async () => {
+    await pullAll(transport)
+    // ウォーターマークは 1970 年のまま。ここで「保持期間切れ」と誤判定するとローカルが消える
+    expect(await getMeta<string>(metaKeys.lastPulledAt('models'))).toBe('1970-01-01T00:00:00.000Z')
+
+    await db.models.put({ id: 'local', user_id: USER, name: '手元だけ', _dirty: 0 } as never)
+    const result = await pullAll(transport)
+
+    expect(result.fullResynced).toEqual([])
+    expect(await db.models.get('local')).toBeDefined()
+  })
+
+  it('フル再同期でも未送信の行は消さない', async () => {
+    await pullAll(transport)
+    await db.models.put({ id: 'dirty', user_id: USER, name: '未送信', _dirty: 1 } as never)
+    const old = new Date(Date.now() - pullInternals.TOMBSTONE_RETENTION_MS - 60_000).toISOString()
+    await setMeta(metaKeys.lastPullRunAt('models'), old)
+
+    const result = await pullAll(transport)
+
+    expect(result.fullResynced).toContain('models')
+    expect(await db.models.get('dirty')).toBeDefined()
   })
 })
 

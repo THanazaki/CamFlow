@@ -47,6 +47,14 @@ export function findLocalAccount(
   return account ? { id: account.id, email: account.email, demo: account.demo } : null
 }
 
+/**
+ * 端末の中だけのアカウント（テスト / デモ）のユーザー ID か。
+ * Supabase のユーザーではないので、同期しない（サーバに送っても RLS で弾かれ、取り込むものも無い）
+ */
+export function isLocalAccountId(userId: string | null | undefined): boolean {
+  return LOCAL_ACCOUNTS.some((a) => a.id === userId)
+}
+
 /** テストアカウント（test / test）でのサインインか */
 export function isTestAccountLogin(
   email: string | undefined,

@@ -1,4 +1,5 @@
 import { getActiveUserId } from '@/lib/auth/session'
+import { isLocalAccountId } from '@/lib/auth/test-account'
 import { isSupabaseConfigured } from '@/lib/supabase/client'
 
 import { pullAll } from './pull'
@@ -109,6 +110,13 @@ export async function sync(): Promise<SyncState> {
     if (!userId) {
       // セッションが取れない = オフラインか未設定。ローカルだけで動かす
       emit({ phase: 'offline', error: null })
+      return state
+    }
+    if (isLocalAccountId(userId)) {
+      // テスト / デモアカウントは端末の中だけで動かす。同期すると、サーバに行が無いぶん
+      // ウォーターマークが進まず、ローカルの行を取りこぼし扱いにしかねない
+      emit({ phase: 'offline', error: null })
+      await refreshCounts()
       return state
     }
 

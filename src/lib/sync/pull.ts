@@ -56,16 +56,26 @@ async function pullTable(
   table: SyncTable,
 ): Promise<{ upserted: number; removed: number; skippedDirty: number; fullResynced: boolean }> {
   const lastPulledAt = await getMeta<string>(metaKeys.lastPulledAt(table))
+  const lastRunAt = await getMeta<string>(metaKeys.lastPullRunAt(table))
+  const runStartedAt = new Date().toISOString()
 
   // 最後の同期が tombstone の保持期間より古いと、その間の物理削除を知る手段が無い。
   // 差分では整合が取れないのでローカルを捨てて取り直す。
+  // 判定は「最後に pull した時刻」で行う。ウォーターマーク（最大 updated_at）で判定すると、
+  // サーバに行が無いテーブル（ウォーターマークが 1970 年のまま）や長く更新の無いテーブルで
+  // 毎回ローカルを消してしまう。実行時刻を記録していない古い端末は、判定できないので消さない
   const staleBeyondRetention =
     lastPulledAt !== undefined &&
-    Date.now() - new Date(lastPulledAt).getTime() > TOMBSTONE_RETENTION_MS
+    lastRunAt !== undefined &&
+    Date.now() - new Date(lastRunAt).getTime() > TOMBSTONE_RETENTION_MS
 
   const fullResync = lastPulledAt === undefined || staleBeyondRetention
   if (staleBeyondRetention) {
-    await db.syncTable(table).clear()
+    // 未送信の変更（_dirty = 1）は捨てない。送信できれば次の pull で正規版に置き換わる
+    await db
+      .syncTable(table)
+      .filter((row) => (row as { _dirty?: number })._dirty !== 1)
+      .delete()
   }
 
   const since = fullResync
@@ -95,6 +105,7 @@ async function pullTable(
   }
 
   await setMeta(metaKeys.lastPulledAt(table), newWatermark)
+  await setMeta(metaKeys.lastPullRunAt(table), runStartedAt)
   return { upserted, removed, skippedDirty, fullResynced: staleBeyondRetention }
 }
 

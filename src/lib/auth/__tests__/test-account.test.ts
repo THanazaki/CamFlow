@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   DEMO_ACCOUNT_USER_ID,
   findLocalAccount,
+  isLocalAccountId,
   isTestAccountLogin,
   TEST_ACCOUNT_ENABLED,
   TEST_ACCOUNT_USER_ID,
@@ -36,5 +37,14 @@ describe('テストアカウント', () => {
 
   it('無効にしたら show / show も通さない', () => {
     expect(findLocalAccount('show', 'show', false)).toBeNull()
+  })
+})
+
+describe('isLocalAccountId', () => {
+  it('テスト / デモアカウントの ID だけを端末の中だけのアカウントとみなす', () => {
+    expect(isLocalAccountId(TEST_ACCOUNT_USER_ID)).toBe(true)
+    expect(isLocalAccountId(DEMO_ACCOUNT_USER_ID)).toBe(true)
+    expect(isLocalAccountId('11111111-1111-4111-8111-111111111111')).toBe(false)
+    expect(isLocalAccountId(null)).toBe(false)
   })
 })

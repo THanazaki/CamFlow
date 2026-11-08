@@ -79,8 +79,17 @@ export interface MetaRow {
 
 /** `_meta` のキー */
 export const metaKeys = {
-  /** そのテーブルを最後に pull した時刻（ISO文字列） */
+  /**
+   * そのテーブルで取り込んだ行の最大 updated_at（ISO文字列）。差分取得のウォーターマーク。
+   * サーバに行が無いあいだは 1970-01-01 のまま
+   */
   lastPulledAt: (table: SyncTable) => `pull:${table}` as const,
+  /**
+   * そのテーブルの pull を最後に実行した端末の時刻（ISO文字列）。
+   * tombstone の保持期間を過ぎたかはこちらで判定する。ウォーターマークで判定すると、
+   * 行が無い・長く更新されていないテーブルが毎回「古すぎる」扱いになりローカルを消してしまう
+   */
+  lastPullRunAt: (table: SyncTable) => `pullRun:${table}` as const,
   /** 最後に取り込んだ sync_tombstones.id */
   lastTombstoneId: 'tombstone:lastId',
 } as const
