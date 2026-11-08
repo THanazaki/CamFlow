@@ -185,14 +185,17 @@ function ShootCard({ shoot }: { shoot: ConfirmedShoot }) {
             >
               編集
             </Link>
-            <button
-              type="button"
-              onClick={() => setCancelOpen(true)}
-              aria-label={`${shoot.title} を撮影中止にする`}
-              className="tap-target rounded-md border border-red-300 px-3 py-1 text-xs whitespace-nowrap text-red-700 hover:bg-red-50 dark:border-red-500/40 dark:text-red-400 dark:hover:bg-red-500/10"
-            >
-              撮影中止
-            </button>
+            {/* 撮影が終わった撮影は中止にできない */}
+            {!shoot.finished && (
+              <button
+                type="button"
+                onClick={() => setCancelOpen(true)}
+                aria-label={`${shoot.title} を撮影中止にする`}
+                className="tap-target rounded-md border border-red-300 px-3 py-1 text-xs whitespace-nowrap text-red-700 hover:bg-red-50 dark:border-red-500/40 dark:text-red-400 dark:hover:bg-red-500/10"
+              >
+                撮影中止
+              </button>
+            )}
           </div>
         </div>
 
@@ -256,7 +259,7 @@ function ShootCard({ shoot }: { shoot: ConfirmedShoot }) {
 
       <ShootOptionsEditor shoot={shoot} />
 
-      {cancelOpen && <CancelShootDialog shoot={shoot} onClose={() => setCancelOpen(false)} />}
+      {cancelOpen && !shoot.finished && <CancelShootDialog shoot={shoot} onClose={() => setCancelOpen(false)} />}
 
       <div className="px-5 py-4">
         <StorageUrlsField
