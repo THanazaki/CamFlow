@@ -1,7 +1,4 @@
-import { db } from '@/lib/db'
-import { cleanAccounts, readModelAccounts } from '@/lib/model-accounts'
-import { createRow, updateRow } from '@/lib/sync/mutations'
-import type { Json } from '@/types/database'
+import { createRow } from '@/lib/sync/mutations'
 
 import { resolveModel, resolveOrganizer, type ShootOptionsInput } from './shoots'
 
@@ -10,9 +7,6 @@ export interface WishlistInput
   extends Pick<ShootOptionsInput, 'costumeOptions' | 'shootingMethodOptions'> {
   modelName: string
   eventName: string
-  /** モデルのアカウント。入力があればモデルマスタに保存する */
-  modelX: string
-  modelInstagram: string
 }
 
 /**
@@ -28,7 +22,6 @@ export async function createWishlistModel(userId: string, input: WishlistInput):
   // 撮影希望は名前だけで照合する（撮影会名との組み合わせで見分けるのは予約・確定・過去撮影の入力）。
   // 新しく作るときの所属は「フリー」
   const { id: modelId } = await resolveModel(userId, modelName, '', { anyAffiliation: true })
-  await saveModelAccounts(modelId, input)
   // 撮影希望には日付も枠も無いので撮影会への紐づけは持たず、マスタへの登録だけ行う
   await resolveOrganizer(userId, input.eventName)
 
@@ -39,26 +32,4 @@ export async function createWishlistModel(userId: string, input: WishlistInput):
     costume_options: input.costumeOptions.trim() || null,
     shooting_method_options: input.shootingMethodOptions.trim() || null,
   })
-}
-
-/**
- * 入力されたアカウントをモデルに足す。既に同じものがあれば何もしない。
- * アカウントは複数持てるので、空欄でも違う値でも既存のアカウントは消さない
- */
-async function saveModelAccounts(
-  modelId: string,
-  input: Pick<WishlistInput, 'modelX' | 'modelInstagram'>,
-): Promise<void> {
-  const model = await db.models.get(modelId)
-  if (!model) return
-  const current = readModelAccounts(model)
-  const next = cleanAccounts([
-    ...current,
-    { service: 'x', value: input.modelX },
-    { service: 'instagram', value: input.modelInstagram },
-  ])
-
-  if (next.length !== current.length) {
-    await updateRow('models', modelId, { sns_accounts: next as unknown as Json })
-  }
 }

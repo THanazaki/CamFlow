@@ -116,8 +116,6 @@ describe('撮影会名の自動登録', () => {
     await createWishlistModel(USER, {
       modelName: '葵',
       eventName: '秋の撮影会',
-      modelX: '',
-      modelInstagram: '',
       costumeOptions: '',
       shootingMethodOptions: '',
     })

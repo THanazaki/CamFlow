@@ -278,8 +278,6 @@ export async function seedDemoData(userId: string, now: Date = new Date()): Prom
     await createWishlistModel(userId, {
       modelName,
       eventName,
-      modelX: '',
-      modelInstagram: '',
       costumeOptions: costume,
       shootingMethodOptions: method,
     })

@@ -5,7 +5,6 @@ import { useId, useState } from 'react'
 
 import { Field, inputClass } from '@/components/forms/ShootDetailsFields'
 import { ShootOptionTextFields } from '@/components/forms/ShootOptionsFields'
-import { ModelAccounts } from '@/components/ModelAccount'
 import { createWishlistModel, type WishlistInput } from '@/lib/actions/wishlist'
 import { getActiveUserId } from '@/lib/auth/session'
 import { loadSuggestions } from '@/lib/queries/reservations'
@@ -14,8 +13,6 @@ import { loadWishlist, type WishlistRow } from '@/lib/queries/wishlist'
 const EMPTY: WishlistInput = {
   modelName: '',
   eventName: '',
-  modelX: '',
-  modelInstagram: '',
   costumeOptions: '',
   shootingMethodOptions: '',
 }
@@ -124,33 +121,6 @@ export default function WishlistPage() {
           )}
         </Field>
 
-        <Field
-          label="モデルアカウント"
-          hint="入力するとモデルマスタに保存します。空欄なら既存のアカウントはそのまま残ります"
-        >
-          {(p) => (
-            <div className="grid gap-2 sm:grid-cols-2">
-              <input
-                {...p}
-                type="text"
-                value={form.modelX}
-                onChange={(e) => set('modelX', e.target.value)}
-                placeholder="X: @example"
-                aria-label="X アカウント"
-                className={inputClass}
-              />
-              <input
-                type="text"
-                value={form.modelInstagram}
-                onChange={(e) => set('modelInstagram', e.target.value)}
-                placeholder="Instagram: @example"
-                aria-label="Instagram アカウント"
-                className={inputClass}
-              />
-            </div>
-          )}
-        </Field>
-
         <ShootOptionTextFields values={form} onChange={set} />
 
         <div className="border-border flex flex-wrap items-center gap-3 border-t pt-4">
@@ -200,7 +170,6 @@ function WishlistCard({ row }: { row: WishlistRow }) {
     <li className="bg-surface border-border rounded-lg border p-4">
       <h3 className="flex flex-wrap items-center gap-x-2 gap-y-1 text-base font-medium">
         <span className="min-w-0 break-words">{row.modelName}</span>
-        <ModelAccounts accounts={row.accounts} />
       </h3>
       {(row.eventName || row.costumeOptions || row.shootingMethodOptions) && (
         <dl className="text-muted mt-2 space-y-1 text-sm">

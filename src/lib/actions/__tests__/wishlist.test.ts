@@ -13,8 +13,6 @@ function input(overrides: Partial<WishlistInput> = {}): WishlistInput {
   return {
     modelName: '栞奈',
     eventName: '',
-    modelX: '',
-    modelInstagram: '',
     costumeOptions: '',
     shootingMethodOptions: '',
     ...overrides,
@@ -37,28 +35,16 @@ describe('撮影希望モデル登録', () => {
       input({
         modelName: ' 栞奈 ',
         eventName: ' 秋の撮影会 ',
-        modelX: ' @kanna ',
-        modelInstagram: ' @kanna_ig ',
         costumeOptions: ' 浴衣 ',
         shootingMethodOptions: ' 動画撮影 ',
       }),
     )
 
     const [model] = await db.models.toArray()
-    expect(model).toMatchObject({
-      name: '栞奈',
-      sns_accounts: [
-        { service: 'x', value: '@kanna' },
-        { service: 'instagram', value: '@kanna_ig' },
-      ],
-    })
+    expect(model.name).toBe('栞奈')
     expect(await loadWishlist()).toMatchObject([
       {
         modelName: '栞奈',
-        accounts: [
-          { service: 'x', value: '@kanna' },
-          { service: 'instagram', value: '@kanna_ig' },
-        ],
         eventName: '秋の撮影会',
         costumeOptions: '浴衣',
         shootingMethodOptions: '動画撮影',
@@ -96,34 +82,6 @@ describe('撮影希望モデル登録', () => {
     expect((await loadWishlist())[0].modelName).toBe('Kanna')
   })
 
-  it('入力したアカウントを既存のアカウントに足す。既存のものは消さない', async () => {
-    await createRow('models', {
-      user_id: USER,
-      name: '栞奈',
-      sns_links: { x: '@old', instagram: '@old_ig', tiktok: '@tt' },
-    })
-
-    await createWishlistModel(USER, input({ modelX: '@new' }))
-
-    const [model] = await db.models.toArray()
-    expect(model.sns_accounts).toEqual([
-      { service: 'x', value: '@old' },
-      { service: 'instagram', value: '@old_ig' },
-      { service: 'tiktok', value: '@tt' },
-      { service: 'x', value: '@new' },
-    ])
-  })
-
-  it('アカウントに変更が無ければモデルを更新しない', async () => {
-    await createRow('models', { user_id: USER, name: '栞奈', sns_links: { x: '@same' } })
-    const outboxBefore = await db._outbox.count()
-
-    await createWishlistModel(USER, input({ modelX: '@same' }))
-
-    // 増えるのは撮影希望の insert の1件だけ
-    expect(await db._outbox.count()).toBe(outboxBefore + 1)
-  })
-
   it('同じモデルを複数登録でき、新しい順に並ぶ', async () => {
     const first = await createWishlistModel(USER, input({ eventName: '春' }))
     const second = await createWishlistModel(USER, input({ eventName: '秋' }))
@@ -147,14 +105,5 @@ describe('撮影希望モデル登録', () => {
 
     const entries = await db._outbox.toArray()
     expect(entries.some((e) => e.table === 'wishlist_models' && e.row_id === id)).toBe(true)
-  })
-
-  it('撮影希望で入れたアカウントが保存先のモデルに残り、続けて登録しても消えない', async () => {
-    await createWishlistModel(USER, input({ modelX: '@kanna' }))
-    await createWishlistModel(USER, input({ eventName: '二回目' }))
-
-    const rows = await loadWishlist()
-    expect(rows).toHaveLength(2)
-    expect(rows.every((r) => r.accounts.some((a) => a.service === 'x' && a.value === '@kanna'))).toBe(true)
   })
 })

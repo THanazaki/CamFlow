@@ -1,12 +1,9 @@
 import { db } from '@/lib/db'
-import { readModelAccounts, type ModelAccountEntry } from '@/lib/model-accounts'
 
 /** 撮影希望モデル登録の一覧の1行 */
 export interface WishlistRow {
   id: string
   modelName: string
-  /** モデルアカウント。登録した順 */
-  accounts: ModelAccountEntry[]
   eventName: string | null
   costumeOptions: string | null
   shootingMethodOptions: string | null
@@ -26,7 +23,6 @@ export async function loadWishlist(): Promise<WishlistRow[]> {
         {
           id: wish.id,
           modelName: model.name,
-          accounts: readModelAccounts(model),
           eventName: wish.event_name,
           costumeOptions: wish.costume_options,
           shootingMethodOptions: wish.shooting_method_options,
