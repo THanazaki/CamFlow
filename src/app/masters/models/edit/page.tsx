@@ -126,9 +126,14 @@ function ModelEditForm({ model }: { model: ModelDetail }) {
         if (await askMerge(candidate)) merging.push(candidate)
       }
 
-      const { createdOrganizers } = await updateModel(model.id, form)
+      const { createdOrganizers, mergedCount } = await updateModel(model.id, form)
       for (const candidate of merging) {
         await mergeModelInto(model.id, candidate.id)
+      }
+      if (mergedCount > 0) {
+        alert(
+          `同じ名前・同じ所属のモデルが${mergedCount}件あったため、このモデルに統合して削除しました`,
+        )
       }
       if (createdOrganizers.length > 0) {
         alert(

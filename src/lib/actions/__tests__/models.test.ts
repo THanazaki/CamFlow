@@ -184,17 +184,20 @@ describe('モデルの編集', () => {
     expect((await db.models.get(id))?.affiliation).toBeUndefined()
   })
 
-  it('同じ名前で所属が重なるモデルがあればエラー。メイン以外の所属どうしも見る', async () => {
+  it('同じ名前で所属が重なるモデルは統合して削除する。メイン以外の所属どうしも見る', async () => {
     await addModel('葵', { affiliation: 'フリー', sub_affiliations: ['秋の撮影会'] })
     const id = await addModel('別のモデル')
 
     await expect(
       updateModel(id, input({ name: 'aoi', affiliations: ['フリー'] })),
     ).resolves.toBeDefined()
-    await expect(
-      updateModel(id, input({ name: '葵', affiliations: ['春', '秋の撮影会'] })),
-    ).rejects.toThrow('「葵」（所属：秋の撮影会）は既に登録されています')
-    await expect(updateModel(id, input({ name: '葵', affiliations: ['春'] }))).resolves.toBeDefined()
+    const result = await updateModel(id, input({ name: '葵', affiliations: ['春', '秋の撮影会'] }))
+    expect(result.mergedCount).toBe(1)
+    const merged = await db.models.get(id)
+    expect(merged?.affiliation).toBe('春')
+    expect(merged?.sub_affiliations).toEqual(['秋の撮影会', 'フリー'])
+    const others = (await db.models.toArray()).filter((m) => m.id !== id && !m.deleted_at)
+    expect(others.map((m) => m.name)).not.toContain('葵')
   })
 
   it('所属なしどうしの同名はエラー', async () => {

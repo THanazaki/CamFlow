@@ -34,6 +34,8 @@ export interface AliasInput {
 export interface UpdateModelResult {
   /** 所属から撮影会マスタに新しく登録した撮影会名 */
   createdOrganizers: string[]
+  /** 同名・同所属だったため統合して削除した別レコードの数 */
+  mergedCount: number
 }
 
 function normalize(name: string): string {
@@ -95,23 +97,19 @@ export async function updateModel(modelId: string, input: ModelInput): Promise<U
   const { main, subs } = splitAffiliations(input.affiliations, input.mainAffiliation)
 
   // 同じ名前で所属が重なるモデルがあれば、予約などの入力でどちらか決められない。
-  // メインの所属どうしの重複はサーバの一意制約でも止まるが、同期で初めて失敗しないようここで止める
+  // 所属ありで重なる別レコードは、この保存の後で編集中のモデルに統合する（別レコードは削除）。
+  // 所属なしどうしの重複は統合の根拠が無いのでエラーにする（サーバの一意制約でも止まる）
   const ownKeys = affiliationKeys(main, subs)
   const models = await db.models.toArray()
-  const conflict = models.find(
+  const duplicates = models.filter(
     (m) =>
       m.id !== modelId &&
       !m.deleted_at &&
       normalize(m.name) === normalize(name) &&
       affiliationKeys(m.affiliation, m.sub_affiliations).some((k) => ownKeys.includes(k)),
   )
-  if (conflict) {
-    const shared = affiliationKeys(conflict.affiliation, conflict.sub_affiliations).find((k) =>
-      ownKeys.includes(k),
-    )
-    const label =
-      [main, ...subs].find((a) => a && normalize(a) === shared) ?? (shared || 'なし')
-    throw new Error(`「${name}」（所属：${label}）は既に登録されています`)
+  if (duplicates.some((m) => affiliationKeys(m.affiliation, m.sub_affiliations).includes('') && ownKeys.includes(''))) {
+    throw new Error(`「${name}」（所属：なし）は既に登録されています`)
   }
 
   // sns_links は互換用（sns_accounts を持たない古い行の読み取り用）なので書き換えない
@@ -129,8 +127,16 @@ export async function updateModel(modelId: string, input: ModelInput): Promise<U
   })
 
   await saveAliases(model.user_id, modelId, cleanAliases(input.aliases))
-  const createdOrganizers = await registerOrganizers(model.user_id, [main, ...subs])
-  return { createdOrganizers }
+  // 統合は編集内容の保存後に行う（統合先の所属は保存した内容に足される）
+  for (const duplicate of duplicates) {
+    await mergeModelInto(modelId, duplicate.id)
+  }
+  const saved = await db.models.get(modelId)
+  const createdOrganizers = await registerOrganizers(model.user_id, [
+    saved?.affiliation ?? main,
+    ...(saved?.sub_affiliations ?? subs),
+  ])
+  return { createdOrganizers, mergedCount: duplicates.length }
 }
 
 /** 所属のうち撮影会マスタに無いものを登録し、登録した名前を返す */
