@@ -55,21 +55,18 @@ export default function ReservationSchedulePage() {
 
 function ReservationCard({ row, nowMs }: { row: ReservationRow; nowMs: number | null }) {
   const router = useRouter()
-  const [deciding, setDeciding] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const opensMs = row.bookingOpensAt ? new Date(row.bookingOpensAt).getTime() : null
   // nowMs は初回レンダーでは null（サーバとクライアントで値がずれるのを避ける）
   const remainMs = opensMs !== null && nowMs !== null ? opensMs - nowMs : null
   const open = remainMs !== null && remainMs <= 0
 
-  const onSuccess = () =>
+  const onSuccess = () => {
+    if (!confirm('予約成功として登録します。よろしいですか？')) return
     router.push(`/shoots/confirm?session=${encodeURIComponent(row.sessionId)}`)
+  }
   const onFailure = async () => {
-    if (
-      !confirm(`「${row.title}」を予約失敗にします。予約スケジュールから外れます。よろしいですか？`)
-    ) {
-      return
-    }
+    if (!confirm('予約失敗として登録します。よろしいですか？')) return
     try {
       await markReservationFailed(row.sessionId)
     } catch (err) {
@@ -131,16 +128,7 @@ function ReservationCard({ row, nowMs }: { row: ReservationRow; nowMs: number | 
           >
             編集
           </Link>
-          {open && !deciding && (
-            <button
-              type="button"
-              onClick={() => setDeciding(true)}
-              className="bg-navy-900 hover:bg-navy-800 tap-target rounded-md px-3 py-1 text-xs font-medium text-white"
-            >
-              予約可否入力
-            </button>
-          )}
-          {open && deciding && (
+          {open && (
             <span className="flex gap-2">
               <button
                 type="button"
