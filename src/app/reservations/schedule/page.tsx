@@ -88,7 +88,9 @@ function ReservationCard({ row, nowMs }: { row: ReservationRow; nowMs: number | 
               />
             )}
             {row.costumeOptions && <Row label="衣装系" value={row.costumeOptions} />}
-            {row.shootingMethodOptions && <Row label="撮影方法" value={row.shootingMethodOptions} />}
+            {row.shootingMethodOptions && (
+              <Row label="撮影方法" value={row.shootingMethodOptions} />
+            )}
           </dl>
           {row.memo && (
             <p className="text-muted mt-2 text-xs whitespace-pre-wrap">
@@ -99,8 +101,14 @@ function ReservationCard({ row, nowMs }: { row: ReservationRow; nowMs: number | 
           <BookingContact method={row.bookingMethod} contact={row.bookingContact} />
         </div>
 
-        <div className="shrink-0 text-right">
+        <div className="flex shrink-0 flex-col items-end gap-2 text-right">
           <Countdown remainMs={remainMs} hasSchedule={opensMs !== null} />
+          <Link
+            href={`/reservations/edit?id=${encodeURIComponent(row.sessionId)}`}
+            className="border-border hover:bg-navy-50 tap-target rounded-md border px-3 py-1 text-xs dark:hover:bg-white/5"
+          >
+            編集
+          </Link>
         </div>
       </div>
     </li>

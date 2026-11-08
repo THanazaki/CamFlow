@@ -1,6 +1,6 @@
 import { db } from '@/lib/db'
 import { categoryHasModel, fallbackShootTitle, type ShootCategory } from '@/lib/shoot-category'
-import { createRow } from '@/lib/sync/mutations'
+import { createRow, deleteRow, updateRow } from '@/lib/sync/mutations'
 
 import {
   resolveModel,
@@ -81,7 +81,8 @@ export async function createReservation(
   // モデルはマスタに実体が要る（slot_models.model_id は NOT NULL で
   // テキストのフォールバックが無い）。モデル名と撮影会名の組み合わせが無ければ作る
   const eventName = input.eventName.trim()
-  const model = hasModel ? await resolveModel(userId, modelName, eventName, {
+  const model = hasModel
+    ? await resolveModel(userId, modelName, eventName, {
         addAffiliation: input.addAffiliation,
       })
     : null
@@ -90,9 +91,7 @@ export async function createReservation(
   // 場所は venue_name のフォールバックがあるので、マスタに無ければ作らない。
   // 予約段階で場所マスタが増え続けるのを避ける
   const venues = await db.venues.toArray()
-  const venue = venues.find(
-    (v) => !v.deleted_at && normalize(v.name) === normalize(venueName),
-  )
+  const venue = venues.find((v) => !v.deleted_at && normalize(v.name) === normalize(venueName))
 
   // 撮影会名があればそれがタイトル。無ければコンセプト、どちらも無ければモデル名か区分名から組む
   const title = eventName || concept || fallbackShootTitle(input.shootCategory, modelName)
@@ -132,6 +131,84 @@ export async function createReservation(
       slot_id: slotId,
       model_id: modelId,
     })
+  }
+
+  return { sessionId, newModelId: model?.created ? model.id : null }
+}
+
+/**
+ * 予約の編集。入力は予約情報入力と同じ。
+ * 可否が決まった（確定・不成立になった）予約は編集できない。
+ * モデルを変えたら slot_models の行を付け替え、モデルを指定しない区分にしたら行を消す。
+ */
+export async function updateReservation(
+  sessionId: string,
+  input: ReservationInput,
+): Promise<ReservationResult> {
+  const session = await db.sessions.get(sessionId)
+  if (!session || session.deleted_at || session.status !== 'planned') {
+    throw new Error('編集できる予約が見つかりませんでした')
+  }
+  const slot = (await db.slots.where('session_id').equals(sessionId).toArray())
+    .filter((s) => !s.deleted_at)
+    .sort((a, b) => a.slot_no - b.slot_no)[0]
+  if (!slot) throw new Error('予約の枠が見つかりませんでした')
+
+  const userId = session.user_id
+  const hasModel = categoryHasModel(input.shootCategory)
+  const modelName = hasModel ? input.modelName.trim() : ''
+  const venueName = input.venueName.trim()
+  const concept = input.concept.trim()
+  if (hasModel && !modelName) throw new Error('モデル名を入力してください')
+
+  // 書き込む前に検証する
+  const options = toShootOptionColumns(input)
+  const eventName = input.eventName.trim()
+  const model = hasModel
+    ? await resolveModel(userId, modelName, eventName, {
+        addAffiliation: input.addAffiliation,
+      })
+    : null
+
+  const venue = (await db.venues.toArray()).find(
+    (v) => !v.deleted_at && normalize(v.name) === normalize(venueName),
+  )
+  const organizerId = await resolveOrganizer(userId, eventName)
+
+  await updateRow('sessions', sessionId, {
+    title: eventName || concept || fallbackShootTitle(input.shootCategory, modelName),
+    organizer_id: organizerId,
+    session_date: input.shootDate,
+    shoot_category: input.shootCategory,
+    booking_opens_at: new Date(input.bookingOpensAt).toISOString(),
+    booking_method: input.bookingMethod,
+    booking_contact: input.bookingContact.trim() || null,
+    concept: concept || null,
+    venue_id: venue?.id ?? null,
+    venue_name: venueName || null,
+    memo: input.memo?.trim() || null,
+  })
+
+  await updateRow('slots', slot.id, {
+    start_at: placeholderStartAt(input.shootDate),
+    ...options,
+    ...toFeePaymentColumns(input),
+  })
+
+  const links = await db.slot_models.where('slot_id').equals(slot.id).toArray()
+  if (!model) {
+    for (const link of links) await deleteRow('slot_models', link.id)
+  } else if (links.length === 0) {
+    await createRow('slot_models', {
+      user_id: userId,
+      slot_id: slot.id,
+      model_id: model.id,
+    })
+  } else {
+    const [first, ...rest] = links
+    if (first.model_id !== model.id)
+      await updateRow('slot_models', first.id, { model_id: model.id })
+    for (const link of rest) await deleteRow('slot_models', link.id)
   }
 
   return { sessionId, newModelId: model?.created ? model.id : null }
