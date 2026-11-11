@@ -164,17 +164,17 @@ export function LoginScreen() {
             <div className="border-border mt-5 rounded-md border border-dashed p-3">
               <p className="text-muted text-xs">
                 テストアカウントで入れます（<code className="font-mono">test</code> /{' '}
-                <code className="font-mono">test</code>）。
+                <code className="font-mono">test2026</code>）。
                 Supabase を通さないため<strong>同期はされず</strong>、データはこの端末にのみ残ります。
                 サンプルデータ入りのデモアカウント（<code className="font-mono">show</code> /{' '}
-                <code className="font-mono">show</code>）もあります。
+                <code className="font-mono">show2026</code>）もあります。
               </p>
               <button
                 type="button"
                 disabled={busy}
                 onClick={() => {
                   setEmail('test')
-                  setPassword('test')
+                  setPassword('test2026')
                 }}
                 className="border-border hover:bg-navy-50 mt-2 w-full rounded-md border px-3 py-1.5 text-xs disabled:opacity-50 dark:hover:bg-white/5"
               >

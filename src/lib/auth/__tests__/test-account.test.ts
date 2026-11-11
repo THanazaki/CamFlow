@@ -14,29 +14,29 @@ describe('テストアカウント', () => {
     expect(TEST_ACCOUNT_ENABLED).toBe(true)
   })
 
-  it('test / test だけを通す。アカウント名の大文字小文字と前後の空白は無視する', () => {
-    expect(isTestAccountLogin('test', 'test')).toBe(true)
-    expect(isTestAccountLogin(' TEST ', 'test')).toBe(true)
-    expect(isTestAccountLogin('test', 'TEST')).toBe(false)
+  it('test / test2026 だけを通す。アカウント名の大文字小文字と前後の空白は無視する', () => {
+    expect(isTestAccountLogin('test', 'test2026')).toBe(true)
+    expect(isTestAccountLogin(' TEST ', 'test2026')).toBe(true)
+    expect(isTestAccountLogin('test', 'TEST2026')).toBe(false)
     expect(isTestAccountLogin('test', 'wrong')).toBe(false)
-    expect(isTestAccountLogin('test@example.com', 'test')).toBe(false)
+    expect(isTestAccountLogin('test@example.com', 'test2026')).toBe(false)
     expect(isTestAccountLogin(undefined, undefined)).toBe(false)
   })
 
-  it('無効にしたら test / test も通さない', () => {
-    expect(isTestAccountLogin('test', 'test', false)).toBe(false)
+  it('無効にしたら test / test2026 も通さない', () => {
+    expect(isTestAccountLogin('test', 'test2026', false)).toBe(false)
   })
 
-  it('show / show はデモアカウント。test / test とは別のユーザー', () => {
-    expect(findLocalAccount(' Show ', 'show')).toEqual({ id: DEMO_ACCOUNT_USER_ID, email: 'show', demo: true })
-    expect(findLocalAccount('test', 'test')).toEqual({ id: TEST_ACCOUNT_USER_ID, email: 'test', demo: false })
+  it('show / show2026 はデモアカウント。test / test2026 とは別のユーザー', () => {
+    expect(findLocalAccount(' Show ', 'show2026')).toEqual({ id: DEMO_ACCOUNT_USER_ID, email: 'show', demo: true })
+    expect(findLocalAccount('test', 'test2026')).toEqual({ id: TEST_ACCOUNT_USER_ID, email: 'test', demo: false })
     expect(DEMO_ACCOUNT_USER_ID).not.toBe(TEST_ACCOUNT_USER_ID)
-    expect(findLocalAccount('show', 'test')).toBeNull()
-    expect(isTestAccountLogin('show', 'show')).toBe(false)
+    expect(findLocalAccount('show', 'test2026')).toBeNull()
+    expect(isTestAccountLogin('show', 'show2026')).toBe(false)
   })
 
-  it('無効にしたら show / show も通さない', () => {
-    expect(findLocalAccount('show', 'show', false)).toBeNull()
+  it('無効にしたら show / show2026 も通さない', () => {
+    expect(findLocalAccount('show', 'show2026', false)).toBeNull()
   })
 })
 

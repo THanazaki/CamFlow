@@ -28,8 +28,8 @@ export interface LocalAccount {
 }
 
 const LOCAL_ACCOUNTS: (LocalAccount & { password: string })[] = [
-  { id: TEST_ACCOUNT_USER_ID, email: 'test', password: 'test', demo: false },
-  { id: DEMO_ACCOUNT_USER_ID, email: 'show', password: 'show', demo: true },
+  { id: TEST_ACCOUNT_USER_ID, email: 'test', password: 'test2026', demo: false },
+  { id: DEMO_ACCOUNT_USER_ID, email: 'show', password: 'show2026', demo: true },
 ]
 
 /**
