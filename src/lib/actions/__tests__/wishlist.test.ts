@@ -5,7 +5,7 @@ import { SYNC_TABLES } from '@/lib/db/types'
 import { loadWishlist } from '@/lib/queries/wishlist'
 import { createRow, softDeleteRow } from '@/lib/sync/mutations'
 
-import { createWishlistModel, type WishlistInput } from '../wishlist'
+import { createWishlistModel, deleteWishlistModel, type WishlistInput } from '../wishlist'
 
 const USER = '11111111-1111-4111-8111-111111111111'
 
@@ -105,5 +105,26 @@ describe('撮影希望モデル登録', () => {
 
     const entries = await db._outbox.toArray()
     expect(entries.some((e) => e.table === 'wishlist_models' && e.row_id === id)).toBe(true)
+  })
+})
+
+describe('撮影希望モデルの削除', () => {
+  it('その1件だけを消し、モデルマスタと同じモデルの別の撮影希望は残す', async () => {
+    const first = await createWishlistModel(USER, input({ eventName: 'A会' }))
+    await createWishlistModel(USER, input({ eventName: 'B会' }))
+
+    await deleteWishlistModel(first)
+
+    const rows = await loadWishlist()
+    expect(rows.map((r) => r.eventName)).toEqual(['B会'])
+    expect(await db.models.count()).toBe(1)
+    // 同期は削除ログ（outbox）で送る
+    expect(await db.wishlist_models.get(first)).toBeUndefined()
+    await expect(deleteWishlistModel(first)).rejects.toThrow()
+  })
+
+  it('一覧にモデルの所属を持たせる（予約入力で撮影会名の初期値に使う）', async () => {
+    await createWishlistModel(USER, input())
+    expect((await loadWishlist())[0].modelAffiliation).toBe('フリー')
   })
 })

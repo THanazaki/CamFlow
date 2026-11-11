@@ -4,6 +4,8 @@ import { db } from '@/lib/db'
 export interface WishlistRow {
   id: string
   modelName: string
+  /** モデルマスタの所属（メイン）。未設定は null */
+  modelAffiliation: string | null
   eventName: string | null
   costumeOptions: string | null
   shootingMethodOptions: string | null
@@ -23,6 +25,7 @@ export async function loadWishlist(): Promise<WishlistRow[]> {
         {
           id: wish.id,
           modelName: model.name,
+          modelAffiliation: model.affiliation ?? null,
           eventName: wish.event_name,
           costumeOptions: wish.costume_options,
           shootingMethodOptions: wish.shooting_method_options,

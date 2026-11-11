@@ -18,6 +18,7 @@ export default function ReservationNewPage() {
       initial={EMPTY_RESERVATION}
       submitLabel="予約を登録"
       secondary="clear"
+      wishlistPicker
       header={
         <header>
           <h1 className="text-2xl font-semibold tracking-tight">予約情報入力</h1>

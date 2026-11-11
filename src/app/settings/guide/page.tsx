@@ -126,7 +126,7 @@ export default function GuidePage() {
       <Section id="wishlist">
         <p>
           <ScreenLink href="/reservations/wishlist">撮影希望モデル登録</ScreenLink>
-          で、撮影してみたいモデルを控えておけます。登録したものはフォームの下に新しい順で並びます。予約とはまだ連動しません。
+          で、撮影してみたいモデルを控えておけます。登録したものはフォームの下に新しい順で並びます。
         </p>
         <Definitions
           items={[
@@ -136,6 +136,8 @@ export default function GuidePage() {
         />
         <ul className="list-disc space-y-1 pl-5">
           <li>同じモデルを、撮影会やオプションを変えて複数登録できます。</li>
+          <li>各撮影希望の「削除」を押し、確認メッセージで「OK」を押すと、その撮影希望を削除します。モデルマスタのモデルは残ります。</li>
+          <li>予約情報入力の「撮影希望モデルから選ぶ」でここの撮影希望を選ぶと、モデル名・撮影会名・衣装系と撮影方法のオプションが入力されます（撮影会名が未入力の撮影希望は、モデルの所属が「フリー」以外ならその所属を入れます）。入力後に自由に変更できます。</li>
         </ul>
       </Section>
 
@@ -372,7 +374,7 @@ export default function GuidePage() {
         <ul className="list-disc space-y-1 pl-5">
           <li>落選やキャンセルの記録</li>
           <li>モデル料の入力と支払いの記録</li>
-          <li>撮影希望モデルの編集・削除</li>
+          <li>撮影希望モデルの編集</li>
           <li>モデルマスタからのモデルの新規登録と削除</li>
           <li>撮影会マスタからの撮影会の新規登録と削除</li>
           <li>

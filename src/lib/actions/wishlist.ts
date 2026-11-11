@@ -1,4 +1,5 @@
-import { createRow } from '@/lib/sync/mutations'
+import { db } from '@/lib/db'
+import { createRow, deleteRow } from '@/lib/sync/mutations'
 
 import { resolveModel, resolveOrganizer, type ShootOptionsInput } from './shoots'
 
@@ -32,4 +33,15 @@ export async function createWishlistModel(userId: string, input: WishlistInput):
     costume_options: input.costumeOptions.trim() || null,
     shooting_method_options: input.shootingMethodOptions.trim() || null,
   })
+}
+
+/**
+ * 撮影希望モデルの削除。控えの1件だけを消す（物理削除。同期は tombstone で行う）。
+ * モデルマスタのモデルは消さない。同じモデルの別の撮影希望も残る。
+ */
+export async function deleteWishlistModel(id: string): Promise<void> {
+  if (!(await db.wishlist_models.get(id))) {
+    throw new Error('撮影希望が見つかりませんでした')
+  }
+  await deleteRow('wishlist_models', id)
 }

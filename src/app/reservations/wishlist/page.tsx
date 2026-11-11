@@ -5,7 +5,7 @@ import { useId, useState } from 'react'
 
 import { Field, inputClass } from '@/components/forms/ShootDetailsFields'
 import { ShootOptionTextFields } from '@/components/forms/ShootOptionsFields'
-import { createWishlistModel, type WishlistInput } from '@/lib/actions/wishlist'
+import { createWishlistModel, deleteWishlistModel, type WishlistInput } from '@/lib/actions/wishlist'
 import { getActiveUserId } from '@/lib/auth/session'
 import { loadSuggestions } from '@/lib/queries/reservations'
 import { loadWishlist, type WishlistRow } from '@/lib/queries/wishlist'
@@ -19,7 +19,7 @@ const EMPTY: WishlistInput = {
 
 /**
  * 撮影希望モデル登録。
- * いつか撮りたいモデルを控えておく画面。予約とはまだ連動しない。
+ * いつか撮りたいモデルを控えておく画面。予約情報入力で、ここの控えから選んで入力できる。
  */
 export default function WishlistPage() {
   const rows = useLiveQuery(() => loadWishlist(), [], null)
@@ -166,11 +166,30 @@ export default function WishlistPage() {
 }
 
 function WishlistCard({ row }: { row: WishlistRow }) {
+  const [error, setError] = useState<string | null>(null)
+  const onDelete = async () => {
+    if (!confirm(`撮影希望「${row.modelName}」を削除します。よろしいですか？\nモデルマスタのモデルは残ります。`)) return
+    try {
+      await deleteWishlistModel(row.id)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    }
+  }
   return (
     <li className="bg-surface border-border rounded-lg border p-4">
-      <h3 className="flex flex-wrap items-center gap-x-2 gap-y-1 text-base font-medium">
-        <span className="min-w-0 break-words">{row.modelName}</span>
-      </h3>
+      <div className="flex items-start justify-between gap-3">
+        <h3 className="flex flex-wrap items-center gap-x-2 gap-y-1 text-base font-medium">
+          <span className="min-w-0 break-words">{row.modelName}</span>
+        </h3>
+        <button
+          type="button"
+          onClick={onDelete}
+          className="tap-target shrink-0 rounded-md border border-red-300 px-3 py-1 text-xs text-red-700 hover:bg-red-50 dark:border-red-500/40 dark:text-red-300 dark:hover:bg-red-500/10"
+        >
+          削除
+        </button>
+      </div>
+      {error && <p className="mt-2 text-xs text-red-600 dark:text-red-400">{error}</p>}
       {(row.eventName || row.costumeOptions || row.shootingMethodOptions) && (
         <dl className="text-muted mt-2 space-y-1 text-sm">
           {row.eventName && <Row label="撮影会名">{row.eventName}</Row>}

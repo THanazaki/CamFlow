@@ -15,7 +15,9 @@ import {
 import type { BookingMethod, ReservationInput } from '@/lib/actions/reservations'
 import type { ShootOptionsInput, ShootPaymentInput } from '@/lib/actions/shoots'
 import { RESERVATION_FEE_PAYMENT_TIMINGS } from '@/lib/fee-payment'
+import { FREE_AFFILIATION } from '@/lib/actions/shoots'
 import { loadSuggestions } from '@/lib/queries/reservations'
+import { loadWishlist, type WishlistRow } from '@/lib/queries/wishlist'
 import { categoryHasModel, DEFAULT_SHOOT_CATEGORY } from '@/lib/shoot-category'
 
 export const EMPTY_RESERVATION: ReservationInput = {
@@ -73,6 +75,7 @@ export function ReservationForm({
   submitLabel,
   secondary,
   header,
+  wishlistPicker = false,
   onSubmit,
 }: {
   initial: ReservationInput
@@ -80,6 +83,8 @@ export function ReservationForm({
   /** 'clear' は入力を初期値に戻す。リンクを渡すとそこへ戻る */
   secondary: 'clear' | { label: string; href: string }
   header: React.ReactNode
+  /** 撮影希望モデルから選んで入力できるようにする（予約情報入力のみ） */
+  wishlistPicker?: boolean
   onSubmit: (form: ReservationInput) => Promise<void>
 }) {
   const suggestions = useLiveQuery(() => loadSuggestions(), [], {
@@ -87,6 +92,7 @@ export function ReservationForm({
     venues: [],
     events: [],
   })
+  const wishlist = useLiveQuery(() => (wishlistPicker ? loadWishlist() : []), [wishlistPicker], [])
   const [form, setForm] = useState<ReservationInput>(initial)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -104,6 +110,19 @@ export function ReservationForm({
     setForm((f) => ({ ...f, [key]: value }))
   const setPayment = <K extends keyof ShootPaymentInput>(key: K, value: ShootPaymentInput[K]) =>
     setForm((f) => ({ ...f, [key]: value }))
+
+  /** 撮影希望モデルを選ぶと、モデル名・撮影会名・オプションを入力する。撮影区分は変えない（モデルの要る区分に切り替える） */
+  const applyWish = (wish: WishlistRow) =>
+    setForm((f) => ({
+      ...f,
+      shootCategory: categoryHasModel(f.shootCategory) ? f.shootCategory : DEFAULT_SHOOT_CATEGORY,
+      modelName: wish.modelName,
+      eventName:
+        wish.eventName ??
+        (wish.modelAffiliation && wish.modelAffiliation !== FREE_AFFILIATION ? wish.modelAffiliation : ''),
+      costumeOptions: wish.costumeOptions ?? f.costumeOptions,
+      shootingMethodOptions: wish.shootingMethodOptions ?? f.shootingMethodOptions,
+    }))
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -132,6 +151,36 @@ export function ReservationForm({
         onSubmit={handleSubmit}
         className="bg-surface border-border space-y-5 rounded-lg border p-5"
       >
+        {wishlistPicker && (
+          <Field
+            label="撮影希望モデルから選ぶ"
+            hint="選ぶと、モデル名・撮影会名・オプションが入力されます。入力後に変更もできます"
+          >
+            {(p) => (
+              <select
+                {...p}
+                value=""
+                onChange={(e) => {
+                  const wish = wishlist.find((w) => w.id === e.target.value)
+                  if (wish) applyWish(wish)
+                }}
+                disabled={wishlist.length === 0}
+                className={inputClass}
+              >
+                <option value="">
+                  {wishlist.length === 0 ? '撮影希望モデルは登録されていません' : '選択してください'}
+                </option>
+                {wishlist.map((w) => (
+                  <option key={w.id} value={w.id}>
+                    {w.modelName}
+                    {w.eventName ? `（${w.eventName}）` : ''}
+                  </option>
+                ))}
+              </select>
+            )}
+          </Field>
+        )}
+
         <Field
           label="撮影会名"
           hint={`未入力の場合はコンセプトか${hasModel ? 'モデル名' : '撮影区分'}から表示名を作ります`}
