@@ -9,6 +9,7 @@ export interface NavItem {
 
 export const NAV_ITEMS: NavItem[] = [
   { href: '/', label: 'ダッシュボード', ready: true },
+  { href: '/calendar', label: 'カレンダー', ready: true },
   {
     href: '/reservations',
     label: '予約管理',

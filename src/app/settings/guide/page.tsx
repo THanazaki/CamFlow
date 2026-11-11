@@ -9,6 +9,7 @@ const SECTIONS = [
   { id: 'flow', title: '全体の流れ' },
   { id: 'account', title: 'サインイン' },
   { id: 'dashboard', title: 'ダッシュボード' },
+  { id: 'calendar', title: 'カレンダーで予定を見る' },
   { id: 'wishlist', title: '撮影したいモデルを控える' },
   { id: 'reservation', title: '予約を管理する' },
   { id: 'shoot', title: '撮影を確定する' },
@@ -108,6 +109,18 @@ export default function GuidePage() {
             ['直近の撮影済みデータ', '過去撮影登録で登録した撮影など。最大10件です。'],
           ]}
         />
+      </Section>
+
+      <Section id="calendar">
+        <p>
+          <ScreenLink href="/calendar">カレンダー</ScreenLink>
+          では、予約・確定した撮影・過去の撮影を、撮影日の欄に月ごとに並べて確認できます。
+        </p>
+        <ul className="list-disc space-y-1 pl-5">
+          <li>「‹」「›」で月を移動し、「今日」で今月に戻ります。</li>
+          <li>色で種類を見分けます。「予約」は可否がまだ決まっていない予約（予約失敗は薄く表示）、「確定」は撮影前の確定した撮影、「撮影済」は過去の撮影です。</li>
+          <li>日付を押すと、その日の予定が下に一覧で出ます。予定を押すと、予約は編集画面、撮影は詳細画面が開きます。</li>
+        </ul>
       </Section>
 
       <Section id="wishlist">
