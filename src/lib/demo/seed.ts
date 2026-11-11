@@ -104,10 +104,26 @@ function dayOffset(now: Date, days: number): string {
 
 /** デモアカウントのデータがまだ入っていなければ入れる。入れたら true */
 export async function seedDemoDataIfNeeded(userId: string, now: Date = new Date()): Promise<boolean> {
-  if (await getMeta<string>(SEEDED_KEY)) return false
+  if (await getMeta<string>(SEEDED_KEY)) {
+    await replaceRetiredMethodOption()
+    return false
+  }
   await seedDemoData(userId, now)
   await setMeta(SEEDED_KEY, now.toISOString())
   return true
+}
+
+/** 以前のサンプルに入っていた撮影方法「ローアングル可」を、入れ済みの端末でも「スマホ」に直す */
+async function replaceRetiredMethodOption(): Promise<void> {
+  for (const table of ['slots', 'shoot_history', 'wishlist_models'] as const) {
+    const rows = await db.syncTable(table).toArray()
+    for (const row of rows as { id: string; shooting_method_options?: string | null }[]) {
+      const value = row.shooting_method_options
+      if (value && value.includes('ローアングル可')) {
+        await updateRow(table, row.id, { shooting_method_options: value.replaceAll('ローアングル可', 'スマホ') })
+      }
+    }
+  }
 }
 
 export async function seedDemoData(userId: string, now: Date = new Date()): Promise<void> {
