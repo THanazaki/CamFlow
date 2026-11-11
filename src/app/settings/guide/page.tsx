@@ -114,7 +114,7 @@ export default function GuidePage() {
       <Section id="calendar">
         <p>
           <ScreenLink href="/calendar">カレンダー</ScreenLink>
-          では、予約・確定した撮影・過去の撮影を、撮影日の欄に月ごとに並べて確認できます。
+          では、予約は受付開始日の欄に、確定した撮影・過去の撮影は撮影日の欄に、月ごとに並べて確認できます。
         </p>
         <ul className="list-disc space-y-1 pl-5">
           <li>「‹」「›」で月を移動し、「今日」で今月に戻ります。</li>

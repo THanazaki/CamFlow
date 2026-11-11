@@ -29,7 +29,7 @@ const KIND_STYLE: Record<CalendarEvent['kind'], string> = {
 }
 
 /**
- * カレンダー。予約・確定した撮影・過去の撮影を、撮影日の欄に月表示で並べる。
+ * カレンダー。予約は受付開始日の欄に、確定した撮影・過去の撮影は撮影日の欄に、月表示で並べる。
  * 日付をタップするとその日の予定が下に出て、そこから各画面を開ける。
  */
 export default function CalendarPage() {
