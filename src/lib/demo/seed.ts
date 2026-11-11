@@ -85,7 +85,7 @@ const VENUES: [string, PlaceCategory, string, string, number | null][] = [
 
 const CONCEPTS = ['', '', '', '浴衣', '制服', 'カフェ風', '白ワンピース', '夜景', 'ドレス', '桜']
 const COSTUMES = ['', '', '浴衣', '水着', 'ドレス', '私服', '制服']
-const METHODS = ['', '', '動画撮影', 'ストロボ使用', 'ローアングル可']
+const METHODS = ['', '', '動画撮影', 'ストロボ使用', 'スマホ']
 const START_TIMES = ['10:00', '11:00', '13:00', '14:00', '15:30', '17:00']
 
 /** 時刻に分を足した HH:mm */
@@ -272,7 +272,7 @@ export async function seedDemoData(userId: string, now: Date = new Date()): Prom
     ['真白', 'ポートレート・ノア', '制服', ''],
     ['七海', 'みなと撮影会', '水着', ''],
     ['杏', 'ステラ撮影会', '', ''],
-    ['新人モデル 茜', 'ルミナス撮影会', '白ワンピース', 'ローアングル可'],
+    ['新人モデル 茜', 'ルミナス撮影会', '白ワンピース', 'スマホ'],
   ]
   for (const [modelName, eventName, costume, method] of wishes) {
     await createWishlistModel(userId, {
