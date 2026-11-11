@@ -263,7 +263,7 @@ export async function loadDashboard(now: Date = new Date()): Promise<DashboardDa
   //   当日 … 撮影日の撮影開始時刻
   //   事前 … 指定した支払日
   // 支払済み・未選択は出さない。支払いを記録する操作がまだ無いので、撮影が終わったら出さない
-  // （残すと消す手段が無い）。事前の支払日を過ぎても撮影前なら、超過として出し続ける
+  // （残すと消す手段が無い）。期日の日付を過ぎたものも出さない（支払日が未入力のものは出す）
   const todayKey = toDateKey(nowIso)
   const feeItems: FeeReminderItem[] = live.flatMap((slot) => {
     const session = sessionMap.get(slot.session_id)
@@ -273,6 +273,9 @@ export async function loadDashboard(now: Date = new Date()): Promise<DashboardDa
     if (isSlotFinished(slot, now)) return []
 
     const dueDate = timing === 'on_the_day' ? session.session_date : (slot.fee_payment_date ?? null)
+    const daysUntil = dueDate === null ? null : daysBetween(todayKey, dueDate)
+    // 期日（支払日）を過ぎたものは出さない。支払日が未入力のものは期日が無いので出す
+    if (daysUntil !== null && daysUntil < 0) return []
     return [
       {
         slotId: slot.id,
@@ -282,7 +285,7 @@ export async function loadDashboard(now: Date = new Date()): Promise<DashboardDa
         dueDate,
         dueAt: timing === 'on_the_day' ? slot.start_at : null,
         amount: Number(slot.booking_fee ?? 0),
-        daysUntil: dueDate === null ? null : daysBetween(todayKey, dueDate),
+        daysUntil,
       },
     ]
   })

@@ -115,12 +115,15 @@ describe('料金リマインド', () => {
     expect((await fees(new Date('2026-06-20T15:00:00'))).totalCount).toBe(0)
   })
 
-  it('事前払いの支払日を過ぎても撮影前なら、超過として出す', async () => {
-    await confirmShoot(USER, input({ paymentTiming: 'in_advance', paymentDate: '2026-06-08' }))
+  it('事前払いの支払日を過ぎたものは、撮影前でも出さない。支払日が今日なら出す', async () => {
+    await confirmShoot(USER, input({ eventName: '過ぎた', paymentTiming: 'in_advance', paymentDate: '2026-06-08' }))
+    await confirmShoot(USER, input({ eventName: '今日', paymentTiming: 'in_advance', paymentDate: '2026-06-10' }))
 
     const result = await fees()
-    expect(result.items[0].daysUntil).toBe(-2)
-    expect(result.overdueCount).toBe(1)
+    expect(result.items.map((f) => f.title)).toEqual(['今日'])
+    expect(result.items[0].daysUntil).toBe(0)
+    expect(result.totalCount).toBe(1)
+    expect(result.overdueCount).toBe(0)
   })
 
   it('事前払いで支払日が未入力なら、期日なしの超過として先頭に出す', async () => {
