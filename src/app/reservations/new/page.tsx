@@ -6,6 +6,7 @@ import { EMPTY_RESERVATION, ReservationForm } from '@/components/forms/Reservati
 import { createReservation } from '@/lib/actions/reservations'
 import { affiliationConfirmMessage, findAffiliationConflict } from '@/lib/actions/shoots'
 import { getActiveUserId } from '@/lib/auth/session'
+import { chooseFreeModel } from '@/lib/free-model-choice'
 import { nextPathAfterSave } from '@/lib/new-model-prompt'
 import { categoryHasModel } from '@/lib/shoot-category'
 
@@ -42,9 +43,13 @@ export default function ReservationNewPage() {
           // キャンセルなら登録は続け、同名の別モデルとして登録する
           addAffiliation = confirm(affiliationConfirmMessage(conflict))
         }
+        const freeModel = categoryHasModel(form.shootCategory)
+          ? await chooseFreeModel(form.modelName, form.eventName)
+          : undefined
         const { newModelId } = await createReservation(userId, {
           ...form,
           addAffiliation,
+          freeModel,
         })
         router.push(nextPathAfterSave(newModelId, '/reservations/schedule'))
       }}

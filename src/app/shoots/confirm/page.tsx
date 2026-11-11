@@ -27,6 +27,7 @@ import {
   type ShootPaymentInput,
 } from '@/lib/actions/shoots'
 import { getActiveUserId } from '@/lib/auth/session'
+import { chooseFreeModel } from '@/lib/free-model-choice'
 import { nextPathAfterSave } from '@/lib/new-model-prompt'
 import { categoryHasModel } from '@/lib/shoot-category'
 import { loadConfirmableReservations } from '@/lib/queries/shoots'
@@ -130,7 +131,10 @@ function ShootConfirm() {
         // キャンセルなら登録は続け、同名の別モデルとして登録する
         addAffiliation = confirm(affiliationConfirmMessage(conflict))
       }
-      const { newModelId } = await confirmShoot(userId, { ...form, addAffiliation })
+      const freeModel = categoryHasModel(form.shootCategory)
+        ? await chooseFreeModel(form.modelName, form.eventName, form.fromSessionId)
+        : undefined
+      const { newModelId } = await confirmShoot(userId, { ...form, addAffiliation, freeModel })
       setForm(EMPTY)
       router.push(nextPathAfterSave(newModelId, '/'))
     } catch (err) {

@@ -7,7 +7,13 @@ import { createRow } from '@/lib/sync/mutations'
 import { createShootHistory, updateShootHistory, type ShootHistoryInput } from '../archives'
 import { updateModel } from '../models'
 import { createReservation, type ReservationInput } from '../reservations'
-import { confirmShoot, updateConfirmedShoot, type ShootConfirmInput } from '../shoots'
+import {
+  confirmShoot,
+  findFreeModelCandidates,
+  resolveModel,
+  updateConfirmedShoot,
+  type ShootConfirmInput,
+} from '../shoots'
 import { createWishlistModel } from '../wishlist'
 
 const USER = '11111111-1111-4111-8111-111111111111'
@@ -287,5 +293,34 @@ describe('登録後の確認', () => {
 
     expect(nextPathAfterSave(null, '/', confirm)).toBe('/')
     expect(confirm).not.toHaveBeenCalled()
+  })
+})
+
+describe('撮影会名が空（フリー）のモデルの確認', () => {
+  it('同名のフリーのモデルを候補に出す。撮影会名があるときと、同名がいないときは出さない', async () => {
+    const { id } = await resolveModel(USER, '葵', '')
+    const found = await findFreeModelCandidates('葵', '')
+    expect(found.map((m) => m.id)).toEqual([id])
+    expect(await findFreeModelCandidates('葵', 'ABC撮影会')).toEqual([])
+    expect(await findFreeModelCandidates('茜', '')).toEqual([])
+  })
+
+  it("freeModel に id を渡すとそのモデル、'new' なら同名の別モデルを作る", async () => {
+    const first = await resolveModel(USER, '葵', '')
+    const same = await resolveModel(USER, '葵', '', { freeModel: first.id })
+    expect(same).toEqual({ id: first.id, created: false })
+
+    const other = await resolveModel(USER, '葵', '', { freeModel: 'new' })
+    expect(other.created).toBe(true)
+    expect(other.id).not.toBe(first.id)
+    expect((await findFreeModelCandidates('葵', '')).length).toBe(2)
+  })
+
+  it('今の撮影が紐づくモデルを優先する', async () => {
+    const first = await resolveModel(USER, '葵', '')
+    const second = await resolveModel(USER, '葵', '', { freeModel: 'new' })
+    const kept = await resolveModel(USER, '葵', '', { preferIds: [second.id] })
+    expect(kept.id).toBe(second.id)
+    expect(first.id).not.toBe(second.id)
   })
 })

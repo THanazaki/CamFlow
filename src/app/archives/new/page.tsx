@@ -16,6 +16,7 @@ import {
   type ShootDetailsInput,
 } from '@/lib/actions/shoots'
 import { getActiveUserId } from '@/lib/auth/session'
+import { chooseFreeModel } from '@/lib/free-model-choice'
 import { nextPathAfterSave } from '@/lib/new-model-prompt'
 import { categoryHasModel } from '@/lib/shoot-category'
 import { MAX_STORAGE_URLS } from '@/lib/storage-urls'
@@ -58,10 +59,14 @@ export default function ArchiveNewPage() {
         // キャンセルなら登録は続け、同名の別モデルとして登録する
         addAffiliation = confirm(affiliationConfirmMessage(conflict))
       }
+      const freeModel = categoryHasModel(details.shootCategory)
+        ? await chooseFreeModel(details.modelName, details.eventName)
+        : undefined
       const { newModelId } = await createShootHistory(userId, {
         ...details,
         storageUrls,
         addAffiliation,
+        freeModel,
       })
       clear()
       router.push(nextPathAfterSave(newModelId, '/'))

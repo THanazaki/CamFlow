@@ -8,6 +8,7 @@ import { Suspense } from 'react'
 import { ReservationForm } from '@/components/forms/ReservationForm'
 import { updateReservation } from '@/lib/actions/reservations'
 import { affiliationConfirmMessage, findAffiliationConflict } from '@/lib/actions/shoots'
+import { chooseFreeModel } from '@/lib/free-model-choice'
 import { nextPathAfterSave } from '@/lib/new-model-prompt'
 import { loadReservationInput } from '@/lib/queries/reservations'
 import { categoryHasModel } from '@/lib/shoot-category'
@@ -68,9 +69,13 @@ function ReservationEdit() {
           // キャンセルなら登録は続け、同名の別モデルとして登録する
           addAffiliation = confirm(affiliationConfirmMessage(conflict))
         }
+        const freeModel = categoryHasModel(form.shootCategory)
+          ? await chooseFreeModel(form.modelName, form.eventName, id)
+          : undefined
         const { newModelId } = await updateReservation(id, {
           ...form,
           addAffiliation,
+          freeModel,
         })
         // 「戻る」で編集画面に戻らないよう、履歴を置き換える
         router.replace(nextPathAfterSave(newModelId, SCHEDULE))

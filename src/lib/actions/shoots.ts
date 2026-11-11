@@ -32,6 +32,12 @@ export interface ShootDetailsInput {
   memo?: string
   /** 同名で所属が違うモデルがいるとき、新規作成せず撮影会名をそのモデルの所属に加える */
   addAffiliation?: boolean
+  /**
+   * 撮影会名が空（フリー）で、同名のフリーのモデルがマスタにいるときの選択。
+   * そのモデルの id を入れると同じモデルとして使い、'new' なら同名の別モデルとして新規登録する。
+   * 省略時は従来どおり、最初に見つかった同名のフリーのモデルを使う
+   */
+  freeModel?: string
 }
 
 /** 撮影料とオプション。確定撮影情報入力と確定撮影情報で共通 */
@@ -153,13 +159,10 @@ async function prepareShoot(
   // ── モデル・撮影会 ───────────────────────────────────────
   const event = await resolveShootEvent(userId, eventName, current)
   const model = hasModel
-    ? await resolveShootModel(
-      userId,
-      modelName,
-      event,
-      currentModelIds,
-      input.addAffiliation,
-    )
+    ? await resolveShootModel(userId, modelName, event, currentModelIds, {
+      addAffiliation: input.addAffiliation,
+      freeModel: input.freeModel,
+    })
     : null
 
   // ── 場所 ─────────────────────────────────────────────────
@@ -311,7 +314,16 @@ export async function resolveModel(
   {
     anyAffiliation = false,
     addAffiliation = false,
-  }: { anyAffiliation?: boolean; addAffiliation?: boolean } = {},
+    freeModel,
+    preferIds = [],
+  }: {
+    anyAffiliation?: boolean
+    addAffiliation?: boolean
+    /** 撮影会名が空のとき、同名のフリーのモデルの id か 'new'（別モデルとして登録）。`FreeModelInput.freeModel` と同じ */
+    freeModel?: string
+    /** 今の撮影が紐づいているモデル。撮影会名が空のとき、同名なら最初に探すモデルより優先する */
+    preferIds?: string[]
+  } = {},
 ): Promise<{ id: string; created: boolean }> {
   const models = (await db.models.toArray()).filter(
     (m) => !m.deleted_at && normalize(m.name) === normalize(modelName),
@@ -326,6 +338,15 @@ export async function resolveModel(
     ),
   )
   const unset = models.find((m) => !m.affiliation)
+
+  if (isFree && !anyAffiliation && freeModel) {
+    const chosen = freeModel === 'new' ? undefined : freeCandidates(models).find((m) => m.id === freeModel)
+    if (chosen) return { id: chosen.id, created: false }
+    if (freeModel === 'new') return createFreeModel(userId, modelName, affiliation)
+  }
+  const preferred = isFree && !anyAffiliation ? freeCandidates(models).find((m) => preferIds.includes(m.id)) : undefined
+  if (preferred) return { id: preferred.id, created: false }
+
   const existing = anyAffiliation
     ? (sameAffiliation ?? unset ?? models[0])
     : (sameAffiliation ?? (isFree ? unset : undefined))
@@ -340,6 +361,14 @@ export async function resolveModel(
     return { id: target.id, created: false }
   }
 
+  return createFreeModel(userId, modelName, affiliation)
+}
+
+async function createFreeModel(
+  userId: string,
+  modelName: string,
+  affiliation: string,
+): Promise<{ id: string; created: boolean }> {
   const id = await createRow('models', {
     user_id: userId,
     name: modelName,
@@ -350,6 +379,44 @@ export async function resolveModel(
     sns_accounts: [],
   })
   return { id, created: true }
+}
+
+/** 撮影会名が空のとき、同じモデルとして使われうるモデル（所属が「フリー」か未設定） */
+function freeCandidates<M extends { affiliation: string | null }>(models: M[]): M[] {
+  return models.filter((m) => !m.affiliation || normalize(m.affiliation) === normalize(FREE_AFFILIATION))
+}
+
+/**
+ * 撮影会名が空（フリー）の入力で、同じ名前のフリーのモデルが既にマスタにいるとき、そのモデルを返す。
+ * 同名の別人かもしれないので、登録前に「同じモデルか」を確認するために使う。
+ * 撮影会名が入っているとき、および既存の撮影の編集でモデル名を変えていないときは空。
+ */
+export async function findFreeModelCandidates(
+  modelName: string,
+  eventName: string,
+  currentSessionId?: string,
+): Promise<{ id: string; name: string; affiliation: string | null; createdAt: string }[]> {
+  const name = modelName.trim()
+  if (eventName.trim() || !name) return []
+  const candidates = freeCandidates(
+    (await db.models.toArray()).filter((m) => !m.deleted_at && normalize(m.name) === normalize(name)),
+  )
+  if (candidates.length === 0) return []
+  if (currentSessionId) {
+    const slotIds = (await db.slots.where('session_id').equals(currentSessionId).toArray()).map((s) => s.id)
+    const linked = await db.slot_models.where('slot_id').anyOf(slotIds).toArray()
+    if (linked.some((l) => candidates.some((c) => c.id === l.model_id))) return []
+  }
+  return candidates.map((m) => ({
+    id: m.id,
+    name: m.name,
+    affiliation: m.affiliation,
+    createdAt: m.created_at,
+  }))
+}
+
+export function freeModelConfirmMessage(c: { name: string; affiliation: string | null; createdAt: string }): string {
+  return `モデルマスタに撮影会名なし（フリー）の「${c.name}」（所属: ${c.affiliation || 'なし'}、登録日: ${c.createdAt.slice(0, 10)}）がいます。\n\n同じモデルとして登録しますか？\n（キャンセルすると、同名の別モデルとして登録します）`
 }
 
 /** 登録前の確認画面に出す、所属が合わない同名モデルの情報 */
@@ -429,7 +496,7 @@ export async function resolveShootModel(
   modelName: string,
   event: ShootEvent,
   currentModelIds: string[],
-  addAffiliation = false,
+  { addAffiliation = false, freeModel }: { addAffiliation?: boolean; freeModel?: string } = {},
 ): Promise<{ id: string; created: boolean }> {
   if (event.unchanged) {
     const current = (await db.models.bulkGet(currentModelIds)).find(
@@ -437,7 +504,11 @@ export async function resolveShootModel(
     )
     if (current) return { id: current.id, created: false }
   }
-  return resolveModel(userId, modelName, event.name, { addAffiliation })
+  return resolveModel(userId, modelName, event.name, {
+    addAffiliation,
+    freeModel,
+    preferIds: currentModelIds,
+  })
 }
 
 /** 撮影会マスタの行を返す。空なら null。同名が無ければ作る */

@@ -46,6 +46,8 @@ export interface ReservationInput extends ShootOptionsInput, ShootPaymentInput {
   bookingContact: string
   /** 同名で所属が違うモデルがいるとき、新規作成せず撮影会名をそのモデルの所属に加える */
   addAffiliation?: boolean
+  /** 同名のフリーのモデルがいるときの選択（`ShootDetailsInput.freeModel` と同じ） */
+  freeModel?: string
 }
 
 export interface ReservationResult {
@@ -86,6 +88,7 @@ export async function createReservation(
   const model = hasModel
     ? await resolveModel(userId, modelName, eventName, {
         addAffiliation: input.addAffiliation,
+        freeModel: input.freeModel,
       })
     : null
   const modelId = model?.id
@@ -170,6 +173,8 @@ export async function updateReservation(
   const model = hasModel
     ? await resolveModel(userId, modelName, eventName, {
         addAffiliation: input.addAffiliation,
+        freeModel: input.freeModel,
+        preferIds: (await db.slot_models.where('slot_id').equals(slot.id).toArray()).map((l) => l.model_id),
       })
     : null
 
