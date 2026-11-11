@@ -3,7 +3,9 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Suspense } from 'react'
+import { Suspense, useState } from 'react'
+
+import { deleteShootRecord } from '@/lib/actions/archives'
 
 import { StorageUrlList } from '@/components/StorageUrlList'
 import { feePaymentTimingLabel } from '@/lib/fee-payment'
@@ -24,6 +26,7 @@ function ShootDetail() {
   const params = useSearchParams()
   const source: ShootSource = params.get('source') === 'history' ? 'history' : 'slot'
   const id = params.get('id') ?? ''
+  const [error, setError] = useState<string | null>(null)
   const record = useLiveQuery(() => loadShootRecord(source, id), [source, id], 'loading' as const)
 
   if (record === 'loading') {
@@ -42,6 +45,16 @@ function ShootDetail() {
         </Link>
       </div>
     )
+  }
+
+  const onDelete = async () => {
+    if (!confirm('この撮影記録を削除します。よろしいですか？\n入力したモデルや撮影会の情報はマスタに残ります。')) return
+    try {
+      await deleteShootRecord(record.source, record.id)
+      router.replace('/archives/search')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    }
   }
 
   const time =
@@ -70,8 +83,16 @@ function ShootDetail() {
           >
             編集
           </Link>
+          <button
+            type="button"
+            onClick={onDelete}
+            className="tap-target rounded-md border border-red-300 px-4 py-2 text-sm text-red-700 hover:bg-red-50 dark:border-red-500/40 dark:text-red-300 dark:hover:bg-red-500/10"
+          >
+            削除
+          </button>
         </div>
       </header>
+      {error && <p className="text-xs text-red-600 dark:text-red-400">{error}</p>}
 
       <dl className="bg-surface border-border divide-border divide-y rounded-lg border text-sm">
         <Row label="撮影会名">{record.title}</Row>

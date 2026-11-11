@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 
-import { setReservationResult } from '@/lib/actions/reservations'
+import { deleteReservation, setReservationResult } from '@/lib/actions/reservations'
 
 import { pad2 as pad, splitDuration, useNow } from '@/lib/use-now'
 import { reservationFeePaymentTimingLabel } from '@/lib/fee-payment'
@@ -71,6 +71,14 @@ function ReservationCard({ row, nowMs }: { row: ReservationRow; nowMs: number | 
       // 予約失敗にしていた予約は、確定撮影情報入力で選べるよう元に戻す
       await setReservationResult(row.sessionId, 'success')
       router.push(`/shoots/confirm?session=${encodeURIComponent(row.sessionId)}`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    }
+  }
+  const onDelete = async () => {
+    if (!confirm('この予約を削除します。よろしいですか？\n入力したモデルや撮影会の情報はマスタに残ります。')) return
+    try {
+      await deleteReservation(row.sessionId)
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     }
@@ -189,6 +197,13 @@ function ReservationCard({ row, nowMs }: { row: ReservationRow; nowMs: number | 
           >
             編集
           </Link>
+          <button
+            type="button"
+            onClick={onDelete}
+            className="tap-target rounded-md border border-red-300 px-3 py-1 text-xs text-red-700 hover:bg-red-50 dark:border-red-500/40 dark:text-red-300 dark:hover:bg-red-500/10"
+          >
+            削除
+          </button>
           {(open || row.failed) && (
             <span className="flex gap-2">
               <button

@@ -1,7 +1,7 @@
 import { db } from '@/lib/db'
 import { categoryHasModel, fallbackShootTitle } from '@/lib/shoot-category'
 import { normalizeStorageUrls } from '@/lib/storage-urls'
-import { createRow, deleteRow, updateRow } from '@/lib/sync/mutations'
+import { createRow, deleteRow, softDeleteRow, updateRow } from '@/lib/sync/mutations'
 
 import {
   resolveVenue,
@@ -154,4 +154,27 @@ async function addHistoryModel(userId: string, historyId: string, modelId: strin
     fee: 0,
     payment_status: 'paid',
   })
+}
+
+/**
+ * 撮影記録の削除。撮影情報検索の詳細画面から呼ぶ。論理削除なので一覧・検索・統計から外れるだけで、行は残る。
+ * 確定撮影情報入力で登録した撮影（slot）は枠を消し、同じ撮影イベントに生きた枠が残らなければイベントも消す。
+ * モデル・撮影会・ロケ地のマスタは触らない（入力した情報は残す）。
+ */
+export async function deleteShootRecord(source: 'slot' | 'history', id: string): Promise<void> {
+  if (source === 'history') {
+    const history = await db.shoot_history.get(id)
+    if (!history || history.deleted_at) throw new Error('撮影が見つかりませんでした')
+    await softDeleteRow('shoot_history', id)
+    return
+  }
+  const slot = await db.slots.get(id)
+  if (!slot || slot.deleted_at) throw new Error('撮影が見つかりませんでした')
+  await softDeleteRow('slots', id)
+  const remaining = await db.slots
+    .where('session_id')
+    .equals(slot.session_id)
+    .filter((s) => s.id !== id && !s.deleted_at)
+    .count()
+  if (remaining === 0) await softDeleteRow('sessions', slot.session_id)
 }

@@ -1,6 +1,6 @@
 import { db } from '@/lib/db'
 import { categoryHasModel, fallbackShootTitle, type ShootCategory } from '@/lib/shoot-category'
-import { createRow, deleteRow, updateRow } from '@/lib/sync/mutations'
+import { createRow, deleteRow, softDeleteRow, updateRow } from '@/lib/sync/mutations'
 
 import {
   resolveModel,
@@ -246,6 +246,23 @@ export async function setReservationResult(
   if ((session.booking_failure_reason ?? null) !== nextReason) {
     await updateRow('sessions', sessionId, { booking_failure_reason: nextReason })
   }
+}
+
+/**
+ * 予約の削除。可否がまだ決まっていない予約（予約失敗にした予約を含む）を、
+ * 予約スケジュールから消す。履歴を残すため論理削除で、枠も一緒に消す。
+ * モデル・撮影会・ロケ地のマスタと slot_models は触らない（入力した情報は残す）。
+ */
+export async function deleteReservation(sessionId: string): Promise<void> {
+  const session = await db.sessions.get(sessionId)
+  if (!session || session.deleted_at || session.status !== 'planned') {
+    throw new Error('削除できる予約が見つかりませんでした')
+  }
+  const slots = (await db.slots.where('session_id').equals(sessionId).toArray()).filter(
+    (s) => !s.deleted_at,
+  )
+  for (const slot of slots) await softDeleteRow('slots', slot.id)
+  await softDeleteRow('sessions', sessionId)
 }
 
 export const reservationInternals = { placeholderStartAt, normalize }
