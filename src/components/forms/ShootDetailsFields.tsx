@@ -4,6 +4,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { useId } from 'react'
 
 import { ChoicePicker } from '@/components/forms/ChoicePicker'
+import { ModelNamesField } from '@/components/forms/ModelNamesField'
 import { ShootCategoryPicker } from '@/components/forms/ShootCategoryPicker'
 import type { ShootDetailsInput } from '@/lib/actions/shoots'
 import {
@@ -18,6 +19,7 @@ export const EMPTY_SHOOT_DETAILS: ShootDetailsInput = {
   eventName: '',
   shootCategory: DEFAULT_SHOOT_CATEGORY,
   modelName: '',
+  extraModelNames: [],
   concept: '',
   placeCategory: DEFAULT_PLACE_CATEGORY,
   venueName: '',
@@ -64,7 +66,6 @@ export function ShootDetailsFields({
   })
 
   const eventListId = useId()
-  const modelListId = useId()
   const venueListId = useId()
 
   const hasModel = categoryHasModel(values.shootCategory)
@@ -104,27 +105,15 @@ export function ShootDetailsFields({
       </Field>
 
       {hasModel && (
-        <Field label="モデル名" required hint="マスタに無い名前はそのまま新規登録されます">
-          {(p) => (
-            <>
-              <input
-                {...p}
-                type="text"
-                required
-                list={modelListId}
-                value={values.modelName}
-                onChange={(e) => onChange('modelName', e.target.value)}
-                placeholder="栞奈"
-                className={inputClass}
-              />
-              <datalist id={modelListId}>
-                {suggestions.models.map((m) => (
-                  <option key={m} value={m} />
-                ))}
-              </datalist>
-            </>
-          )}
-        </Field>
+        <ModelNamesField
+          modelName={values.modelName}
+          extraModelNames={values.extraModelNames ?? []}
+          suggestions={suggestions.models}
+          onChange={(name, extras) => {
+            onChange('modelName', name)
+            onChange('extraModelNames', extras)
+          }}
+        />
       )}
 
       <Field label="撮影コンセプト">

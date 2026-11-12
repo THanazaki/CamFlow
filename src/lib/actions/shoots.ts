@@ -1,7 +1,12 @@
 import { db } from '@/lib/db'
 import { feePaymentHasDate, type FeePaymentTiming } from '@/lib/fee-payment'
 import { categoryHasMeetingPoint, type PlaceCategory } from '@/lib/place-category'
-import { categoryHasModel, fallbackShootTitle, type ShootCategory } from '@/lib/shoot-category'
+import {
+  categoryHasModel,
+  collectModelNames,
+  fallbackShootTitle,
+  type ShootCategory,
+} from '@/lib/shoot-category'
 import { isSlotFinished } from '@/lib/slot-time'
 import { normalizeStorageUrls } from '@/lib/storage-urls'
 import { createRow, deleteRow, updateRow } from '@/lib/sync/mutations'
@@ -21,6 +26,8 @@ export interface ShootDetailsInput {
   shootCategory: ShootCategory
   /** モデルを指定しない撮影区分では無視する */
   modelName: string
+  /** 2人目以降のモデル名（最大4人）。1人目と同じ撮影会名のモデルとして扱う。省略時は空 */
+  extraModelNames?: string[]
   concept: string
   placeCategory: PlaceCategory
   venueName: string
@@ -135,7 +142,8 @@ async function prepareShoot(
 ) {
   const hasModel = categoryHasModel(input.shootCategory)
   // 欄を隠す前に入力した名前が残っていても、モデルを指定しない区分では使わない
-  const modelName = hasModel ? input.modelName.trim() : ''
+  const modelNames = hasModel ? collectModelNames(input.modelName, input.extraModelNames) : []
+  const modelName = modelNames[0] ?? ''
   const venueName = input.venueName.trim()
   const concept = input.concept.trim()
   const eventName = input.eventName.trim()
@@ -164,6 +172,13 @@ async function prepareShoot(
       freeModel: input.freeModel,
     })
     : null
+  // 2人目以降は確認なしで、名前と撮影会名の組み合わせで照合する（無ければ作る）
+  const extraIds: string[] = []
+  for (const name of modelNames.slice(1)) {
+    const extra = await resolveShootModel(userId, name, event, currentModelIds)
+    if (extra.id !== model?.id && !extraIds.includes(extra.id)) extraIds.push(extra.id)
+  }
+  const modelIds = model ? [model.id, ...extraIds] : []
 
   // ── 場所 ─────────────────────────────────────────────────
   const venueId = await resolveVenue(userId, venueName, input.placeCategory)
@@ -182,7 +197,7 @@ async function prepareShoot(
   }
 
   return {
-    modelId: model?.id ?? null,
+    modelIds,
     newModelId: model?.created ? model.id : null,
     sessionValues,
     startAt: toIso(input.shootDate, input.startTime),
@@ -207,7 +222,7 @@ export async function confirmShoot(
     reservation,
     reservationSlot ? await slotModelIds(reservationSlot.id) : [],
   )
-  const { modelId, newModelId, startAt, minutes, options } = prepared
+  const { modelIds, newModelId, startAt, minutes, options } = prepared
   const sessionValues = {
     ...prepared.sessionValues,
     // 予約が通った、または予約を通さず確定した撮影
@@ -224,7 +239,7 @@ export async function confirmShoot(
 
     if (!slot) {
       const slotId = await createSlot(userId, sessionId, startAt, minutes, options)
-      if (modelId) await ensureSlotModel(userId, slotId, modelId)
+      for (const modelId of modelIds) await ensureSlotModel(userId, slotId, modelId)
       return { sessionId, slotId, newModelId }
     }
 
@@ -234,14 +249,14 @@ export async function confirmShoot(
       ...options,
     })
     // 予約時のモデルから変えた場合は付け替える。モデルなしの区分に変えた場合は外す
-    await linkSlotModel(userId, slot.id, modelId)
+    await linkSlotModels(userId, slot.id, modelIds)
     return { sessionId, slotId: slot.id, newModelId }
   }
 
   // ── 予約を通さず直接登録する ─────────────────────────────
   const sessionId = await createRow('sessions', { user_id: userId, ...sessionValues })
   const slotId = await createSlot(userId, sessionId, startAt, minutes, options)
-  if (modelId) await ensureSlotModel(userId, slotId, modelId)
+  for (const modelId of modelIds) await ensureSlotModel(userId, slotId, modelId)
   return { sessionId, slotId, newModelId }
 }
 
@@ -250,21 +265,35 @@ async function slotModelIds(slotId: string): Promise<string[]> {
 }
 
 /**
- * 枠のモデルを指定のモデルにする。
- * 1人だけ紐づいていれば付け替える（作り直すとモデル料や納品の記録が消える）。
- * 複数紐づいていて、そのどれでもなければ追加する。null なら全て外す。
+ * 紐づけ（slot_models / shoot_history_models）を指定のモデルの集合に合わせる。
+ * 外れるモデルと増えるモデルは順に付け替える（作り直すとモデル料や納品の記録が消える）。
+ * 余った分は外す／追加する。空なら全て外す。
  */
-async function linkSlotModel(userId: string, slotId: string, modelId: string | null): Promise<void> {
-  const links = await db.slot_models.where('slot_id').equals(slotId).toArray()
-  if (!modelId) {
-    await removeSlotModels(slotId)
-  } else if (links.some((l) => l.model_id === modelId)) {
-    return
-  } else if (links.length === 1) {
-    await updateRow('slot_models', links[0].id, { model_id: modelId })
-  } else {
-    await ensureSlotModel(userId, slotId, modelId)
+export async function reconcileModelLinks(
+  links: { id: string; model_id: string }[],
+  modelIds: string[],
+  ops: {
+    replace: (linkId: string, modelId: string) => Promise<void>
+    remove: (linkId: string) => Promise<void>
+    add: (modelId: string) => Promise<void>
+  },
+): Promise<void> {
+  const removed = links.filter((l) => !modelIds.includes(l.model_id))
+  const added = modelIds.filter((id) => !links.some((l) => l.model_id === id))
+  for (let i = 0; i < Math.max(removed.length, added.length); i++) {
+    if (removed[i] && added[i]) await ops.replace(removed[i].id, added[i])
+    else if (removed[i]) await ops.remove(removed[i].id)
+    else await ops.add(added[i])
   }
+}
+
+async function linkSlotModels(userId: string, slotId: string, modelIds: string[]): Promise<void> {
+  const links = await db.slot_models.where('slot_id').equals(slotId).toArray()
+  await reconcileModelLinks(links, modelIds, {
+    replace: (linkId, modelId) => updateRow('slot_models', linkId, { model_id: modelId }),
+    remove: (linkId) => deleteRow('slot_models', linkId),
+    add: (modelId) => ensureSlotModel(userId, slotId, modelId),
+  })
 }
 
 /** 場所区分に対応する場所マスタの種別 */
@@ -538,13 +567,6 @@ export interface EventOrganizerRow {
 }
 
 
-async function removeSlotModels(slotId: string): Promise<void> {
-  const rows = await db.slot_models.where('slot_id').equals(slotId).toArray()
-  for (const row of rows) {
-    await deleteRow('slot_models', row.id)
-  }
-}
-
 async function createSlot(
   userId: string,
   sessionId: string,
@@ -603,7 +625,7 @@ export async function updateConfirmedShoot(
     throw new Error(STORAGE_URLS_LOCKED_MESSAGE)
   }
   const session = await db.sessions.get(slot.session_id)
-  const { modelId, sessionValues, startAt, minutes, options } = await prepareShoot(
+  const { modelIds, sessionValues, startAt, minutes, options } = await prepareShoot(
     userId,
     input,
     session,
@@ -618,7 +640,7 @@ export async function updateConfirmedShoot(
     ...options,
   })
 
-  await linkSlotModel(userId, slotId, modelId)
+  await linkSlotModels(userId, slotId, modelIds)
 }
 
 /** 撮影料とオプションの更新。確定撮影情報画面から呼ぶ */

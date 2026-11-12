@@ -4,6 +4,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import Link from 'next/link'
 import { useId, useState } from 'react'
 
+import { ModelNamesField } from '@/components/forms/ModelNamesField'
 import { ShootCategoryPicker } from '@/components/forms/ShootCategoryPicker'
 import { MemoField } from '@/components/forms/ShootDetailsFields'
 import {
@@ -27,6 +28,7 @@ export const EMPTY_RESERVATION: ReservationInput = {
   eventName: '',
   shootCategory: DEFAULT_SHOOT_CATEGORY,
   modelName: '',
+  extraModelNames: [],
   concept: '',
   venueName: '',
   shootDate: '',
@@ -98,7 +100,6 @@ export function ReservationForm({
   const [error, setError] = useState<string | null>(null)
 
   const eventListId = useId()
-  const modelListId = useId()
   const venueListId = useId()
 
   const method = BOOKING_METHODS[form.bookingMethod]
@@ -117,6 +118,7 @@ export function ReservationForm({
       ...f,
       shootCategory: categoryHasModel(f.shootCategory) ? f.shootCategory : DEFAULT_SHOOT_CATEGORY,
       modelName: wish.modelName,
+      extraModelNames: [],
       eventName:
         wish.eventName ??
         (wish.modelAffiliation && wish.modelAffiliation !== FREE_AFFILIATION ? wish.modelAffiliation : ''),
@@ -216,27 +218,14 @@ export function ReservationForm({
         </Field>
 
         {hasModel && (
-          <Field label="モデル名" required hint="マスタに無い名前はそのまま新規登録されます">
-            {(p) => (
-              <>
-                <input
-                  {...p}
-                  type="text"
-                  required
-                  list={modelListId}
-                  value={form.modelName}
-                  onChange={(e) => set('modelName', e.target.value)}
-                  placeholder="栞奈"
-                  className={inputClass}
-                />
-                <datalist id={modelListId}>
-                  {suggestions.models.map((m) => (
-                    <option key={m} value={m} />
-                  ))}
-                </datalist>
-              </>
-            )}
-          </Field>
+          <ModelNamesField
+            modelName={form.modelName}
+            extraModelNames={form.extraModelNames ?? []}
+            suggestions={suggestions.models}
+            onChange={(name, extras) =>
+              setForm((f) => ({ ...f, modelName: name, extraModelNames: extras }))
+            }
+          />
         )}
 
         <Field label="撮影コンセプト">

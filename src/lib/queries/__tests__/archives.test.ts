@@ -335,14 +335,16 @@ describe('確定した撮影の編集', () => {
     expect((await loadShootRecord('slot', slotId))?.modelNames).toEqual(['葵'])
   })
 
-  it('複数モデルの撮影は、どちらかの名前のままなら紐づけを変えない', async () => {
+  it('複数モデルの撮影は、全員の名前を入力したままなら紐づけを変えない。外すと紐づけも外れる', async () => {
     const { slotId } = await confirmShoot(USER, confirmation())
     const modelId = await createRow('models', { user_id: USER, name: '葵', sns_links: {} })
     await createRow('slot_models', { user_id: USER, slot_id: slotId, model_id: modelId })
 
-    await updateConfirmedShoot(USER, slotId, edited({ modelName: '栞奈' }))
-
+    await updateConfirmedShoot(USER, slotId, edited({ modelName: '栞奈', extraModelNames: ['葵'] }))
     expect(await db.slot_models.count()).toBe(2)
+
+    await updateConfirmedShoot(USER, slotId, edited({ modelName: '栞奈' }))
+    expect(await db.slot_models.count()).toBe(1)
   })
 
   it.each([

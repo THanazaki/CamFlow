@@ -1,9 +1,10 @@
 import { db } from '@/lib/db'
-import { categoryHasModel, fallbackShootTitle } from '@/lib/shoot-category'
+import { categoryHasModel, collectModelNames, fallbackShootTitle } from '@/lib/shoot-category'
 import { normalizeStorageUrls } from '@/lib/storage-urls'
 import { createRow, deleteRow, softDeleteRow, updateRow } from '@/lib/sync/mutations'
 
 import {
+  reconcileModelLinks,
   resolveVenue,
   resolveShootEvent,
   resolveShootModel,
@@ -42,7 +43,8 @@ async function prepareShootHistory(
 ) {
   const hasModel = categoryHasModel(input.shootCategory)
   // 欄を隠す前の入力が残っていても、モデルを指定しない区分では使わない
-  const modelName = hasModel ? input.modelName.trim() : ''
+  const modelNames = hasModel ? collectModelNames(input.modelName, input.extraModelNames) : []
+  const modelName = modelNames[0] ?? ''
   const venueName = input.venueName.trim()
   const concept = input.concept.trim()
   const eventName = input.eventName.trim()
@@ -66,10 +68,15 @@ async function prepareShootHistory(
         { addAffiliation: input.addAffiliation, freeModel: input.freeModel },
       )
     : null
+  const extraIds: string[] = []
+  for (const name of modelNames.slice(1)) {
+    const extra = await resolveShootModel(userId, name, event, currentModelIds)
+    if (extra.id !== model?.id && !extraIds.includes(extra.id)) extraIds.push(extra.id)
+  }
   const venueId = await resolveVenue(userId, venueName, input.placeCategory)
 
   return {
-    modelId: model?.id ?? null,
+    modelIds: model ? [model.id, ...extraIds] : [],
     newModelId: model?.created ? model.id : null,
     values: {
       shoot_date: input.shootDate,
@@ -90,7 +97,7 @@ export async function createShootHistory(
   userId: string,
   input: ShootHistoryInput,
 ): Promise<{ historyId: string; newModelId: string | null }> {
-  const { modelId, newModelId, values } = await prepareShootHistory(userId, input)
+  const { modelIds, newModelId, values } = await prepareShootHistory(userId, input)
 
   const historyId = await createRow('shoot_history', {
     user_id: userId,
@@ -105,7 +112,7 @@ export async function createShootHistory(
   })
 
   // outbox は順に送信されるので、親 → 子の順に作れば FK の順序は保たれる
-  if (modelId) {
+  for (const modelId of modelIds) {
     await addHistoryModel(userId, historyId, modelId)
   }
 
@@ -123,7 +130,7 @@ export async function updateShootHistory(
     throw new Error('撮影が見つかりませんでした')
   }
   const links = await db.shoot_history_models.where('shoot_history_id').equals(historyId).toArray()
-  const { modelId, values } = await prepareShootHistory(
+  const { modelIds, values } = await prepareShootHistory(
     userId,
     input,
     history,
@@ -132,18 +139,11 @@ export async function updateShootHistory(
 
   await updateRow('shoot_history', historyId, values)
 
-  if (!modelId) {
-    for (const link of links) {
-      await deleteRow('shoot_history_models', link.id)
-    }
-  } else if (links.some((l) => l.model_id === modelId)) {
-    return
-  } else if (links.length === 1) {
-    // 紐づけを付け替える。作り直すとモデル料や納品の記録が消える
-    await updateRow('shoot_history_models', links[0].id, { model_id: modelId })
-  } else {
-    await addHistoryModel(userId, historyId, modelId)
-  }
+  await reconcileModelLinks(links, modelIds, {
+    replace: (linkId, modelId) => updateRow('shoot_history_models', linkId, { model_id: modelId }),
+    remove: (linkId) => deleteRow('shoot_history_models', linkId),
+    add: (modelId) => addHistoryModel(userId, historyId, modelId),
+  })
 }
 
 async function addHistoryModel(userId: string, historyId: string, modelId: string): Promise<void> {

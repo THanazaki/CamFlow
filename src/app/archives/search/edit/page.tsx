@@ -79,6 +79,7 @@ function toFormValues(record: ShootRecord): ShootFormInput {
     eventName: record.title,
     shootCategory: record.shootCategory ?? DEFAULT_SHOOT_CATEGORY,
     modelName: record.modelNames[0] ?? '',
+    extraModelNames: record.modelNames.slice(1),
     concept: record.concept ?? '',
     placeCategory: record.placeCategory ?? DEFAULT_PLACE_CATEGORY,
     venueName: record.venueName ?? '',
@@ -152,13 +153,6 @@ function ShootEditForm({ record, returnTo }: { record: ShootRecord; returnTo: st
       {error && (
         <p className="rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-300">
           {error}
-        </p>
-      )}
-
-      {record.modelNames.length > 1 && (
-        <p className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300">
-          この撮影には複数のモデル（{record.modelNames.join('・')}
-          ）が紐づいています。モデル名に新しい名前を入力すると、モデルが追加されます。
         </p>
       )}
 

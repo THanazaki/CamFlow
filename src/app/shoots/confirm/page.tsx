@@ -86,6 +86,7 @@ function ShootConfirm() {
       eventName: r.eventName,
       shootCategory: r.shootCategory,
       modelName: r.modelName,
+      extraModelNames: r.extraModelNames,
       concept: r.concept,
       venueName: r.venueName,
       shootDate: r.shootDate,

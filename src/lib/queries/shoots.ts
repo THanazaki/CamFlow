@@ -45,6 +45,8 @@ export interface ConfirmableReservation {
   eventName: string
   shootCategory: ShootCategory
   modelName: string
+  /** 2人目以降のモデル名 */
+  extraModelNames: string[]
   concept: string
   venueName: string
   shootDate: string
@@ -91,9 +93,13 @@ export async function loadConfirmableReservations(): Promise<ConfirmableReservat
         .sort((a, b) => a.slot_no - b.slot_no)[0]
       // 予約失敗にした予約は選べない（予約スケジュールで予約成功に変えてから確定する）
       if (slot?.shoot_status === 'cancelled') return null
-      const model = slot
-        ? modelMap.get(slotModels.find((sm) => sm.slot_id === slot.id)?.model_id ?? '')
-        : undefined
+      const slotModelList = slot
+        ? slotModels
+            .filter((sm) => sm.slot_id === slot.id)
+            .map((sm) => modelMap.get(sm.model_id))
+            .filter((m) => m && !m.deleted_at)
+        : []
+      const model = slotModelList[0]
 
       // 予約時の start_at は撮影日の 0 時を仮置きしている。
       // 0:00 のままなら未入力扱いにして、確定時に入れてもらう
@@ -110,6 +116,7 @@ export async function loadConfirmableReservations(): Promise<ConfirmableReservat
         eventName: session.title,
         shootCategory: session.shoot_category ?? DEFAULT_SHOOT_CATEGORY,
         modelName: model?.name ?? '',
+        extraModelNames: slotModelList.slice(1).map((m) => m!.name),
         concept: session.concept ?? '',
         venueName: session.venue_id
           ? (venueMap.get(session.venue_id)?.name ?? session.venue_name ?? '')

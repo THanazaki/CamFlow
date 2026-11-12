@@ -17,6 +17,26 @@ function findCategory(category: ShootCategory) {
   return SHOOT_CATEGORIES.find((c) => c.value === category)!
 }
 
+/** 1回の撮影に入れられるモデルの最大人数 */
+export const MAX_MODELS = 5
+
+/**
+ * 入力されたモデル名を、1人目 → 追加分の順にまとめる。
+ * 空欄は捨て、同じ名前（大文字小文字は区別しない）は1人にまとめ、MAX_MODELS 人までにする。
+ */
+export function collectModelNames(primary: string, extras: string[] = []): string[] {
+  const seen = new Set<string>()
+  const names: string[] = []
+  for (const raw of [primary, ...extras]) {
+    const name = raw.trim()
+    const key = name.toLowerCase()
+    if (!name || seen.has(key)) continue
+    seen.add(key)
+    names.push(name)
+  }
+  return names.slice(0, MAX_MODELS)
+}
+
 /** この区分でモデル名を入力するか */
 export function categoryHasModel(category: ShootCategory): boolean {
   return findCategory(category).hasModel

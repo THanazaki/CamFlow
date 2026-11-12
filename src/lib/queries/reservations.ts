@@ -159,6 +159,12 @@ export async function loadReservationInput(sessionId: string): Promise<Reservati
     ? (await db.slot_models.where('slot_id').equals(slot.id).toArray())[0]
     : undefined
   const model = link ? await db.models.get(link.model_id) : undefined
+  const extraLinks = slot
+    ? (await db.slot_models.where('slot_id').equals(slot.id).toArray()).slice(1)
+    : []
+  const extraModels = (await db.models.bulkGet(extraLinks.map((l) => l.model_id))).filter(
+    (m) => m && !m.deleted_at,
+  )
   const organizer = session.organizer_id ? await db.organizers.get(session.organizer_id) : undefined
   const venue = session.venue_id ? await db.venues.get(session.venue_id) : undefined
 
@@ -168,6 +174,7 @@ export async function loadReservationInput(sessionId: string): Promise<Reservati
     eventName: organizer && !organizer.deleted_at ? organizer.name : '',
     shootCategory: session.shoot_category ?? DEFAULT_SHOOT_CATEGORY,
     modelName: model?.name ?? '',
+    extraModelNames: extraModels.map((m) => m!.name),
     concept: session.concept ?? '',
     venueName: venue && !venue.deleted_at ? venue.name : (session.venue_name ?? ''),
     shootDate: session.session_date,

@@ -1,8 +1,14 @@
 import { db } from '@/lib/db'
-import { categoryHasModel, fallbackShootTitle, type ShootCategory } from '@/lib/shoot-category'
+import {
+  categoryHasModel,
+  collectModelNames,
+  fallbackShootTitle,
+  type ShootCategory,
+} from '@/lib/shoot-category'
 import { createRow, deleteRow, softDeleteRow, updateRow } from '@/lib/sync/mutations'
 
 import {
+  reconcileModelLinks,
   resolveModel,
   resolveOrganizer,
   toFeePaymentColumns,
@@ -31,6 +37,8 @@ export interface ReservationInput extends ShootOptionsInput, ShootPaymentInput {
   shootCategory: ShootCategory
   /** モデルを指定しない撮影区分では無視する */
   modelName: string
+  /** 2人目以降のモデル名（最大4人）。1人目と同じ撮影会名のモデルとして扱う。省略時は空 */
+  extraModelNames?: string[]
   /** 任意 */
   concept: string
   /** 任意。マスタに同名があれば紐づけ、無ければテキストとして残す */
@@ -65,13 +73,34 @@ function normalize(name: string): string {
   return name.trim().toLowerCase()
 }
 
+/**
+ * 1人目のモデルに、2人目以降のモデル（確認なしで名前と撮影会名から照合し、無ければ作る）を足した id の一覧。
+ * 1人目が無い（モデルを指定しない区分）なら空
+ */
+async function resolveExtraModels(
+  userId: string,
+  firstId: string | undefined,
+  modelNames: string[],
+  eventName: string,
+  preferIds: string[],
+): Promise<string[]> {
+  if (!firstId) return []
+  const ids = [firstId]
+  for (const name of modelNames.slice(1)) {
+    const extra = await resolveModel(userId, name, eventName, { preferIds })
+    if (!ids.includes(extra.id)) ids.push(extra.id)
+  }
+  return ids
+}
+
 export async function createReservation(
   userId: string,
   input: ReservationInput,
 ): Promise<ReservationResult> {
   const hasModel = categoryHasModel(input.shootCategory)
   // 欄を隠す前に入力した名前が残っていても、モデルを指定しない区分では使わない
-  const modelName = hasModel ? input.modelName.trim() : ''
+  const modelNames = hasModel ? collectModelNames(input.modelName, input.extraModelNames) : []
+  const modelName = modelNames[0] ?? ''
   const venueName = input.venueName.trim()
   const concept = input.concept.trim()
 
@@ -91,7 +120,7 @@ export async function createReservation(
         freeModel: input.freeModel,
       })
     : null
-  const modelId = model?.id
+  const modelIds = await resolveExtraModels(userId, model?.id, modelNames, eventName, [])
 
   // 場所は venue_name のフォールバックがあるので、マスタに無ければ作らない。
   // 予約段階で場所マスタが増え続けるのを避ける
@@ -131,7 +160,7 @@ export async function createReservation(
     storage_urls: [],
   })
 
-  if (modelId) {
+  for (const modelId of modelIds) {
     await createRow('slot_models', {
       user_id: userId,
       slot_id: slotId,
@@ -162,7 +191,8 @@ export async function updateReservation(
 
   const userId = session.user_id
   const hasModel = categoryHasModel(input.shootCategory)
-  const modelName = hasModel ? input.modelName.trim() : ''
+  const modelNames = hasModel ? collectModelNames(input.modelName, input.extraModelNames) : []
+  const modelName = modelNames[0] ?? ''
   const venueName = input.venueName.trim()
   const concept = input.concept.trim()
   if (hasModel && !modelName) throw new Error('モデル名を入力してください')
@@ -170,13 +200,17 @@ export async function updateReservation(
   // 書き込む前に検証する
   const options = toShootOptionColumns(input)
   const eventName = input.eventName.trim()
+  const currentIds = (await db.slot_models.where('slot_id').equals(slot.id).toArray()).map(
+    (l) => l.model_id,
+  )
   const model = hasModel
     ? await resolveModel(userId, modelName, eventName, {
         addAffiliation: input.addAffiliation,
         freeModel: input.freeModel,
-        preferIds: (await db.slot_models.where('slot_id').equals(slot.id).toArray()).map((l) => l.model_id),
+        preferIds: currentIds,
       })
     : null
+  const modelIds = await resolveExtraModels(userId, model?.id, modelNames, eventName, currentIds)
 
   const venue = (await db.venues.toArray()).find(
     (v) => !v.deleted_at && normalize(v.name) === normalize(venueName),
@@ -205,20 +239,13 @@ export async function updateReservation(
   })
 
   const links = await db.slot_models.where('slot_id').equals(slot.id).toArray()
-  if (!model) {
-    for (const link of links) await deleteRow('slot_models', link.id)
-  } else if (links.length === 0) {
-    await createRow('slot_models', {
-      user_id: userId,
-      slot_id: slot.id,
-      model_id: model.id,
-    })
-  } else {
-    const [first, ...rest] = links
-    if (first.model_id !== model.id)
-      await updateRow('slot_models', first.id, { model_id: model.id })
-    for (const link of rest) await deleteRow('slot_models', link.id)
-  }
+  await reconcileModelLinks(links, modelIds, {
+    replace: (linkId, modelId) => updateRow('slot_models', linkId, { model_id: modelId }),
+    remove: (linkId) => deleteRow('slot_models', linkId),
+    add: async (modelId) => {
+      await createRow('slot_models', { user_id: userId, slot_id: slot.id, model_id: modelId })
+    },
+  })
 
   return { sessionId, newModelId: model?.created ? model.id : null }
 }
