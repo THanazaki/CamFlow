@@ -1,6 +1,6 @@
 import { db } from '@/lib/db'
 import type { LocalModel, LocalSession, LocalVenue } from '@/lib/db/types'
-import { isSlotFinished } from '@/lib/slot-time'
+import { isSlotFinished, slotEndMs } from '@/lib/slot-time'
 
 /**
  * ダッシュボード用のクエリ。
@@ -82,6 +82,17 @@ export interface FeeReminderItem {
   daysUntil: number | null
 }
 
+/** 本日の撮影の1件。確定した撮影のうち、今日が撮影日でまだ終わっていないもの */
+export interface TodayShoot {
+  slotId: string
+  title: string
+  /** 開始・終了の日時（ISO）。終了は開始 + 予定時間 + 延長 */
+  startAt: string
+  endAt: string
+  venueName: string | null
+  modelNames: string[]
+}
+
 export interface ReminderGroup {
   /** 表示する分（最大 LIMIT 件） */
   items: ReminderItem[]
@@ -92,6 +103,8 @@ export interface ReminderGroup {
 }
 
 export interface DashboardData {
+  /** 本日の撮影。開始時刻の早い順。終わった撮影は含まない（画面でも時刻の経過に合わせて外す） */
+  today: TodayShoot[]
   reservations: ReminderGroup
   shoots: ReminderGroup
   fees: {
@@ -259,12 +272,31 @@ export async function loadDashboard(now: Date = new Date()): Promise<DashboardDa
     .filter((r): r is ReminderItem => r !== null)
     .sort((a, b) => a.startAt.localeCompare(b.startAt))
 
+  // 本日の撮影: 確定した撮影で、今日が撮影日、まだ終わっていない枠。開始時刻の早い順
+  const todayKey = toDateKey(nowIso)
+  const today: TodayShoot[] = live
+    .filter((slot) => toDateKey(slot.start_at) === todayKey && !isSlotFinished(slot, now))
+    .flatMap((slot) => {
+      const session = sessionMap.get(slot.session_id)
+      if (!session || (session.status !== 'confirmed' && session.status !== 'done')) return []
+      return [
+        {
+          slotId: slot.id,
+          title: session.title,
+          startAt: slot.start_at,
+          endAt: new Date(slotEndMs(slot)).toISOString(),
+          venueName: resolveVenueName(session, venueMap),
+          modelNames: modelNamesBySlot.get(slot.id) ?? [],
+        },
+      ]
+    })
+    .sort((a, b) => a.startAt.localeCompare(b.startAt))
+
   // 料金リマインド: 確定した撮影の撮影料を、支払方法に応じた期日で出す。
   //   当日 … 撮影日の撮影開始時刻
   //   事前 … 指定した支払日
   // 支払済み・未選択は出さない。支払いを記録する操作がまだ無いので、撮影が終わったら出さない
   // （残すと消す手段が無い）。期日の日付を過ぎたものも出さない（支払日が未入力のものは出す）
-  const todayKey = toDateKey(nowIso)
   const feeItems: FeeReminderItem[] = live.flatMap((slot) => {
     const session = sessionMap.get(slot.session_id)
     if (!session || (session.status !== 'confirmed' && session.status !== 'done')) return []
@@ -357,7 +389,7 @@ export async function loadDashboard(now: Date = new Date()): Promise<DashboardDa
     })
     .slice(0, RECENT_LIMIT)
 
-  return { reservations: group(reservations), shoots: group(shoots), fees, recent }
+  return { today, reservations: group(reservations), shoots: group(shoots), fees, recent }
 }
 
 export const dashboardInternals = { LIMIT, RECENT_LIMIT, toDateKey }

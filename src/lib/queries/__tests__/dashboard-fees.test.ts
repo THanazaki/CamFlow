@@ -219,3 +219,15 @@ describe('撮影リマインド', () => {
     expect(shoots.totalCount).toBe(2)
   })
 })
+
+describe('本日の撮影', () => {
+  it('今日の確定した撮影だけを開始時刻順に出し、終わったものは出さない', async () => {
+    await confirmShoot(USER, input({ shootDate: '2026-06-10', startTime: '13:00', endTime: '15:00' }))
+    await confirmShoot(USER, input({ shootDate: '2026-06-10', startTime: '10:00', endTime: '11:00', modelName: '凛' }))
+    await confirmShoot(USER, input({ shootDate: '2026-06-10', startTime: '07:00', endTime: '08:00', modelName: '美咲' }))
+    await confirmShoot(USER, input({ shootDate: '2026-06-11', modelName: '結衣' }))
+
+    const { today } = await loadDashboard(NOW)
+    expect(today.map((t) => t.modelNames[0])).toEqual(['凛', '葵'])
+  })
+})

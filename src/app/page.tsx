@@ -9,6 +9,7 @@ import {
   type ReminderItem,
   type ReminderStage,
   type ShootSummary,
+  type TodayShoot,
 } from '@/lib/queries/dashboard'
 import { useSync } from '@/lib/sync/useSync'
 import { pad2, splitDuration, useNow } from '@/lib/use-now'
@@ -35,6 +36,7 @@ export default function DashboardPage() {
     data.reservations.totalCount === 0 &&
     data.shoots.totalCount === 0 &&
     data.fees.totalCount === 0 &&
+    data.today.length === 0 &&
     data.recent.length === 0
 
   return (
@@ -45,6 +47,8 @@ export default function DashboardPage() {
           {phase === 'offline' ? 'オフライン（手元のデータを表示しています）' : '今やることと、直近の撮影です。'}
         </p>
       </header>
+
+      <TodayShoots shoots={data.today} nowMs={nowMs} />
 
       {/* 上段: 3つのリマインド */}
       <div className="grid gap-4 lg:grid-cols-3">
@@ -260,6 +264,71 @@ function Primary({ item }: { item: ReminderItem }) {
  * 予約リマインドの日時。予約日時と、そこまでの日数を出す。
  * 1日未満になったら、残り時間を秒単位で刻む。
  */
+/** 時間の残りを「あと HH:MM:SS」にする。24時間以上は日数 */
+function remainText(remainMs: number): string {
+  const { days, hours, minutes, seconds } = splitDuration(remainMs)
+  return days > 0
+    ? `${days}日 ${pad2(hours)}:${pad2(minutes)}:${pad2(seconds)}`
+    : `${pad2(hours)}:${pad2(minutes)}:${pad2(seconds)}`
+}
+
+const timeOf = (iso: string) =>
+  new Date(iso).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })
+
+/**
+ * 本日の撮影。開始までは開始までの時間、始まったら終了までの時間を出し、
+ * 終わった撮影は一覧から外す。1秒ごとの時刻（nowMs）で判定するので、開いたままでも切り替わる
+ */
+function TodayShoots({ shoots, nowMs }: { shoots: TodayShoot[]; nowMs: number | null }) {
+  // 時刻が取れるまで（マウント前）は、クエリが返した「終わっていない撮影」をそのまま出す
+  const visible = shoots.filter((s) => nowMs === null || new Date(s.endAt).getTime() > nowMs)
+
+  return (
+    <section className="bg-surface border-border rounded-lg border">
+      <header className="border-border flex items-baseline justify-between gap-2 border-b px-4 py-3">
+        <h2 className="text-sm font-medium">本日の撮影</h2>
+        <span className="bg-navy-100 text-navy-700 dark:text-navy-100 rounded-full px-2 py-0.5 text-xs font-medium tabular-nums dark:bg-white/10">
+          {visible.length}
+        </span>
+      </header>
+      {visible.length === 0 ? (
+        <p className="text-muted px-4 py-6 text-center text-xs">本日の撮影はありません</p>
+      ) : (
+        <ul className="divide-border divide-y">
+          {visible.map((s) => {
+            const started = nowMs !== null && new Date(s.startAt).getTime() <= nowMs
+            const targetMs = new Date(started ? s.endAt : s.startAt).getTime()
+            return (
+              <li key={s.slotId} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
+                <span className="min-w-0">
+                  <span className="block truncate">{s.title}</span>
+                  <span className="text-muted block truncate text-xs">
+                    {timeOf(s.startAt)}〜{timeOf(s.endAt)}
+                    {[s.venueName, s.modelNames.join('・')].filter(Boolean).length > 0 &&
+                      ` / ${[s.venueName, s.modelNames.join('・')].filter(Boolean).join(' / ')}`}
+                  </span>
+                </span>
+                <span className="shrink-0 text-right">
+                  <span
+                    className={`block text-xs ${
+                      started ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted'
+                    }`}
+                  >
+                    {nowMs === null ? '—' : started ? '終了まで' : '開始まで'}
+                  </span>
+                  <span className="block font-medium whitespace-nowrap tabular-nums">
+                    {nowMs === null ? '—' : remainText(targetMs - nowMs)}
+                  </span>
+                </span>
+              </li>
+            )
+          })}
+        </ul>
+      )}
+    </section>
+  )
+}
+
 function BookingCountdown({ iso, nowMs }: { iso: string | null; nowMs: number | null }) {
   if (!iso) return <span className="text-muted text-xs">予約日時 未設定</span>
   const remainMs = nowMs === null ? null : new Date(iso).getTime() - nowMs
