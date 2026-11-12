@@ -1,5 +1,5 @@
 import { db } from '@/lib/db'
-import { createRow, deleteRow } from '@/lib/sync/mutations'
+import { createRow, deleteRow, updateRow } from '@/lib/sync/mutations'
 
 import { resolveModel, resolveOrganizer, type ShootOptionsInput } from './shoots'
 
@@ -28,6 +28,34 @@ export async function createWishlistModel(userId: string, input: WishlistInput):
 
   return createRow('wishlist_models', {
     user_id: userId,
+    model_id: modelId,
+    event_name: input.eventName.trim() || null,
+    costume_options: input.costumeOptions.trim() || null,
+    shooting_method_options: input.shootingMethodOptions.trim() || null,
+  })
+}
+
+/**
+ * 撮影希望モデルを編集する。登録と同じ入力で、モデルは名前で照合し直す（無ければ作る）。
+ * 空にした任意項目は null に戻す。
+ */
+export async function updateWishlistModel(
+  userId: string,
+  id: string,
+  input: WishlistInput,
+): Promise<void> {
+  if (!(await db.wishlist_models.get(id))) {
+    throw new Error('撮影希望が見つかりませんでした')
+  }
+  const modelName = input.modelName.trim()
+  if (!modelName) {
+    throw new Error('モデル名を入力してください')
+  }
+
+  const { id: modelId } = await resolveModel(userId, modelName, '', { anyAffiliation: true })
+  await resolveOrganizer(userId, input.eventName)
+
+  await updateRow('wishlist_models', id, {
     model_id: modelId,
     event_name: input.eventName.trim() || null,
     costume_options: input.costumeOptions.trim() || null,
