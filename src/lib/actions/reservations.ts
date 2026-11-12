@@ -8,6 +8,7 @@ import {
 import { createRow, deleteRow, softDeleteRow, updateRow } from '@/lib/sync/mutations'
 
 import {
+  freeModelKey,
   reconcileModelLinks,
   resolveModel,
   resolveOrganizer,
@@ -56,6 +57,8 @@ export interface ReservationInput extends ShootOptionsInput, ShootPaymentInput {
   addAffiliation?: boolean
   /** 同名のフリーのモデルがいるときの選択（`ShootDetailsInput.freeModel` と同じ） */
   freeModel?: string
+  /** 2人目以降のモデルの選択（`ShootDetailsInput.extraFreeModels` と同じ） */
+  extraFreeModels?: Record<string, string>
 }
 
 export interface ReservationResult {
@@ -83,11 +86,15 @@ async function resolveExtraModels(
   modelNames: string[],
   eventName: string,
   preferIds: string[],
+  extraFreeModels: Record<string, string> = {},
 ): Promise<string[]> {
   if (!firstId) return []
   const ids = [firstId]
   for (const name of modelNames.slice(1)) {
-    const extra = await resolveModel(userId, name, eventName, { preferIds })
+    const extra = await resolveModel(userId, name, eventName, {
+      preferIds,
+      freeModel: extraFreeModels[freeModelKey(name)],
+    })
     if (!ids.includes(extra.id)) ids.push(extra.id)
   }
   return ids
@@ -120,7 +127,7 @@ export async function createReservation(
         freeModel: input.freeModel,
       })
     : null
-  const modelIds = await resolveExtraModels(userId, model?.id, modelNames, eventName, [])
+  const modelIds = await resolveExtraModels(userId, model?.id, modelNames, eventName, [], input.extraFreeModels)
 
   // 場所は venue_name のフォールバックがあるので、マスタに無ければ作らない。
   // 予約段階で場所マスタが増え続けるのを避ける
@@ -210,7 +217,7 @@ export async function updateReservation(
         preferIds: currentIds,
       })
     : null
-  const modelIds = await resolveExtraModels(userId, model?.id, modelNames, eventName, currentIds)
+  const modelIds = await resolveExtraModels(userId, model?.id, modelNames, eventName, currentIds, input.extraFreeModels)
 
   const venue = (await db.venues.toArray()).find(
     (v) => !v.deleted_at && normalize(v.name) === normalize(venueName),

@@ -45,6 +45,16 @@ export interface ShootDetailsInput {
    * 省略時は従来どおり、最初に見つかった同名のフリーのモデルを使う
    */
   freeModel?: string
+  /**
+   * 2人目以降のモデルの freeModel。キーは `freeModelKey(モデル名)`。
+   * 該当するモデル名が無ければ従来どおり
+   */
+  extraFreeModels?: Record<string, string>
+}
+
+/** `extraFreeModels` のキー */
+export function freeModelKey(modelName: string): string {
+  return normalize(modelName)
 }
 
 /** 撮影料とオプション。確定撮影情報入力と確定撮影情報で共通 */
@@ -175,7 +185,9 @@ async function prepareShoot(
   // 2人目以降は確認なしで、名前と撮影会名の組み合わせで照合する（無ければ作る）
   const extraIds: string[] = []
   for (const name of modelNames.slice(1)) {
-    const extra = await resolveShootModel(userId, name, event, currentModelIds)
+    const extra = await resolveShootModel(userId, name, event, currentModelIds, {
+      freeModel: input.extraFreeModels?.[freeModelKey(name)],
+    })
     if (extra.id !== model?.id && !extraIds.includes(extra.id)) extraIds.push(extra.id)
   }
   const modelIds = model ? [model.id, ...extraIds] : []

@@ -27,7 +27,7 @@ import {
   type ShootPaymentInput,
 } from '@/lib/actions/shoots'
 import { getActiveUserId } from '@/lib/auth/session'
-import { chooseFreeModel } from '@/lib/free-model-choice'
+import { chooseExtraFreeModels, chooseFreeModel } from '@/lib/free-model-choice'
 import { nextPathAfterSave } from '@/lib/new-model-prompt'
 import { categoryHasModel } from '@/lib/shoot-category'
 import { loadConfirmableReservations } from '@/lib/queries/shoots'
@@ -135,7 +135,15 @@ function ShootConfirm() {
       const freeModel = categoryHasModel(form.shootCategory)
         ? await chooseFreeModel(form.modelName, form.eventName, form.fromSessionId)
         : undefined
-      const { newModelId } = await confirmShoot(userId, { ...form, addAffiliation, freeModel })
+      const extraFreeModels = categoryHasModel(form.shootCategory)
+        ? await chooseExtraFreeModels(
+            form.modelName,
+            form.extraModelNames,
+            form.eventName,
+            form.fromSessionId,
+          )
+        : undefined
+      const { newModelId } = await confirmShoot(userId, { ...form, addAffiliation, freeModel, extraFreeModels })
       setForm(EMPTY)
       router.push(nextPathAfterSave(newModelId, '/'))
     } catch (err) {

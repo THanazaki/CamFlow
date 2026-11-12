@@ -8,7 +8,7 @@ import { Suspense } from 'react'
 import { ReservationForm } from '@/components/forms/ReservationForm'
 import { updateReservation } from '@/lib/actions/reservations'
 import { affiliationConfirmMessage, findAffiliationConflict } from '@/lib/actions/shoots'
-import { chooseFreeModel } from '@/lib/free-model-choice'
+import { chooseExtraFreeModels, chooseFreeModel } from '@/lib/free-model-choice'
 import { nextPathAfterSave } from '@/lib/new-model-prompt'
 import { loadReservationInput } from '@/lib/queries/reservations'
 import { categoryHasModel } from '@/lib/shoot-category'
@@ -72,10 +72,19 @@ function ReservationEdit() {
         const freeModel = categoryHasModel(form.shootCategory)
           ? await chooseFreeModel(form.modelName, form.eventName, id)
           : undefined
+        const extraFreeModels = categoryHasModel(form.shootCategory)
+          ? await chooseExtraFreeModels(
+              form.modelName,
+              form.extraModelNames,
+              form.eventName,
+              id,
+            )
+          : undefined
         const { newModelId } = await updateReservation(id, {
           ...form,
           addAffiliation,
           freeModel,
+          extraFreeModels,
         })
         // 「戻る」で編集画面に戻らないよう、履歴を置き換える
         router.replace(nextPathAfterSave(newModelId, SCHEDULE))

@@ -203,3 +203,17 @@ describe("複数モデルの過去撮影登録", () => {
     expect(names.sort()).toEqual(["凛", "栞奈"].sort());
   });
 });
+
+describe('2人目以降のモデルのフリー確認', () => {
+  it('extraFreeModels で同名のフリーのモデルを使うか、別モデルにするか選べる', async () => {
+    const first = await createShootHistory(USER, input({ extraModelNames: ['葵'] }))
+    const aoi = (await db.models.toArray()).find((m) => m.name === '葵')!
+
+    await createShootHistory(USER, input({ extraModelNames: ['葵'], extraFreeModels: { 葵: aoi.id } }))
+    expect((await db.models.toArray()).filter((m) => m.name === '葵')).toHaveLength(1)
+
+    await createShootHistory(USER, input({ extraModelNames: ['葵'], extraFreeModels: { 葵: 'new' } }))
+    expect((await db.models.toArray()).filter((m) => m.name === '葵')).toHaveLength(2)
+    expect(first.historyId).toBeTruthy()
+  })
+})

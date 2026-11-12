@@ -16,7 +16,7 @@ import {
   type ShootDetailsInput,
 } from '@/lib/actions/shoots'
 import { getActiveUserId } from '@/lib/auth/session'
-import { chooseFreeModel } from '@/lib/free-model-choice'
+import { chooseExtraFreeModels, chooseFreeModel } from '@/lib/free-model-choice'
 import { nextPathAfterSave } from '@/lib/new-model-prompt'
 import { categoryHasModel } from '@/lib/shoot-category'
 import { MAX_STORAGE_URLS } from '@/lib/storage-urls'
@@ -62,11 +62,19 @@ export default function ArchiveNewPage() {
       const freeModel = categoryHasModel(details.shootCategory)
         ? await chooseFreeModel(details.modelName, details.eventName)
         : undefined
+      const extraFreeModels = categoryHasModel(details.shootCategory)
+        ? await chooseExtraFreeModels(
+            details.modelName,
+            details.extraModelNames,
+            details.eventName,
+          )
+        : undefined
       const { newModelId } = await createShootHistory(userId, {
         ...details,
         storageUrls,
         addAffiliation,
         freeModel,
+        extraFreeModels,
       })
       clear()
       router.push(nextPathAfterSave(newModelId, '/'))

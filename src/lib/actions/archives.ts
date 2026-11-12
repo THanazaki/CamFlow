@@ -5,6 +5,7 @@ import { createRow, deleteRow, softDeleteRow, updateRow } from '@/lib/sync/mutat
 
 import {
   reconcileModelLinks,
+  freeModelKey,
   resolveVenue,
   resolveShootEvent,
   resolveShootModel,
@@ -70,7 +71,9 @@ async function prepareShootHistory(
     : null
   const extraIds: string[] = []
   for (const name of modelNames.slice(1)) {
-    const extra = await resolveShootModel(userId, name, event, currentModelIds)
+    const extra = await resolveShootModel(userId, name, event, currentModelIds, {
+      freeModel: input.extraFreeModels?.[freeModelKey(name)],
+    })
     if (extra.id !== model?.id && !extraIds.includes(extra.id)) extraIds.push(extra.id)
   }
   const venueId = await resolveVenue(userId, venueName, input.placeCategory)
