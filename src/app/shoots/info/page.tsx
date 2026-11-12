@@ -46,8 +46,9 @@ export default function ShootInfoPage() {
   const before = (shoots ?? [])
     .filter((s) => !s.finished)
     .sort((a, b) => `${a.shootDate} ${a.startTime}`.localeCompare(`${b.shootDate} ${b.startTime}`))
-  const after = (shoots ?? []).filter((s) => s.finished)
-  const pending = after.filter((s) => !s.registered).length
+  // 保存先を登録した撮影は過去撮影として扱い、ここには出さない（過去撮影一覧・撮影情報検索で見る）
+  const after = (shoots ?? []).filter((s) => s.finished && !s.registered)
+  const pending = after.length
   const visible = tab === 'before' ? before : after
 
   return (
@@ -56,7 +57,7 @@ export default function ShootInfoPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">確定撮影情報</h1>
           <p className="text-muted mt-1 text-sm">
-            確定した撮影の内容です。「撮影前」「撮影後」のタブで切り替えます。「編集」で日時・場所・モデル・オプションなどを修正できます。撮影後は「撮影後」タブから保存先ストレージURLを登録してください。
+            確定した撮影の内容です。「撮影前」「撮影後」のタブで切り替えます。「編集」で日時・場所・モデル・オプションなどを修正できます。撮影後は「撮影後」タブから保存先ストレージURLを登録してください。保存先を登録した撮影は過去撮影として扱い、この画面から消えます。
           </p>
         </div>
         <Link
