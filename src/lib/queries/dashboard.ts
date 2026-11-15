@@ -118,7 +118,7 @@ export interface DashboardData {
 }
 
 const LIMIT = 5
-const RECENT_LIMIT = 10
+const RECENT_LIMIT = 5
 
 /** YYYY-MM-DD（ローカル時刻基準） */
 function toDateKey(iso: string): string {
