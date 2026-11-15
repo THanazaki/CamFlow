@@ -58,18 +58,11 @@ export default function HistoryStatsPage() {
           {tab === "models" ? (
             <StatsTable
               title="モデル別情報"
-              columns={[
-                "モデル名",
-                "撮影回数",
-                "撮影予定回数",
-                "初撮影日",
-                "最新撮影日",
-              ]}
+              columns={["モデル名", "撮影回数", "撮影予定回数", "初撮影日", "最新撮影日"]}
               rows={stats.models.map((m) => ({
                 id: m.id,
                 name: m.name,
-                count: m.shootCount,
-                planned: m.plannedCount,
+                counts: [m.shootCount, m.plannedCount],
                 firstDate: m.firstDate,
                 lastDate: m.lastDate,
               }))}
@@ -83,14 +76,15 @@ export default function HistoryStatsPage() {
                 "撮影会名",
                 "撮影モデル数",
                 "撮影予定モデル数",
+                "撮影会利用回数",
+                "撮影会利用予定回数",
                 "初利用日",
                 "最新利用日",
               ]}
               rows={stats.organizers.map((o) => ({
                 id: o.id,
                 name: o.name,
-                count: o.modelCount,
-                planned: o.plannedModelCount,
+                counts: [o.modelCount, o.plannedModelCount, o.useCount, o.plannedUseCount],
                 firstDate: o.firstDate,
                 lastDate: o.lastDate,
               }))}
@@ -112,17 +106,19 @@ function StatsTable({
 }: {
   title: string;
   hint?: string;
-  columns: [string, string, string, string, string];
+  /** 名前 → 件数の列（counts と同じ数）→ 初日 → 最新日 の順 */
+  columns: string[];
   rows: {
     id: string;
     name: string;
-    count: number;
-    planned: number;
+    counts: number[];
     firstDate: string | null;
     lastDate: string | null;
   }[];
   emptyText: string;
 }) {
+  const countLabels = columns.slice(1, -2);
+  const [firstLabel, lastLabel] = columns.slice(-2);
   return (
     <section aria-label={title} className="space-y-3">
       <div>
@@ -142,28 +138,22 @@ function StatsTable({
                 key={row.id}
                 className="bg-surface border-border rounded-lg border px-4 py-3"
               >
-                <div className="flex items-baseline justify-between gap-3">
-                  <span className="min-w-0 font-medium break-words">
-                    {row.name}
-                  </span>
-                  <span className="shrink-0 text-right text-sm tabular-nums">
-                    <span className="text-muted mr-1 text-xs">
-                      {columns[1]}
-                    </span>
-                    {row.count}
-                    <span className="text-muted mr-1 ml-3 text-xs">
-                      {columns[2]}
-                    </span>
-                    {row.planned}
-                  </span>
-                </div>
+                <span className="block font-medium break-words">{row.name}</span>
+                <dl className="mt-1 grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs tabular-nums">
+                  {countLabels.map((label, i) => (
+                    <div key={label} className="flex justify-between gap-2">
+                      <dt className="text-muted">{label}</dt>
+                      <dd className="text-foreground text-sm">{row.counts[i]}</dd>
+                    </div>
+                  ))}
+                </dl>
                 <dl className="text-muted mt-1 flex flex-wrap gap-x-4 text-xs tabular-nums">
                   <div className="flex gap-1">
-                    <dt>{columns[3]}</dt>
+                    <dt>{firstLabel}</dt>
                     <dd className="text-foreground">{row.firstDate ?? "—"}</dd>
                   </div>
                   <div className="flex gap-1">
-                    <dt>{columns[4]}</dt>
+                    <dt>{lastLabel}</dt>
                     <dd className="text-foreground">{row.lastDate ?? "—"}</dd>
                   </div>
                 </dl>
@@ -177,38 +167,32 @@ function StatsTable({
                   <th scope="col" className="px-4 py-2.5 font-medium">
                     {columns[0]}
                   </th>
-                  <th
-                    scope="col"
-                    className="w-28 px-4 py-2.5 text-right font-medium"
-                  >
-                    {columns[1]}
-                  </th>
-                  <th
-                    scope="col"
-                    className="w-36 px-4 py-2.5 text-right font-medium"
-                  >
-                    {columns[2]}
+                  {countLabels.map((label) => (
+                    <th
+                      key={label}
+                      scope="col"
+                      className="px-4 py-2.5 text-right font-medium whitespace-nowrap"
+                    >
+                      {label}
+                    </th>
+                  ))}
+                  <th scope="col" className="w-32 px-4 py-2.5 font-medium">
+                    {firstLabel}
                   </th>
                   <th scope="col" className="w-32 px-4 py-2.5 font-medium">
-                    {columns[3]}
-                  </th>
-                  <th scope="col" className="w-32 px-4 py-2.5 font-medium">
-                    {columns[4]}
+                    {lastLabel}
                   </th>
                 </tr>
               </thead>
               <tbody className="divide-border divide-y">
                 {rows.map((row) => (
                   <tr key={row.id}>
-                    <td className="px-4 py-3 font-medium break-words">
-                      {row.name}
-                    </td>
-                    <td className="px-4 py-3 text-right tabular-nums">
-                      {row.count}
-                    </td>
-                    <td className="px-4 py-3 text-right tabular-nums">
-                      {row.planned}
-                    </td>
+                    <td className="px-4 py-3 font-medium break-words">{row.name}</td>
+                    {row.counts.map((n, i) => (
+                      <td key={i} className="px-4 py-3 text-right tabular-nums">
+                        {n}
+                      </td>
+                    ))}
                     <td className="px-4 py-3 whitespace-nowrap tabular-nums">
                       {row.firstDate ?? "—"}
                     </td>

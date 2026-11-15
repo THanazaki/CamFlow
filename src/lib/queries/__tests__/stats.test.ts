@@ -165,6 +165,17 @@ describe('撮影会別情報', () => {
     ])
   })
 
+  it('撮影会利用回数は撮影イベントの数。モデルなしの撮影も数え、予定は別に数える', async () => {
+    await createShootHistory(USER, history({ eventName: '秋', modelName: '葵', shootDate: '2026-01-10' }))
+    await createShootHistory(USER, history({ eventName: '秋', shootDate: '2026-01-20' }))
+    await confirmShoot(USER, confirmation({ eventName: '秋', modelName: '葵', shootDate: '2026-07-01' }))
+    await confirmShoot(USER, confirmation({ eventName: '秋', modelName: '栞奈', shootDate: '2026-07-02' }))
+
+    expect((await loadHistoryStats(NOW)).organizers).toMatchObject([
+      { name: '秋', useCount: 2, plannedUseCount: 2 },
+    ])
+  })
+
   it('撮影会名が未入力の撮影は数えない', async () => {
     await createShootHistory(USER, history())
     await confirmShoot(USER, confirmation({ concept: 'コンセプト' }))

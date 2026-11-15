@@ -28,6 +28,7 @@ export default function RankingPage() {
             name: r.item.name,
             count: r.item.shootCount,
             lastDate: r.item.lastDate,
+            extras: [] as { label: string; value: number }[],
           }))
         : rankBy(stats.organizers, (o) => o.modelCount).map((r) => ({
             id: r.item.id,
@@ -35,6 +36,10 @@ export default function RankingPage() {
             name: r.item.name,
             count: r.item.modelCount,
             lastDate: r.item.lastDate,
+            extras: [
+              { label: '撮影会利用回数', value: r.item.useCount },
+              { label: '撮影会利用予定回数', value: r.item.plannedUseCount },
+            ],
           }))
   const unit = tab === 'models' ? '撮影回数' : '撮影モデル数'
 
@@ -97,9 +102,17 @@ export default function RankingPage() {
                       最新 {row.lastDate ?? '—'}
                     </span>
                   </span>
-                  <span className="shrink-0 text-right">
-                    <span className="text-muted block text-xs">{unit}</span>
-                    <span className="block font-semibold tabular-nums">{row.count}</span>
+                  <span className="flex shrink-0 gap-4 text-right">
+                    {row.extras.map((x) => (
+                      <span key={x.label}>
+                        <span className="text-muted block text-xs">{x.label}</span>
+                        <span className="block tabular-nums">{x.value}</span>
+                      </span>
+                    ))}
+                    <span>
+                      <span className="text-muted block text-xs">{unit}</span>
+                      <span className="block font-semibold tabular-nums">{row.count}</span>
+                    </span>
                   </span>
                 </li>
               ))}

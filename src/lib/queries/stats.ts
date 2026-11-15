@@ -23,6 +23,10 @@ export interface OrganizerHistoryStat {
   modelCount: number
   /** 撮影予定のモデルの人数。同じモデルは1人と数える */
   plannedModelCount: number
+  /** 撮影会利用回数。その撮影会の撮影イベントの数（同じイベントの枠は1回、モデルなしの撮影も数える） */
+  useCount: number
+  /** 撮影会利用予定回数。確定済みでまだ撮影日時になっていない撮影イベントの数 */
+  plannedUseCount: number
   /** 撮影予定しか無い撮影会は null */
   firstDate: string | null
   lastDate: string | null
@@ -40,6 +44,9 @@ interface Bucket {
   items: Set<string>
   /** 撮影予定で数えるもの */
   planned: Set<string>
+  /** 撮影会の利用回数用。撮影イベント（eventKey）の集合 */
+  events: Set<string>
+  plannedEvents: Set<string>
   firstDate: string | null
   lastDate: string | null
 }
@@ -47,7 +54,16 @@ interface Bucket {
 function bucketOf(buckets: Map<string, Bucket>, id: string, name: string): Bucket {
   let bucket = buckets.get(id)
   if (!bucket) {
-    bucket = { id, name, items: new Set(), planned: new Set(), firstDate: null, lastDate: null }
+    bucket = {
+      id,
+      name,
+      items: new Set(),
+      planned: new Set(),
+      events: new Set(),
+      plannedEvents: new Set(),
+      firstDate: null,
+      lastDate: null,
+    }
     buckets.set(id, bucket)
   }
   return bucket
@@ -93,7 +109,10 @@ export async function loadHistoryStats(now: Date = new Date()): Promise<HistoryS
       addPast(bucketOf(models, modelId, record.modelNames[i]), record.shootDate, [record.eventKey])
     })
     const org = organizerBucket(record)
-    if (org) addPast(org, record.shootDate, record.modelIds)
+    if (org) {
+      addPast(org, record.shootDate, record.modelIds)
+      org.events.add(record.eventKey)
+    }
   }
 
   for (const record of upcoming) {
@@ -101,7 +120,10 @@ export async function loadHistoryStats(now: Date = new Date()): Promise<HistoryS
       bucketOf(models, modelId, record.modelNames[i]).planned.add(record.eventKey)
     })
     const org = organizerBucket(record)
-    if (org) for (const modelId of record.modelIds) org.planned.add(modelId)
+    if (org) {
+      for (const modelId of record.modelIds) org.planned.add(modelId)
+      org.plannedEvents.add(record.eventKey)
+    }
   }
 
   return {
@@ -113,14 +135,18 @@ export async function loadHistoryStats(now: Date = new Date()): Promise<HistoryS
       firstDate,
       lastDate,
     })),
-    organizers: sortBuckets(orgs).map(({ id, name, items, planned, firstDate, lastDate }) => ({
-      id,
-      name,
-      modelCount: items.size,
-      plannedModelCount: planned.size,
-      firstDate,
-      lastDate,
-    })),
+    organizers: sortBuckets(orgs).map(
+      ({ id, name, items, planned, events, plannedEvents, firstDate, lastDate }) => ({
+        id,
+        name,
+        modelCount: items.size,
+        plannedModelCount: planned.size,
+        useCount: events.size,
+        plannedUseCount: plannedEvents.size,
+        firstDate,
+        lastDate,
+      }),
+    ),
   }
 }
 
