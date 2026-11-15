@@ -47,6 +47,8 @@ export async function loadOrganizerDetail(id: string): Promise<OrganizerDetail |
 export interface OrganizerRow {
   id: string
   name: string
+  /** 読み（50音のタブ分けに使う） */
+  nameKana: string | null
   baseLocation: string | null
 }
 
@@ -57,5 +59,11 @@ export async function loadOrganizerList(): Promise<OrganizerRow[]> {
   return organizers
     .filter((o) => !o.deleted_at)
     .sort((a, b) => (a.name_kana ?? a.name).localeCompare(b.name_kana ?? b.name, 'ja'))
-    .map((o) => ({ id: o.id, name: o.name, baseLocation: o.base_location ?? null }))
+
+    .map((o) => ({
+      id: o.id,
+      name: o.name,
+      nameKana: o.name_kana ?? null,
+      baseLocation: o.base_location ?? null,
+    }))
 }

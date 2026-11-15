@@ -3,6 +3,8 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import Link from 'next/link'
 
+import { KanaRowTabs } from '@/components/KanaRowTabs'
+import { kanaRowOf } from '@/lib/kana-row'
 import { loadModelList } from '@/lib/queries/models'
 
 const BUTTON_CLASS =
@@ -31,57 +33,61 @@ export default function ModelMasterPage() {
           <p className="mt-1">予約や撮影の登録時に入力したモデルがここに表示されます。</p>
         </div>
       ) : (
-        // relative が無いと sr-only（絶対配置）の見出しがこの外に出て、ページごと横に広がる
-        <div className="bg-surface border-border relative overflow-hidden rounded-lg border">
-          <table className="w-full table-fixed text-left text-sm">
-            <thead className="border-border text-muted border-b text-xs">
-              <tr>
-                <th scope="col" className="px-4 py-2.5 font-medium">
-                  モデル名
-                </th>
-                <th scope="col" className="px-4 py-2.5 font-medium">
-                  所属
-                </th>
-                <th scope="col" className="w-36 px-4 py-2.5 font-medium">
-                  <span className="sr-only">操作</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-border divide-y">
-              {rows.map((row) => (
-                <tr key={row.id}>
-                  <td className="px-4 py-3 font-medium break-words">{row.name}</td>
-                  <td className="px-4 py-3 break-words">
-                    {row.affiliation || <span className="text-muted">—</span>}
-                    {row.otherAffiliationCount > 0 && (
-                      <span className="text-muted ml-1 text-xs">
-                        ほか{row.otherAffiliationCount}
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex gap-2">
-                      <Link
-                        href={`/masters/models/detail?id=${encodeURIComponent(row.id)}`}
-                        aria-label={`${row.name} の詳細`}
-                        className={BUTTON_CLASS}
-                      >
-                        詳細
-                      </Link>
-                      <Link
-                        href={`/masters/models/edit?id=${encodeURIComponent(row.id)}`}
-                        aria-label={`${row.name} を編集`}
-                        className={BUTTON_CLASS}
-                      >
-                        編集
-                      </Link>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <KanaRowTabs rows={rows} rowOf={(r) => kanaRowOf(r.name, r.nameKana)}>
+          {(items) => (
+            // relative が無いと sr-only（絶対配置）の見出しがこの外に出て、ページごと横に広がる
+            <div className="bg-surface border-border relative overflow-hidden rounded-lg border">
+              <table className="w-full table-fixed text-left text-sm">
+                <thead className="border-border text-muted border-b text-xs">
+                  <tr>
+                    <th scope="col" className="px-4 py-2.5 font-medium">
+                      モデル名
+                    </th>
+                    <th scope="col" className="px-4 py-2.5 font-medium">
+                      所属
+                    </th>
+                    <th scope="col" className="w-36 px-4 py-2.5 font-medium">
+                      <span className="sr-only">操作</span>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-border divide-y">
+                  {items.map((row) => (
+                    <tr key={row.id}>
+                      <td className="px-4 py-3 font-medium break-words">{row.name}</td>
+                      <td className="px-4 py-3 break-words">
+                        {row.affiliation || <span className="text-muted">—</span>}
+                        {row.otherAffiliationCount > 0 && (
+                          <span className="text-muted ml-1 text-xs">
+                            ほか{row.otherAffiliationCount}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex gap-2">
+                          <Link
+                            href={`/masters/models/detail?id=${encodeURIComponent(row.id)}`}
+                            aria-label={`${row.name} の詳細`}
+                            className={BUTTON_CLASS}
+                          >
+                            詳細
+                          </Link>
+                          <Link
+                            href={`/masters/models/edit?id=${encodeURIComponent(row.id)}`}
+                            aria-label={`${row.name} を編集`}
+                            className={BUTTON_CLASS}
+                          >
+                            編集
+                          </Link>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </KanaRowTabs>
       )}
     </div>
   )

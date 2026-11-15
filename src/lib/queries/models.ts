@@ -64,6 +64,8 @@ export async function loadModelDetail(id: string): Promise<ModelDetail | null> {
 export interface ModelRow {
   id: string
   name: string
+  /** 読み（50音のタブ分けに使う） */
+  nameKana: string | null
   /** メインの所属 */
   affiliation: string | null
   /** メイン以外の所属の数 */
@@ -80,6 +82,7 @@ export async function loadModelList(): Promise<ModelRow[]> {
     .map((m) => ({
       id: m.id,
       name: m.name,
+      nameKana: m.name_kana ?? null,
       affiliation: m.affiliation ?? null,
       otherAffiliationCount: (m.sub_affiliations ?? []).length,
     }))
