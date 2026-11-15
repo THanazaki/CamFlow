@@ -12,6 +12,7 @@ import {
   type EventOrganizerRow,
   type ShootDetailsInput,
 } from './shoots'
+import { registeredModelName } from './model-link'
 
 /**
  * 過去撮影登録の書き込み。
@@ -143,7 +144,11 @@ export async function updateShootHistory(
   await updateRow('shoot_history', historyId, values)
 
   await reconcileModelLinks(links, modelIds, {
-    replace: (linkId, modelId) => updateRow('shoot_history_models', linkId, { model_id: modelId }),
+    replace: async (linkId, modelId) =>
+      updateRow('shoot_history_models', linkId, {
+        model_id: modelId,
+        model_name: await registeredModelName(modelId),
+      }),
     remove: (linkId) => deleteRow('shoot_history_models', linkId),
     add: (modelId) => addHistoryModel(userId, historyId, modelId),
   })
@@ -154,6 +159,7 @@ async function addHistoryModel(userId: string, historyId: string, modelId: strin
     user_id: userId,
     shoot_history_id: historyId,
     model_id: modelId,
+    model_name: await registeredModelName(modelId),
     fee: 0,
     payment_status: 'paid',
   })

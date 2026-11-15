@@ -113,7 +113,7 @@ export async function loadHistoryStats(now: Date = new Date()): Promise<HistoryS
 
   for (const record of records) {
     record.modelIds.forEach((modelId, i) => {
-      addPast(bucketOf(models, modelId, record.modelNames[i]), record.shootDate, [record.eventKey])
+      addPast(bucketOf(models, modelId, record.currentModelNames[i]), record.shootDate, [record.eventKey])
     })
     const org = organizerBucket(record)
     if (org) {
@@ -124,7 +124,7 @@ export async function loadHistoryStats(now: Date = new Date()): Promise<HistoryS
 
   for (const record of upcoming) {
     record.modelIds.forEach((modelId, i) => {
-      bucketOf(models, modelId, record.modelNames[i]).planned.add(record.eventKey)
+      bucketOf(models, modelId, record.currentModelNames[i]).planned.add(record.eventKey)
     })
     const org = organizerBucket(record)
     if (org) {
@@ -212,7 +212,7 @@ export function buildDashboardCharts(records: ShootRecord[], now: Date): Dashboa
     record.modelIds.forEach((id, i) => {
       let m = models.get(id)
       if (!m) {
-        m = { name: record.modelNames[i], events: new Set() }
+        m = { name: record.currentModelNames[i], events: new Set() }
         models.set(id, m)
       }
       m.events.add(record.eventKey)

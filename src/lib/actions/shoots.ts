@@ -11,6 +11,8 @@ import { isSlotFinished } from '@/lib/slot-time'
 import { normalizeStorageUrls } from '@/lib/storage-urls'
 import { createRow, deleteRow, updateRow } from '@/lib/sync/mutations'
 
+import { registeredModelName } from './model-link'
+
 /**
  * 確定撮影情報入力の書き込み。
  *
@@ -302,7 +304,11 @@ export async function reconcileModelLinks(
 async function linkSlotModels(userId: string, slotId: string, modelIds: string[]): Promise<void> {
   const links = await db.slot_models.where('slot_id').equals(slotId).toArray()
   await reconcileModelLinks(links, modelIds, {
-    replace: (linkId, modelId) => updateRow('slot_models', linkId, { model_id: modelId }),
+    replace: async (linkId, modelId) =>
+      updateRow('slot_models', linkId, {
+        model_id: modelId,
+        model_name: await registeredModelName(modelId),
+      }),
     remove: (linkId) => deleteRow('slot_models', linkId),
     add: (modelId) => ensureSlotModel(userId, slotId, modelId),
   })
@@ -682,7 +688,12 @@ async function ensureSlotModel(userId: string, slotId: string, modelId: string):
     .filter((sm) => sm.model_id === modelId)
     .first()
   if (existing) return
-  await createRow('slot_models', { user_id: userId, slot_id: slotId, model_id: modelId })
+  await createRow('slot_models', {
+    user_id: userId,
+    slot_id: slotId,
+    model_id: modelId,
+    model_name: await registeredModelName(modelId),
+  })
 }
 
 /**

@@ -112,6 +112,9 @@ export async function updateModel(modelId: string, input: ModelInput): Promise<U
     throw new Error(`「${name}」（所属：なし）は既に登録されています`)
   }
 
+  // 改名するときは、登録時の名義をまだ持たない紐づけに今の名前を残す（過去の撮影の表示を変えない）
+  if (model.name !== name) await keepRegisteredName(modelId, model.name)
+
   // sns_links は互換用（sns_accounts を持たない古い行の読み取り用）なので書き換えない
   await updateRow('models', modelId, {
     name,
@@ -137,6 +140,18 @@ export async function updateModel(modelId: string, input: ModelInput): Promise<U
     ...(saved?.sub_affiliations ?? subs),
   ])
   return { createdOrganizers, mergedCount: duplicates.length }
+}
+
+/** 登録時の名義（model_name）が空の紐づけに、改名前の名前を入れる */
+async function keepRegisteredName(modelId: string, oldName: string): Promise<void> {
+  for (const row of await db.slot_models.where('model_id').equals(modelId).toArray()) {
+    if (row.model_name == null) await updateRow('slot_models', row.id, { model_name: oldName })
+  }
+  for (const row of await db.shoot_history_models.where('model_id').equals(modelId).toArray()) {
+    if (row.model_name == null) {
+      await updateRow('shoot_history_models', row.id, { model_name: oldName })
+    }
+  }
 }
 
 /** 所属のうち撮影会マスタに無いものを登録し、登録した名前を返す */

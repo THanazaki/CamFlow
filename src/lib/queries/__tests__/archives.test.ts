@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 
 import { createShootHistory, updateShootHistory, type ShootHistoryInput } from '@/lib/actions/archives'
+import { updateModel } from '@/lib/actions/models'
 import { createReservation } from '@/lib/actions/reservations'
 import { confirmShoot, updateConfirmedShoot, type ShootConfirmInput } from '@/lib/actions/shoots'
 import { db } from '@/lib/db'
@@ -443,5 +444,49 @@ describe('過去撮影の編集', () => {
 
   it('存在しない撮影はエラー', async () => {
     await expect(updateShootHistory(USER, 'missing', history())).rejects.toThrow('見つかりません')
+  })
+})
+
+describe('モデルの登録時の名義', () => {
+  it('改名しても、過去の撮影には登録時の名前を出す（編集フォームと統計は今の名前）', async () => {
+    const { historyId } = await createShootHistory(USER, history({ modelName: '葵' }))
+    await confirmShoot(USER, confirmation({ eventName: '過去の撮影会', modelName: '葵', shootDate: '2026-06-01' }))
+    const model = (await db.models.toArray()).find((m) => m.name === '葵')!
+
+    await updateModel(model.id, {
+      name: '葵改',
+      nameKana: '',
+      accounts: [],
+      contactMethod: '',
+      contactValue: '',
+      affiliations: [''],
+      mainAffiliation: 0,
+      aliases: [],
+      isFavorite: false,
+      status: 'active',
+      notes: '',
+    })
+
+    const records = await loadShootArchive(NOW)
+    expect(records.map((r) => r.modelNames)).toEqual([['葵'], ['葵']])
+    expect(records.map((r) => r.currentModelNames)).toEqual([['葵改'], ['葵改']])
+    expect((await loadShootRecord('history', historyId))?.modelNames).toEqual(['葵'])
+    // 検索は登録時の名前でも今の名前でも当たる
+    expect(filterShootArchive(records, { ...EMPTY_SHOOT_SEARCH, modelName: '葵改' })).toHaveLength(2)
+    expect(filterShootArchive(records, { ...EMPTY_SHOOT_SEARCH, modelName: '葵' })).toHaveLength(2)
+  })
+
+  it('登録時の名義が空の行は、改名の保存で改名前の名前を残す', async () => {
+    const { historyId } = await createShootHistory(USER, history({ modelName: '葵' }))
+    const link = (await db.shoot_history_models.where('shoot_history_id').equals(historyId).toArray())[0]
+    await db.shoot_history_models.update(link.id, { model_name: null })
+    const model = (await db.models.toArray())[0]
+
+    await updateModel(model.id, {
+      name: '葵改', nameKana: '', accounts: [], contactMethod: '', contactValue: '',
+      affiliations: [''], mainAffiliation: 0, aliases: [], isFavorite: false, status: 'active', notes: '',
+    })
+
+    expect((await loadShootRecord('history', historyId))?.modelNames).toEqual(['葵'])
   })
 })

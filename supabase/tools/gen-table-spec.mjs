@@ -153,6 +153,7 @@ const COLUMN_NOTES = {
 
   'slot_models.slot_id': '`slots` 参照（**cascade**）',
   'slot_models.model_id': '`models` 参照（**restrict**：撮影履歴のあるモデルは物理削除できない）',
+  'slot_models.model_name': '登録時のモデル名義。改名後も過去の撮影にはこの名前を出す。null なら `models.name`',
   'slot_models.costume': '衣装（モデルごとに異なる）',
   'slot_models.fee': 'モデル料。0以上',
   'slot_models.extension_fee': '延長料。0以上',
@@ -199,6 +200,7 @@ const COLUMN_NOTES = {
 
   'shoot_history_models.shoot_history_id': '`shoot_history` 参照（cascade）',
   'shoot_history_models.model_id': '`models` 参照（restrict）',
+  'shoot_history_models.model_name': '登録時のモデル名義。改名後も過去の撮影にはこの名前を出す。null なら `models.name`',
   'shoot_history_models.costume': '衣装',
   'shoot_history_models.fee': 'モデル料。0以上',
   'shoot_history_models.payment_status': '支払い状態。過去分は基本的に支払い済み',

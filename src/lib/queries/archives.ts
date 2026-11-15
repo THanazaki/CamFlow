@@ -26,7 +26,10 @@ export interface ShootRecord {
   concept: string | null
   placeCategory: PlaceCategory | null
   venueName: string | null
+  /** 登録時の名義（改名後も変わらない）。表示に使う */
   modelNames: string[]
+  /** 今のモデル名（modelNames と同じ順）。編集フォームの初期値と統計に使う */
+  currentModelNames: string[]
   /** modelNames と同じ順 */
   modelIds: string[]
   /** 撮影会マスタへの紐づけ。撮影会名が未入力の撮影は null */
@@ -84,12 +87,15 @@ type Tables = Awaited<ReturnType<typeof loadTables>>
 
 interface RecordModel {
   id: string
+  /** 登録時の名義。過去の撮影にはこちらを出す */
   name: string
+  /** 今のモデル名。編集フォームの初期値や統計はこちら（名前でモデルを引き直すため） */
+  currentName: string
 }
 
 /** 紐づく行からモデルを引くための表。削除済みのモデルも過去の記録として名前を出す */
 function modelsBy<K extends string>(
-  links: ({ model_id: string } & Record<K, string>)[],
+  links: ({ model_id: string; model_name?: string | null } & Record<K, string>)[],
   key: K,
   models: Tables['models'],
 ): Map<string, RecordModel[]> {
@@ -98,7 +104,10 @@ function modelsBy<K extends string>(
   for (const link of links) {
     const name = nameById.get(link.model_id)
     if (!name) continue
-    result.set(link[key], [...(result.get(link[key]) ?? []), { id: link.model_id, name }])
+    result.set(link[key], [
+      ...(result.get(link[key]) ?? []),
+      { id: link.model_id, name: link.model_name || name, currentName: name },
+    ])
   }
   return result
 }
@@ -150,6 +159,7 @@ function fromSlot(
     placeCategory: session.place_category ?? null,
     venueName: venueNameOf(session, venues),
     modelNames: models.map((m) => m.name),
+    currentModelNames: models.map((m) => m.currentName),
     modelIds: models.map((m) => m.id),
     organizerId: session.organizer_id ?? null,
     eventKey: `session:${session.id}`,
@@ -186,6 +196,7 @@ function fromHistory(
     placeCategory: history.place_category ?? null,
     venueName: venueNameOf(history, venues),
     modelNames: models.map((m) => m.name),
+    currentModelNames: models.map((m) => m.currentName),
     modelIds: models.map((m) => m.id),
     organizerId: history.organizer_id ?? null,
     eventKey: `history:${history.id}`,
@@ -302,7 +313,7 @@ export function filterShootArchive(
   return records.filter(
     (r) =>
       includes(r.title, c.eventName) &&
-      (!c.modelName.trim() || r.modelNames.some((name) => includes(name, c.modelName))) &&
+      (!c.modelName.trim() || [...r.modelNames, ...r.currentModelNames].some((name) => includes(name, c.modelName))) &&
       includes(r.venueName, c.venueName) &&
       (!c.dateFrom || r.shootDate >= c.dateFrom) &&
       (!c.dateTo || r.shootDate <= c.dateTo),

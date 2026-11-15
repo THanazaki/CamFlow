@@ -7,6 +7,8 @@ import {
 } from '@/lib/shoot-category'
 import { createRow, deleteRow, softDeleteRow, updateRow } from '@/lib/sync/mutations'
 
+import { registeredModelName } from './model-link'
+
 import {
   freeModelKey,
   reconcileModelLinks,
@@ -172,6 +174,7 @@ export async function createReservation(
       user_id: userId,
       slot_id: slotId,
       model_id: modelId,
+      model_name: await registeredModelName(modelId),
     })
   }
 
@@ -247,10 +250,19 @@ export async function updateReservation(
 
   const links = await db.slot_models.where('slot_id').equals(slot.id).toArray()
   await reconcileModelLinks(links, modelIds, {
-    replace: (linkId, modelId) => updateRow('slot_models', linkId, { model_id: modelId }),
+    replace: async (linkId, modelId) =>
+      updateRow('slot_models', linkId, {
+        model_id: modelId,
+        model_name: await registeredModelName(modelId),
+      }),
     remove: (linkId) => deleteRow('slot_models', linkId),
     add: async (modelId) => {
-      await createRow('slot_models', { user_id: userId, slot_id: slot.id, model_id: modelId })
+      await createRow('slot_models', {
+        user_id: userId,
+        slot_id: slot.id,
+        model_id: modelId,
+        model_name: await registeredModelName(modelId),
+      })
     },
   })
 

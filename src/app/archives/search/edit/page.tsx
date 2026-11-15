@@ -78,8 +78,8 @@ function toFormValues(record: ShootRecord): ShootFormInput {
   return {
     eventName: record.title,
     shootCategory: record.shootCategory ?? DEFAULT_SHOOT_CATEGORY,
-    modelName: record.modelNames[0] ?? '',
-    extraModelNames: record.modelNames.slice(1),
+    modelName: record.currentModelNames[0] ?? '',
+    extraModelNames: record.currentModelNames.slice(1),
     concept: record.concept ?? '',
     placeCategory: record.placeCategory ?? DEFAULT_PLACE_CATEGORY,
     venueName: record.venueName ?? '',

@@ -445,6 +445,7 @@ export type Database = {
           user_id: string
           slot_id: string
           model_id: string
+          model_name: string | null
           costume: string | null
           fee: number
           extension_fee: number
@@ -467,6 +468,7 @@ export type Database = {
           user_id: string
           slot_id: string
           model_id: string
+          model_name?: string | null
           costume?: string | null
           fee?: number
           extension_fee?: number
@@ -489,6 +491,7 @@ export type Database = {
           user_id?: string
           slot_id?: string
           model_id?: string
+          model_name?: string | null
           costume?: string | null
           fee?: number
           extension_fee?: number
@@ -652,6 +655,7 @@ export type Database = {
           user_id: string
           shoot_history_id: string
           model_id: string
+          model_name: string | null
           costume: string | null
           fee: number
           payment_status: Database['public']['Enums']['payment_status']
@@ -665,6 +669,7 @@ export type Database = {
           user_id: string
           shoot_history_id: string
           model_id: string
+          model_name?: string | null
           costume?: string | null
           fee?: number
           payment_status?: Database['public']['Enums']['payment_status']
@@ -678,6 +683,7 @@ export type Database = {
           user_id?: string
           shoot_history_id?: string
           model_id?: string
+          model_name?: string | null
           costume?: string | null
           fee?: number
           payment_status?: Database['public']['Enums']['payment_status']
