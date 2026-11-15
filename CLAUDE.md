@@ -39,9 +39,8 @@
   過去撮影一覧              /archives/list
   撮影情報検索              /archives/search
 統計情報 ▾
-  予約可否情報              /stats/availability
-  過去撮影情報              /stats/history
-  撮影料積算                /stats/fees
+  全撮影データ              /stats/history
+  ランキング                /stats/ranking
 マスタ管理 ▾
   モデルマスタ              /masters/models
   撮影会マスタ              /masters/organizers
@@ -113,7 +112,7 @@
 - **集計値はカラムで持たない**（撮影回数・累計支払額・総支出）。ビューから導出する。
 - **「過去の撮影」を扱う画面は個別テーブルではなく必ずビューを見ること。**
   2系統に分かれているため、片方しか見ないと数が合わなくなる。
-  撮影情報検索と過去撮影情報（`src/lib/queries/archives.ts`）は、撮影済みへ変更する画面がまだ無いため、
+  撮影情報検索と全撮影データ（`src/lib/queries/archives.ts`）は、撮影済みへ変更する画面がまだ無いため、
   確定済みで撮影日時を過ぎた枠も含めている（`docs/仕様書.md` 8.11.1）。
 
 | ビュー | 用途 |

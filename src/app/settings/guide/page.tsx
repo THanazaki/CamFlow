@@ -322,7 +322,7 @@ export default function GuidePage() {
 
       <Section id="stats">
         <p>
-          <ScreenLink href="/stats/history">過去撮影情報</ScreenLink>
+          <ScreenLink href="/stats/history">全撮影データ</ScreenLink>
           では、撮影情報検索で探せる撮影の実績と、これからの撮影予定を集計して確認できます。
         </p>
         <Definitions
@@ -334,6 +334,10 @@ export default function GuidePage() {
         <p>「モデル別情報」と「撮影会別情報」はタブで切り替えます。撮影会別情報には、撮影会名を入力した撮影だけが集計されます。</p>
         <p>
           撮影予定は、確定撮影情報入力で確定した撮影のうち、まだ撮影日時になっていないものです。予約中の撮影は含みません。撮影予定しか無いモデルや撮影会も表示され、撮影日の欄は「—」になります。
+        </p>
+        <p>
+          <ScreenLink href="/stats/ranking">ランキング</ScreenLink>
+          では、撮影実績の多い順に上位20位までを確認できます。「モデル」は撮影回数、「撮影会」は撮影したモデルの人数で並び、タブで切り替えます。撮影予定は含めず、同じ数は同順位です。
         </p>
       </Section>
 
@@ -395,7 +399,7 @@ export default function GuidePage() {
           <li>モデルマスタからのモデルの新規登録と削除</li>
           <li>撮影会マスタからの撮影会の新規登録と削除</li>
           <li>
-            メニューで「準備中」と表示されている画面の利用（予約可否情報、撮影料積算、通知設定、アカウント設定）
+            メニューで「準備中」と表示されている画面の利用（通知設定、アカウント設定）
           </li>
         </ul>
         <Note>

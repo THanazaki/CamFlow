@@ -12,7 +12,7 @@ const TABS: { key: Tab; label: string }[] = [
   { key: "organizers", label: "撮影会別情報" },
 ];
 
-/** 過去撮影情報。モデル別情報と撮影会別情報をタブで切り替えて表示する */
+/** 全撮影データ。モデル別情報と撮影会別情報をタブで切り替えて表示する */
 export default function HistoryStatsPage() {
   const stats = useLiveQuery(() => loadHistoryStats(), [], null);
   const [tab, setTab] = useState<Tab>("models");
@@ -20,7 +20,7 @@ export default function HistoryStatsPage() {
   return (
     <div className="space-y-6">
       <header>
-        <h1 className="text-2xl font-semibold tracking-tight">過去撮影情報</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">全撮影データ</h1>
         <p className="text-muted mt-1 text-sm">
           撮影日を過ぎた確定済みの撮影と、過去撮影登録で登録した撮影の実績です。撮影予定は、確定済みでまだ撮影日時になっていない撮影を数えます（予約中のものは含めません）。
         </p>

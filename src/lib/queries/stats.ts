@@ -2,7 +2,7 @@ import { db } from '@/lib/db'
 
 import { loadShootArchive, loadUpcomingShoots, type ShootRecord } from './archives'
 
-/** モデル別の過去撮影情報 */
+/** モデル別の全撮影データ */
 export interface ModelHistoryStat {
   id: string
   name: string
@@ -15,7 +15,7 @@ export interface ModelHistoryStat {
   lastDate: string | null
 }
 
-/** 撮影会別の過去撮影情報 */
+/** 撮影会別の全撮影データ */
 export interface OrganizerHistoryStat {
   id: string
   name: string
@@ -68,7 +68,7 @@ function sortBuckets(buckets: Map<string, Bucket>): Bucket[] {
 }
 
 /**
- * 過去撮影情報。対象は撮影情報検索と同じ（loadShootArchive）で、数が画面ごとに食い違わない。
+ * 全撮影データ。対象は撮影情報検索と同じ（loadShootArchive）で、数が画面ごとに食い違わない。
  * 撮影予定は確定済みでまだ撮影日時になっていない撮影（loadUpcomingShoots）。予約段階のものは含めない。
  * 撮影会別は撮影会マスタに紐づく撮影だけを数える。撮影会名が未入力の撮影のタイトルは
  * 「葵 撮影」のような自動のものなので、撮影会として扱えない。
