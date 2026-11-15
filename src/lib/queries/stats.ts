@@ -6,6 +6,8 @@ import { loadShootArchive, loadUpcomingShoots, type ShootRecord } from './archiv
 export interface ModelHistoryStat {
   id: string
   name: string
+  /** 読み（50音のタブ分けに使う）。マスタに無い・未入力なら null */
+  nameKana: string | null
   /** 撮影回数。撮影イベントの数で、同じイベントの枠は1回と数える */
   shootCount: number
   /** 撮影予定回数。確定済みでまだ撮影日時になっていない撮影イベントの数（数え方は撮影回数と同じ） */
@@ -19,6 +21,8 @@ export interface ModelHistoryStat {
 export interface OrganizerHistoryStat {
   id: string
   name: string
+  /** 読み（50音のタブ分けに使う）。未入力なら null */
+  nameKana: string | null
   /** 撮影したモデルの人数。同じモデルは1人と数える */
   modelCount: number
   /** 撮影予定のモデルの人数。同じモデルは1人と数える */
@@ -90,11 +94,14 @@ function sortBuckets(buckets: Map<string, Bucket>): Bucket[] {
  * 「葵 撮影」のような自動のものなので、撮影会として扱えない。
  */
 export async function loadHistoryStats(now: Date = new Date()): Promise<HistoryStats> {
-  const [records, upcoming, organizers] = await Promise.all([
+  const [records, upcoming, organizers, modelRows] = await Promise.all([
     loadShootArchive(now),
     loadUpcomingShoots(now),
     db.organizers.toArray(),
+    db.models.toArray(),
   ])
+  const modelKana = new Map(modelRows.map((m) => [m.id, m.name_kana ?? null]))
+  const organizerKana = new Map(organizers.map((o) => [o.id, o.name_kana ?? null]))
   const organizerNames = new Map(organizers.map((o) => [o.id, o.name]))
 
   const models = new Map<string, Bucket>()
@@ -130,6 +137,7 @@ export async function loadHistoryStats(now: Date = new Date()): Promise<HistoryS
     models: sortBuckets(models).map(({ id, name, items, planned, firstDate, lastDate }) => ({
       id,
       name,
+      nameKana: modelKana.get(id) ?? null,
       shootCount: items.size,
       plannedCount: planned.size,
       firstDate,
@@ -139,6 +147,7 @@ export async function loadHistoryStats(now: Date = new Date()): Promise<HistoryS
       ({ id, name, items, planned, events, plannedEvents, firstDate, lastDate }) => ({
         id,
         name,
+        nameKana: organizerKana.get(id) ?? null,
         modelCount: items.size,
         plannedModelCount: planned.size,
         useCount: events.size,
