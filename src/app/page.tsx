@@ -2,6 +2,7 @@
 
 import { useLiveQuery } from 'dexie-react-hooks'
 
+import { DashboardBarCharts } from '@/components/dashboard/BarCharts'
 import { ReminderCard, ReminderRow } from '@/components/dashboard/ReminderCard'
 import {
   loadDashboard,
@@ -11,6 +12,7 @@ import {
   type ShootSummary,
   type TodayShoot,
 } from '@/lib/queries/dashboard'
+import { loadDashboardCharts } from '@/lib/queries/stats'
 import { useSync } from '@/lib/sync/useSync'
 import { pad2, splitDuration, useNow } from '@/lib/use-now'
 
@@ -25,6 +27,7 @@ import { pad2, splitDuration, useNow } from '@/lib/use-now'
  */
 export default function DashboardPage() {
   const data = useLiveQuery(() => loadDashboard(), [], null)
+  const charts = useLiveQuery(() => loadDashboardCharts(), [], null)
   const { phase } = useSync()
   const nowMs = useNow()
 
@@ -105,6 +108,8 @@ export default function DashboardPage() {
           ))}
         </ReminderCard>
       </div>
+
+      {charts && <DashboardBarCharts charts={charts} />}
 
       {/* 下段: 直近の撮影済み */}
       <section className="bg-surface border-border rounded-lg border">

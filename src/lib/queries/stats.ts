@@ -123,3 +123,76 @@ export async function loadHistoryStats(now: Date = new Date()): Promise<HistoryS
     })),
   }
 }
+
+/** ダッシュボードのグラフ用。過去12か月（今月を含む）の集計 */
+export interface MonthlyStat {
+  /** YYYY-MM */
+  month: string
+  /** 撮影回数。撮影イベントの数で、同じイベントの枠は1回と数える */
+  shootCount: number
+  /** 撮影料の合計 */
+  fee: number
+}
+
+export interface ModelCountStat {
+  id: string
+  name: string
+  shootCount: number
+}
+
+export interface DashboardCharts {
+  months: MonthlyStat[]
+  /** 撮影回数の多い順（最大 MODEL_CHART_LIMIT 人）。同じ回数なら名前の順 */
+  models: ModelCountStat[]
+  /** 12か月の撮影に出たモデルの人数（上位に入りきらない分を含む） */
+  modelTotal: number
+}
+
+export const MODEL_CHART_LIMIT = 10
+
+/** now を含む直近 count か月の YYYY-MM（古い順） */
+export function recentMonths(now: Date, count = 12): string[] {
+  return Array.from({ length: count }, (_, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth() - (count - 1 - i), 1)
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+  })
+}
+
+/** 撮影情報検索と同じ対象（loadShootArchive）を数えるので、画面ごとに数がずれない */
+export async function loadDashboardCharts(now: Date = new Date()): Promise<DashboardCharts> {
+  const records = await loadShootArchive(now)
+  return buildDashboardCharts(records, now)
+}
+
+export function buildDashboardCharts(records: ShootRecord[], now: Date): DashboardCharts {
+  const keys = recentMonths(now)
+  const buckets = new Map(keys.map((m) => [m, { events: new Set<string>(), fee: 0 }]))
+  const models = new Map<string, { name: string; events: Set<string> }>()
+
+  for (const record of records) {
+    const bucket = buckets.get(record.shootDate.slice(0, 7))
+    if (!bucket) continue
+    bucket.events.add(record.eventKey)
+    bucket.fee += record.shootFee
+    record.modelIds.forEach((id, i) => {
+      let m = models.get(id)
+      if (!m) {
+        m = { name: record.modelNames[i], events: new Set() }
+        models.set(id, m)
+      }
+      m.events.add(record.eventKey)
+    })
+  }
+
+  const ranked = [...models].map(([id, m]) => ({ id, name: m.name, shootCount: m.events.size }))
+  ranked.sort((a, b) => b.shootCount - a.shootCount || a.name.localeCompare(b.name, 'ja'))
+
+  return {
+    months: keys.map((month) => {
+      const b = buckets.get(month)!
+      return { month, shootCount: b.events.size, fee: b.fee }
+    }),
+    models: ranked.slice(0, MODEL_CHART_LIMIT),
+    modelTotal: ranked.length,
+  }
+}
