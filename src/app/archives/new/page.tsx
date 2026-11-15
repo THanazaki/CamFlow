@@ -18,6 +18,7 @@ import {
 import { getActiveUserId } from '@/lib/auth/session'
 import { chooseExtraFreeModels, chooseFreeModel } from '@/lib/free-model-choice'
 import { nextPathAfterSave } from '@/lib/new-model-prompt'
+import { shootRecordHref } from '@/lib/queries/archives'
 import { categoryHasModel } from '@/lib/shoot-category'
 import { MAX_STORAGE_URLS } from '@/lib/storage-urls'
 
@@ -69,7 +70,7 @@ export default function ArchiveNewPage() {
             details.eventName,
           )
         : undefined
-      const { newModelId } = await createShootHistory(userId, {
+      const { historyId, newModelId } = await createShootHistory(userId, {
         ...details,
         storageUrls,
         addAffiliation,
@@ -77,7 +78,10 @@ export default function ArchiveNewPage() {
         extraFreeModels,
       })
       clear()
-      router.push(nextPathAfterSave(newModelId, '/'))
+      router.push(nextPathAfterSave(
+          newModelId,
+          shootRecordHref('detail', { source: 'history', id: historyId }),
+        ))
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {

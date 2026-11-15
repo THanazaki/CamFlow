@@ -280,7 +280,7 @@ export default function GuidePage() {
         <p>
           予約や確定の入力を通していない過去の撮影は、
           <ScreenLink href="/archives/new">過去撮影登録</ScreenLink>
-          から撮影済みとして登録します。
+          から撮影済みとして登録します。登録すると、登録した撮影の詳細が表示されます。
         </p>
         <Definitions
           items={[
