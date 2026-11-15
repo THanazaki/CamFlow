@@ -2,6 +2,7 @@
 
 import { useLiveQuery } from 'dexie-react-hooks'
 
+import { DayTimeline } from '@/components/DayTimeline'
 import { DashboardBarCharts } from '@/components/dashboard/BarCharts'
 import { ReminderCard, ReminderRow } from '@/components/dashboard/ReminderCard'
 import {
@@ -13,6 +14,8 @@ import {
   type TodayShoot,
 } from '@/lib/queries/dashboard'
 import { loadDashboardCharts } from '@/lib/queries/stats'
+import { loadDayTimeline } from '@/lib/queries/timeline'
+import { localToday } from '@/lib/actions/archives'
 import { useSync } from '@/lib/sync/useSync'
 import { pad2, splitDuration, useNow } from '@/lib/use-now'
 
@@ -28,6 +31,7 @@ import { pad2, splitDuration, useNow } from '@/lib/use-now'
 export default function DashboardPage() {
   const data = useLiveQuery(() => loadDashboard(), [], null)
   const charts = useLiveQuery(() => loadDashboardCharts(), [], null)
+  const timeline = useLiveQuery(() => loadDayTimeline(localToday()), [], null)
   const { phase } = useSync()
   const nowMs = useNow()
 
@@ -52,6 +56,21 @@ export default function DashboardPage() {
       </header>
 
       <TodayShoots shoots={data.today} nowMs={nowMs} />
+
+      <section className="bg-surface border-border rounded-lg border">
+        <header className="border-border border-b px-4 py-3">
+          <h2 className="text-sm font-medium">今日のタイムチャート</h2>
+        </header>
+        <div className="p-4">
+          {timeline !== null && (
+            <DayTimeline
+              entries={timeline}
+              nowMinutes={nowMs === null ? null : new Date(nowMs).getHours() * 60 + new Date(nowMs).getMinutes()}
+              emptyText="本日の撮影はありません"
+            />
+          )}
+        </div>
+      </section>
 
       {/* 上段: 3つのリマインド */}
       <div className="grid gap-4 lg:grid-cols-3">

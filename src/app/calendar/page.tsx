@@ -4,6 +4,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import Link from 'next/link'
 import { useMemo, useState } from 'react'
 
+import { DayTimeline } from '@/components/DayTimeline'
 import { localToday } from '@/lib/actions/archives'
 import {
   buildMonthGrid,
@@ -12,6 +13,7 @@ import {
   type CalendarEvent,
 } from '@/lib/calendar'
 import { loadCalendarEvents } from '@/lib/queries/calendar'
+import { loadDayTimeline } from '@/lib/queries/timeline'
 
 const WEEKDAYS = ['日', '月', '火', '水', '木', '金', '土']
 /** セルに並べる予定の数。超えた分は「他n件」にして、日をタップすると下に全部出す */
@@ -39,6 +41,7 @@ export default function CalendarPage() {
   const [selected, setSelected] = useState(today)
 
   const events = useLiveQuery(() => loadCalendarEvents(), [], null)
+  const timeline = useLiveQuery(() => loadDayTimeline(selected), [selected], null)
   const byDate = useMemo(() => groupEventsByDate(events ?? []), [events])
   const grid = useMemo(() => buildMonthGrid(year, month), [year, month])
   const selectedEvents = byDate.get(selected) ?? []
@@ -150,6 +153,17 @@ export default function CalendarPage() {
           </div>
         </div>
       )}
+
+      <section className="bg-surface border-border rounded-lg border p-4">
+        <h2 className="text-sm font-semibold tabular-nums">{selected} のタイムチャート</h2>
+        <div className="mt-2">
+          {timeline === null ? (
+            <p className="text-muted text-xs">読み込み中…</p>
+          ) : (
+            <DayTimeline entries={timeline} emptyText="この日の撮影はありません" />
+          )}
+        </div>
+      </section>
 
       <section className="bg-surface border-border rounded-lg border p-4">
         <h2 className="text-sm font-semibold tabular-nums">{selected} の予定</h2>
