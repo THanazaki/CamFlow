@@ -20,6 +20,7 @@ export const SYNC_TABLES = [
   'slot_models',
   'shoot_history',
   'shoot_history_models',
+  'shoot_history_venues',
 ] as const
 
 export type SyncTable = (typeof SYNC_TABLES)[number]
@@ -41,6 +42,7 @@ export type LocalSlot = LocalRow<'slots'>
 export type LocalSlotModel = LocalRow<'slot_models'>
 export type LocalShootHistory = LocalRow<'shoot_history'>
 export type LocalShootHistoryModel = LocalRow<'shoot_history_models'>
+export type LocalShootHistoryVenue = LocalRow<'shoot_history_venues'>
 
 /** 論理削除を持つテーブル（pull で deleted_at を見る必要があるもの） */
 export const SOFT_DELETABLE: ReadonlySet<SyncTable> = new Set([

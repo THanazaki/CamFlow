@@ -26,6 +26,8 @@ export interface ShootRecord {
   concept: string | null
   placeCategory: PlaceCategory | null
   venueName: string | null
+  /** 2か所目以降のロケ地名（屋外の過去撮影のみ）。名前はマスタの今の名前 */
+  extraVenueNames: string[]
   /** 登録時の名義（改名後も変わらない）。表示に使う */
   modelNames: string[]
   /** 今のモデル名（modelNames と同じ順）。編集フォームの初期値と統計に使う */
@@ -73,7 +75,7 @@ export const EMPTY_SHOOT_SEARCH: ShootSearchConditions = {
 }
 
 async function loadTables() {
-  const [sessions, slots, histories, slotModels, historyModels, models, venues, formerNames] = await Promise.all([
+  const [sessions, slots, histories, slotModels, historyModels, models, venues, formerNames, historyVenues] = await Promise.all([
     db.sessions.toArray(),
     db.slots.toArray(),
     db.shoot_history.toArray(),
@@ -82,11 +84,25 @@ async function loadTables() {
     db.models.toArray(),
     db.venues.toArray(),
     db.model_former_names.toArray(),
+    db.shoot_history_venues.toArray(),
   ])
-  return { sessions, slots, histories, slotModels, historyModels, models, venues, formerNames }
+  return { sessions, slots, histories, slotModels, historyModels, models, venues, formerNames, historyVenues }
 }
 
 type Tables = Awaited<ReturnType<typeof loadTables>>
+
+/** 過去撮影ごとの追加ロケ地名（登録順）。削除済みの場所は出さない */
+function extraVenueNamesBy(t: Tables): Map<string, string[]> {
+  const nameById = new Map(t.venues.filter((v) => !v.deleted_at).map((v) => [v.id, v.name]))
+  const result = new Map<string, string[]>()
+  const links = [...t.historyVenues].sort((a, b) => a.created_at.localeCompare(b.created_at))
+  for (const link of links) {
+    const name = nameById.get(link.venue_id)
+    if (!name) continue
+    result.set(link.shoot_history_id, [...(result.get(link.shoot_history_id) ?? []), name])
+  }
+  return result
+}
 
 interface RecordModel {
   id: string
@@ -168,6 +184,7 @@ function fromSlot(
     concept: session.concept ?? null,
     placeCategory: session.place_category ?? null,
     venueName: venueNameOf(session, venues),
+    extraVenueNames: [],
     modelNames: models.map((m) => m.name),
     currentModelNames: models.map((m) => m.currentName),
     formerModelNames: models.flatMap((m) => m.formerNames),
@@ -196,6 +213,7 @@ function fromHistory(
   history: LocalShootHistory,
   models: RecordModel[],
   venues: Map<string, LocalVenue>,
+  extraVenueNames: string[] = [],
 ): ShootRecord {
   const record: Omit<ShootRecord, 'eventName'> = {
     source: 'history',
@@ -206,6 +224,7 @@ function fromHistory(
     concept: history.concept ?? null,
     placeCategory: history.place_category ?? null,
     venueName: venueNameOf(history, venues),
+    extraVenueNames,
     modelNames: models.map((m) => m.name),
     currentModelNames: models.map((m) => m.currentName),
     formerModelNames: models.flatMap((m) => m.formerNames),
@@ -251,6 +270,7 @@ export async function loadShootArchive(now: Date = new Date()): Promise<ShootRec
   const venueMap = new Map(t.venues.map((v) => [v.id, v]))
   const modelsBySlot = modelsBy(t.slotModels, 'slot_id', t.models, t.formerNames)
   const modelsByHistory = modelsBy(t.historyModels, 'shoot_history_id', t.models, t.formerNames)
+  const extraVenues = extraVenueNamesBy(t)
   const nowIso = now.toISOString()
 
   const slotRecords = t.slots.flatMap((slot) => {
@@ -261,7 +281,7 @@ export async function loadShootArchive(now: Date = new Date()): Promise<ShootRec
   })
   const historyRecords = t.histories
     .filter((h) => !h.deleted_at)
-    .map((h) => fromHistory(h, modelsByHistory.get(h.id) ?? [], venueMap))
+    .map((h) => fromHistory(h, modelsByHistory.get(h.id) ?? [], venueMap, extraVenues.get(h.id) ?? []))
 
   return [...slotRecords, ...historyRecords].sort((a, b) => {
     const byDate = b.shootDate.localeCompare(a.shootDate)
@@ -303,6 +323,7 @@ export async function loadShootRecord(source: ShootSource, id: string): Promise<
       history,
       modelsBy(t.historyModels, 'shoot_history_id', t.models, t.formerNames).get(id) ?? [],
       venueMap,
+      extraVenueNamesBy(t).get(id) ?? [],
     )
   }
 
@@ -326,7 +347,7 @@ export function filterShootArchive(
     (r) =>
       includes(r.title, c.eventName) &&
       (!c.modelName.trim() || [...r.modelNames, ...r.currentModelNames, ...r.formerModelNames].some((name) => includes(name, c.modelName))) &&
-      includes(r.venueName, c.venueName) &&
+      (!c.venueName.trim() || [r.venueName, ...r.extraVenueNames].some((name) => includes(name, c.venueName))) &&
       (!c.dateFrom || r.shootDate >= c.dateFrom) &&
       (!c.dateTo || r.shootDate <= c.dateTo),
   )

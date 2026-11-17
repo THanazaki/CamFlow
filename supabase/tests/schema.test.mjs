@@ -776,5 +776,48 @@ console.log('\n[18] organizers.sns_accounts')
   }
 }
 
+// ── 19. shoot_history_venues（過去撮影の追加ロケ地） ─────────────────
+console.log('\n[19] shoot_history_venues')
+{
+  const H = 'c3000000-0000-4000-8000-0000000000a1'
+  const V1 = 'c3000000-0000-4000-8000-0000000000b1'
+  const V2 = 'c3000000-0000-4000-8000-0000000000b2'
+  const VB = 'c3000000-0000-4000-8000-0000000000b3'
+  await db.exec(`
+    insert into public.venues (id, user_id, name, kind) values
+      ('${V1}', '${UA}', '追加ロケ地1', 'location'),
+      ('${V2}', '${UA}', '追加ロケ地2', 'location'),
+      ('${VB}', '${UB}', '他人のロケ地', 'location');
+    insert into public.shoot_history (id, user_id, shoot_date, title, shoot_type)
+    values ('${H}', '${UA}', current_date - 10, '複数ロケ地の撮影', 'personal');`)
+  const add = (venue, user = UA) =>
+    `insert into public.shoot_history_venues (user_id, shoot_history_id, venue_id) values ('${user}', '${H}', '${venue}')`
+
+  await mustPass('追加ロケ地を複数登録できる', `${add(V1)}; ${add(V2)}`)
+  await mustFail('同じ撮影に同じ場所を二重に登録', add(V1))
+  await mustFail('他ユーザーの場所を指定', add(VB))
+  await mustFail('他ユーザーの撮影に紐づける', add(V1, UB))
+  await mustFail('撮影に紐づく場所を物理削除', `delete from public.venues where id = '${V1}'`)
+
+  await db.exec(`set role authenticated; select set_config('request.jwt.claims', '{"sub":"${UB}"}', false);`)
+  const otherSees = (await db.query(`select count(*)::int n from public.shoot_history_venues`)).rows[0].n
+  await db.exec(`select set_config('request.jwt.claims', '{"sub":"${UA}"}', false);`)
+  const ownerSees = (await db.query(`select count(*)::int n from public.shoot_history_venues`)).rows[0].n
+  await db.exec(`reset role`)
+  otherSees === 0 && ownerSees === 2
+    ? ok('追加ロケ地は本人だけが読める') : bad('追加ロケ地の RLS', `他人${otherSees}件 / 本人${ownerSees}件`)
+
+  const tomb = async () => (await db.query(`
+    select count(*)::int n from public.sync_tombstones where table_name = 'shoot_history_venues'`)).rows[0].n
+  const before = await tomb()
+  await db.exec(`delete from public.shoot_history where id = '${H}'`)
+  const left = (await db.query(`select count(*)::int n from public.shoot_history_venues`)).rows[0].n
+  left === 0 && (await tomb()) === before + 2
+    ? ok('撮影の物理削除で追加ロケ地も消え、tombstone が残る') : bad('cascade', `残り${left}件`)
+  const audited = (await db.query(`
+    select count(*)::int n from public.audit_logs where table_name = 'shoot_history_venues'`)).rows[0].n
+  audited >= 4 ? ok('追加ロケ地の操作もログに残る') : bad('追加ロケ地のログ', `${audited}件`)
+}
+
 console.log(`\n${'─'.repeat(60)}\n結果: ${pass} 成功 / ${fail} 失敗`)
 process.exit(fail > 0 ? 1 : 0)

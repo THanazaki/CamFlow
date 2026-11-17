@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 
 import { db } from '@/lib/db'
-import { loadShootArchive } from '@/lib/queries/archives'
+import { EMPTY_SHOOT_SEARCH, filterShootArchive, loadShootArchive } from '@/lib/queries/archives'
 import { loadVenueDetail, loadVenueList } from '@/lib/queries/venues'
 import { createRow, softDeleteRow } from '@/lib/sync/mutations'
 
-import { createShootHistory, type ShootHistoryInput } from '../archives'
+import { createShootHistory, updateShootHistory, type ShootHistoryInput } from '../archives'
 import { createReservation, type ReservationInput } from '../reservations'
 import { confirmShoot, type ShootConfirmInput } from '../shoots'
 import { parseHourlyRate, updateVenue, type VenueInput } from '../venues'
@@ -247,5 +247,60 @@ describe('撮影場所の編集', () => {
 
     await expect(updateVenue(id, venueInput())).rejects.toThrow('見つかりませんでした')
     expect(await loadVenueDetail(id)).toBeNull()
+  })
+})
+
+describe('過去撮影の複数ロケ地', () => {
+  const outdoor = (overrides: Partial<ShootHistoryInput> = {}) =>
+    history({ placeCategory: 'outdoor', venueName: '代々木公園', ...overrides })
+  const extraNames = async () =>
+    (await loadShootArchive(NOW)).map((r) => r.extraVenueNames)
+
+  it('屋外は2か所目以降も登録し、ロケ地マスタに入る。1か所目と同じ・空・重複は除く', async () => {
+    await createShootHistory(
+      USER,
+      outdoor({ extraVenueNames: ['新宿御苑', ' ', '代々木公園', 'Shinjuku Gyoen', 'shinjuku gyoen'] }),
+    )
+
+    expect(await extraNames()).toEqual([['新宿御苑', 'Shinjuku Gyoen']])
+    const venues = await db.venues.toArray()
+    expect(venues.map((v) => [v.name, v.kind]).sort()).toEqual([
+      ['Shinjuku Gyoen', 'location'],
+      ['代々木公園', 'location'],
+      ['新宿御苑', 'location'],
+    ])
+    expect((await loadVenueList('location')).length).toBe(3)
+  })
+
+  it('スタジオでは追加ロケ地を持たない。1か所目が空でも持たない', async () => {
+    await createShootHistory(USER, history({ venueName: 'スタジオA', extraVenueNames: ['新宿御苑'] }))
+    await createShootHistory(USER, outdoor({ venueName: '', extraVenueNames: ['新宿御苑'] }))
+
+    expect(await extraNames()).toEqual([[], []])
+    expect(await db.shoot_history_venues.count()).toBe(0)
+  })
+
+  it('編集で増減できる。場所区分をスタジオに変えると追加ロケ地は外れる', async () => {
+    const { historyId } = await createShootHistory(USER, outdoor({ extraVenueNames: ['新宿御苑', '井の頭公園'] }))
+
+    await updateShootHistory(USER, historyId, outdoor({ extraVenueNames: ['井の頭公園', '上野公園'] }))
+    expect(await extraNames()).toEqual([['井の頭公園', '上野公園']])
+    expect(await db.shoot_history_venues.count()).toBe(2)
+
+    await updateShootHistory(USER, historyId, history({ venueName: 'スタジオA', extraVenueNames: ['上野公園'] }))
+    expect(await extraNames()).toEqual([[]])
+    expect(await db.shoot_history_venues.count()).toBe(0)
+  })
+
+  it('撮影場所の検索は追加ロケ地にも当たり、マスタで名前を変えると表示も変わる', async () => {
+    await createShootHistory(USER, outdoor({ extraVenueNames: ['新宿御苑'] }))
+
+    const records = await loadShootArchive(NOW)
+    expect(filterShootArchive(records, { ...EMPTY_SHOOT_SEARCH, venueName: '御苑' })).toHaveLength(1)
+    expect(filterShootArchive(records, { ...EMPTY_SHOOT_SEARCH, venueName: '代々木' })).toHaveLength(1)
+
+    const extra = (await db.venues.toArray()).find((v) => v.name === '新宿御苑')!
+    await updateVenue(extra.id, venueInput({ name: '新宿御苑（改）', kind: 'location' }))
+    expect(await extraNames()).toEqual([['新宿御苑（改）']])
   })
 })

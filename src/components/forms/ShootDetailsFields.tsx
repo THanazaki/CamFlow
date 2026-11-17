@@ -9,6 +9,8 @@ import { ShootCategoryPicker } from '@/components/forms/ShootCategoryPicker'
 import type { ShootDetailsInput } from '@/lib/actions/shoots'
 import {
   categoryHasMeetingPoint,
+  categoryHasMultipleVenues,
+  MAX_VENUES,
   DEFAULT_PLACE_CATEGORY,
   PLACE_CATEGORIES,
 } from '@/lib/place-category'
@@ -23,6 +25,7 @@ export const EMPTY_SHOOT_DETAILS: ShootDetailsInput = {
   concept: '',
   placeCategory: DEFAULT_PLACE_CATEGORY,
   venueName: '',
+  extraVenueNames: [],
   meetingPoint: '',
   shootDate: '',
   memo: '',
@@ -73,6 +76,9 @@ export function ShootDetailsFields({
 
   const hasModel = categoryHasModel(values.shootCategory)
   const isOutdoor = categoryHasMeetingPoint(values.placeCategory)
+  // ロケ地を複数選べるのは過去撮影（登録時にロケ地も登録する画面）の屋外だけ
+  const multipleVenues = registerLocation && categoryHasMultipleVenues(values.placeCategory)
+  const extraVenues = values.extraVenueNames ?? []
 
   return (
     <>
@@ -147,7 +153,9 @@ export function ShootDetailsFields({
 
       <Field label="場所" hint={
           registerLocation
-            ? 'ロケ地マスタ・スタジオマスタに無い場所は、保存すると登録されます'
+            ? isOutdoor
+              ? 'ロケ地マスタに無い場所は、保存すると登録されます。屋外は複数のロケ地を追加できます'
+              : 'スタジオマスタに無い場所は、保存すると登録されます'
             : 'スタジオマスタに無いスタジオは、保存すると登録されます（ロケ地は過去撮影登録で登録します）'
         }>
         {(p) => (
@@ -161,6 +169,49 @@ export function ShootDetailsFields({
               placeholder={isOutdoor ? '代々木公園' : 'スタジオ ルミエール'}
               className={inputClass}
             />
+            {multipleVenues && (
+              <>
+                {extraVenues.map((name, i) => (
+                  <div key={i} className="mt-2 flex gap-2">
+                    <input
+                      type="text"
+                      list={venueListId}
+                      value={name}
+                      onChange={(e) =>
+                        onChange(
+                          'extraVenueNames',
+                          extraVenues.map((n, j) => (j === i ? e.target.value : n)),
+                        )
+                      }
+                      aria-label={`場所（${i + 2}か所目）`}
+                      placeholder={`${i + 2}か所目のロケ地`}
+                      className={inputClass}
+                    />
+                    <button
+                      type="button"
+                      onClick={() =>
+                        onChange(
+                          'extraVenueNames',
+                          extraVenues.filter((_, j) => j !== i),
+                        )
+                      }
+                      className="border-border hover:bg-navy-50 tap-target shrink-0 rounded-md border px-3 text-xs dark:hover:bg-white/5"
+                    >
+                      削除
+                    </button>
+                  </div>
+                ))}
+                {1 + extraVenues.length < MAX_VENUES && (
+                  <button
+                    type="button"
+                    onClick={() => onChange('extraVenueNames', [...extraVenues, ''])}
+                    className="border-border hover:bg-navy-50 mt-2 rounded-md border px-3 py-1.5 text-xs dark:hover:bg-white/5"
+                  >
+                    ＋ ロケ地を追加（{1 + extraVenues.length}/{MAX_VENUES}か所）
+                  </button>
+                )}
+              </>
+            )}
             <datalist id={venueListId}>
               {suggestions.venues.map((v) => (
                 <option key={v} value={v} />

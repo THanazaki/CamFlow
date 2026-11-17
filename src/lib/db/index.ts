@@ -9,6 +9,7 @@ import type {
   LocalSlot,
   LocalShootHistory,
   LocalShootHistoryModel,
+  LocalShootHistoryVenue,
   LocalSlotModel,
   LocalVenue,
   LocalWishlistModel,
@@ -33,6 +34,7 @@ export class CamFlowDB extends Dexie {
   slot_models!: EntityTable<LocalSlotModel, 'id'>
   shoot_history!: EntityTable<LocalShootHistory, 'id'>
   shoot_history_models!: EntityTable<LocalShootHistoryModel, 'id'>
+  shoot_history_venues!: EntityTable<LocalShootHistoryVenue, 'id'>
   _outbox!: EntityTable<OutboxEntry, 'seq'>
   _meta!: EntityTable<MetaRow, 'key'>
 
@@ -65,6 +67,10 @@ export class CamFlowDB extends Dexie {
 
     this.version(3).stores({
       wishlist_models: 'id, user_id, model_id, updated_at, _dirty',
+    })
+
+    this.version(4).stores({
+      shoot_history_venues: 'id, user_id, shoot_history_id, venue_id, updated_at, _dirty',
     })
   }
 

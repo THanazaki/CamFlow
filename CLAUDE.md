@@ -80,7 +80,7 @@
 | 系統 | テーブル | 入口 |
 |---|---|---|
 | 運用フロー | `sessions` / `slots` / `slot_models` | 予約情報入力 → 確定撮影情報入力 → 撮影情報 |
-| 遡及登録 | `shoot_history` / `shoot_history_models` | 過去撮影登録 |
+| 遡及登録 | `shoot_history` / `shoot_history_models` / `shoot_history_venues` | 過去撮影登録 |
 
 ### マスタ（4種）
 - `models`: モデルマスタ。**モデル名と所属（撮影会名）の組み合わせで見分ける**（撮影会ごとに同名の別人がいる）。
@@ -101,7 +101,8 @@
 - `slot_models`: 枠 × モデルの明細。**モデル料の支払いと納品の単位**
   （1枠に複数モデルが入りうるため、支払い・納品は枠ではなくこちらに持つ）
 - `shoot_history` / `shoot_history_models`: 遡及登録した過去の撮影。1行 = 1回の撮影。
-  タイマー系カラムと枠番号は持たない
+  タイマー系カラムと枠番号は持たない。`shoot_history_venues` は屋外の撮影で回った2か所目以降のロケ地
+  （1か所目は `shoot_history.venue_id`）
 - `wishlist_models`: 撮影希望モデル。予約になる前の控えで、日付や枠は持たない
 - `sync_tombstones`: オフライン同期用の物理削除ログ
 - `audit_logs`: DB 操作ログ。トリガだけが書き込み、端末には同期しない
@@ -172,7 +173,7 @@
 - **開発サーバー起動**: `npm run dev`
 - **ビルド確認**: `npm run build`（Service Worker の生成を含む）
 - **オフライン動作確認**: `npm run build && npm start`（dev では SW が無効）
-- **テスト**: `npm test`（単体テスト351項目） / `npm run test:schema`（DBスキーマ145項目）
+- **テスト**: `npm test`（単体テスト359項目） / `npm run test:schema`（DBスキーマ154項目）
 - **型生成**: `npm run db:types`（要 Supabase ローカルスタック）
 
 ### 環境メモ

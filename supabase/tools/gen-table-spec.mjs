@@ -29,6 +29,7 @@ const TABLES = [
   ['slot_models', '枠 × モデル明細', '運用フロー', '枠に参加したモデル1人分。**モデル料の支払いと納品の単位**（1枠に複数モデルが入りうるため枠ではなくここに持つ）'],
   ['shoot_history', '過去撮影（遡及登録）', '遡及登録', '運用フローを通していない過去の撮影。過去撮影登録で作る。1行 = 1回の撮影'],
   ['shoot_history_models', '過去撮影の参加モデル', '遡及登録', '過去撮影に参加したモデル'],
+  ['shoot_history_venues', '過去撮影の追加ロケ地', '遡及登録', '屋外の過去撮影で回ったロケ地の2か所目以降。1か所目は `shoot_history.venue_id`'],
   ['sync_tombstones', '物理削除ログ', 'システム', 'オフライン同期用。物理削除をトリガで記録し、端末が id の続きから読む。保持期間は90日'],
   ['audit_logs', 'DB 操作ログ', 'システム', 'INSERT / UPDATE / DELETE の記録。トリガだけが書き込み、端末には同期しない'],
 ]
@@ -206,6 +207,8 @@ const COLUMN_NOTES = {
   'shoot_history_models.payment_status': '支払い状態。過去分は基本的に支払い済み',
   'shoot_history_models.paid_at': '支払日時。思い出せない場合があるので必須にしない',
   'shoot_history_models.memo': 'メモ',
+  'shoot_history_venues.shoot_history_id': '`shoot_history` 参照（cascade）。他ユーザーの撮影は指定できない（トリガで検証）',
+  'shoot_history_venues.venue_id': '`venues` 参照（restrict）。他ユーザーの場所は指定できない（トリガで検証）。マスタで名前を変えると表示も変わる',
 
   'sync_tombstones.id': '連番。端末はこの id の続きから読む',
   'sync_tombstones.user_id': '削除された行の所有者（`auth.users`、cascade）',
@@ -290,6 +293,7 @@ const SCREEN_LABELS = {
   'shoot_history.storage_urls': 'ストレージのURL',
   'shoot_history.memo': 'メモ',
   'shoot_history_models.model_id': 'モデル名',
+  'shoot_history_venues.venue_id': 'ロケ地（2か所目以降）',
 }
 
 /** テーブルごとの補足（カラム表の下に箇条書きで出す） */
@@ -299,6 +303,7 @@ const TABLE_REMARKS = {
     '一意: `(user_id, lower(name), lower(coalesce(affiliation, \'\')))`（論理削除を除く）。論理削除した組み合わせは再利用できる',
     '編集画面で撮影会マスタに無い所属を保存すると、撮影会マスタにも登録する（「フリー」は除く）',
   ],
+  shoot_history_venues: ['論理削除は持たない（物理削除 → tombstone で同期）', '屋外の撮影だけに付く。1か所目と同じ場所は持たない（`(shoot_history_id, venue_id)` で一意）'],
   model_former_names: ['論理削除は持たない（物理削除 → tombstone で同期）', 'モデル名の入力では別名義を照合しない'],
   wishlist_models: ['アカウントはモデル自身の情報なので `models.sns_accounts` に置く', '論理削除は持たない（物理削除 → tombstone で同期）'],
   slot_models: ['`deleted_at` を持たない。`slots` の cascade で物理削除される（→ tombstone で同期）', 'モデルは `restrict`。撮影履歴のあるモデルは物理削除できないので `models.deleted_at` を使う'],
@@ -429,7 +434,7 @@ w()
 w('| 系統 | テーブル | 入口の画面 |')
 w('|---|---|---|')
 w('| 運用フロー | `sessions` / `slots` / `slot_models` | 予約情報入力 → 確定撮影情報入力 → 確定撮影情報 |')
-w('| 遡及登録 | `shoot_history` / `shoot_history_models` | 過去撮影登録 |')
+w('| 遡及登録 | `shoot_history` / `shoot_history_models` / `shoot_history_venues` | 過去撮影登録 |')
 w()
 w('```')
 w('auth.users ─1:1─ profiles')
@@ -442,6 +447,7 @@ w('                    ├ venue_id     → venues')
 w('                    └ organizer_id → organizers')
 w()
 w('shoot_history ─1:N─ shoot_history_models ─N:1─ models')
+w('  ├─1:N─ shoot_history_venues ─N:1─ venues')
 w('  ├ venue_id     → venues')
 w('  └ organizer_id → organizers')
 w('```')

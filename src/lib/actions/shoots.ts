@@ -33,6 +33,8 @@ export interface ShootDetailsInput {
   concept: string
   placeCategory: PlaceCategory
   venueName: string
+  /** 2か所目以降のロケ地。屋外の過去撮影だけで使い、それ以外では無視する。省略時は空 */
+  extraVenueNames?: string[]
   /** 屋外以外では無視する */
   meetingPoint: string
   /** 撮影日（YYYY-MM-DD） */

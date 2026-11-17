@@ -112,7 +112,9 @@ function ShootDetail() {
         <Row label="場所区分">
           {record.placeCategory ? placeCategoryLabel(record.placeCategory) : null}
         </Row>
-        <Row label="撮影場所">{record.venueName}</Row>
+        <Row label="撮影場所">
+          {[record.venueName, ...record.extraVenueNames].filter(Boolean).join('、') || null}
+        </Row>
         {record.source === 'slot' && (
           <>
             <Row label="集合場所">{record.meetingPoint}</Row>

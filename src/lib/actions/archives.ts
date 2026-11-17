@@ -1,4 +1,5 @@
 import { db } from '@/lib/db'
+import { collectExtraVenueNames } from '@/lib/place-category'
 import { categoryHasModel, collectModelNames, fallbackShootTitle } from '@/lib/shoot-category'
 import { normalizeStorageUrls } from '@/lib/storage-urls'
 import { createRow, deleteRow, softDeleteRow, updateRow } from '@/lib/sync/mutations'
@@ -78,8 +79,18 @@ async function prepareShootHistory(
     if (extra.id !== model?.id && !extraIds.includes(extra.id)) extraIds.push(extra.id)
   }
   const venueId = await resolveVenue(userId, venueName, input.placeCategory, { registerLocation: true })
+  // 2か所目以降のロケ地（屋外だけ）。1か所目が空なら追加分も持たない
+  const extraVenueIds: string[] = []
+  const extraVenueNames = venueName
+    ? collectExtraVenueNames(input.placeCategory, venueName, input.extraVenueNames)
+    : []
+  for (const name of extraVenueNames) {
+    const id = await resolveVenue(userId, name, input.placeCategory, { registerLocation: true })
+    if (id && id !== venueId && !extraVenueIds.includes(id)) extraVenueIds.push(id)
+  }
 
   return {
+    extraVenueIds,
     modelIds: model ? [model.id, ...extraIds] : [],
     newModelId: model?.created ? model.id : null,
     values: {
@@ -101,7 +112,7 @@ export async function createShootHistory(
   userId: string,
   input: ShootHistoryInput,
 ): Promise<{ historyId: string; newModelId: string | null }> {
-  const { modelIds, newModelId, values } = await prepareShootHistory(userId, input)
+  const { modelIds, newModelId, values, extraVenueIds } = await prepareShootHistory(userId, input)
 
   const historyId = await createRow('shoot_history', {
     user_id: userId,
@@ -119,6 +130,9 @@ export async function createShootHistory(
   for (const modelId of modelIds) {
     await addHistoryModel(userId, historyId, modelId)
   }
+  for (const venueId of extraVenueIds) {
+    await addHistoryVenue(userId, historyId, venueId)
+  }
 
   return { historyId, newModelId }
 }
@@ -134,7 +148,7 @@ export async function updateShootHistory(
     throw new Error('撮影が見つかりませんでした')
   }
   const links = await db.shoot_history_models.where('shoot_history_id').equals(historyId).toArray()
-  const { modelIds, values } = await prepareShootHistory(
+  const { modelIds, values, extraVenueIds } = await prepareShootHistory(
     userId,
     input,
     history,
@@ -151,6 +165,23 @@ export async function updateShootHistory(
       }),
     remove: (linkId) => deleteRow('shoot_history_models', linkId),
     add: (modelId) => addHistoryModel(userId, historyId, modelId),
+  })
+
+  // 追加ロケ地は、無くなったものを消し、増えたものを足す
+  const venueLinks = await db.shoot_history_venues.where('shoot_history_id').equals(historyId).toArray()
+  for (const link of venueLinks) {
+    if (!extraVenueIds.includes(link.venue_id)) await deleteRow('shoot_history_venues', link.id)
+  }
+  for (const venueId of extraVenueIds) {
+    if (!venueLinks.some((l) => l.venue_id === venueId)) await addHistoryVenue(userId, historyId, venueId)
+  }
+}
+
+async function addHistoryVenue(userId: string, historyId: string, venueId: string): Promise<void> {
+  await createRow('shoot_history_venues', {
+    user_id: userId,
+    shoot_history_id: historyId,
+    venue_id: venueId,
   })
 }
 

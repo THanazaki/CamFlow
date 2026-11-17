@@ -86,6 +86,7 @@ function toFormValues(record: ShootRecord): ShootFormInput {
     concept: record.concept ?? '',
     placeCategory: record.placeCategory ?? DEFAULT_PLACE_CATEGORY,
     venueName: record.venueName ?? '',
+    extraVenueNames: record.extraVenueNames,
     meetingPoint: record.meetingPoint ?? '',
     shootDate: record.shootDate,
     meetingTime: record.meetingTime ?? '',

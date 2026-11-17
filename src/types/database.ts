@@ -709,6 +709,48 @@ export type Database = {
           },
         ]
       }
+      shoot_history_venues: {
+        Row: {
+          id: string
+          user_id: string
+          shoot_history_id: string
+          venue_id: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          shoot_history_id: string
+          venue_id: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          shoot_history_id?: string
+          venue_id?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'shoot_history_venues_shoot_history_id_fkey'
+            columns: ['shoot_history_id']
+            isOneToOne: false
+            referencedRelation: 'shoot_history'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'shoot_history_venues_venue_id_fkey'
+            columns: ['venue_id']
+            isOneToOne: false
+            referencedRelation: 'venues'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       model_former_names: {
         Row: {
           id: string

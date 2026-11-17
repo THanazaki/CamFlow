@@ -154,6 +154,13 @@ export async function seedDemoData(userId: string, now: Date = new Date()): Prom
       concept: pick(CONCEPTS),
       placeCategory: venueCategory(venue),
       venueName: venue,
+      // 屋外の一部は2か所回った撮影にする（乱数を使わず、順番で決める）
+      extraVenueNames:
+        i % 4 === 0 && venueCategory(venue) === 'outdoor'
+          ? VENUES.filter(([v, c]) => c === 'outdoor' && v !== venue)
+              .slice(0, 1)
+              .map(([v]) => v)
+          : [],
       shootDate: dayOffset(now, -(60 + Math.floor(rand() * 480))),
       storageUrls:
         rand() < 0.7 ? [`https://drive.example.com/demo/history-${String(i + 1).padStart(2, '0')}`] : [],
