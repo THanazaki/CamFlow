@@ -88,7 +88,7 @@ export default function RankingPage() {
           ) : (
             <ol className="bg-surface border-border divide-border divide-y rounded-lg border">
               {rows.map((row) => (
-                <li key={row.id} className="flex items-center gap-3 px-4 py-3 text-sm">
+                <li key={row.id} className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3 text-sm">
                   <span
                     className={`w-8 shrink-0 text-center text-base font-semibold tabular-nums ${
                       row.rank <= 3 ? 'text-amber-600 dark:text-amber-400' : 'text-muted'
@@ -97,12 +97,12 @@ export default function RankingPage() {
                     {row.rank}
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate font-medium">{row.name}</span>
+                    <span className="block font-medium break-words sm:truncate">{row.name}</span>
                     <span className="text-muted block text-xs tabular-nums">
                       最新 {row.lastDate ?? '—'}
                     </span>
                   </span>
-                  <span className="flex shrink-0 gap-4 text-right">
+                  <span className="flex w-full shrink-0 gap-4 pl-11 sm:w-auto sm:pl-0 sm:text-right">
                     {row.extras.map((x) => (
                       <span key={x.label}>
                         <span className="text-muted block text-xs">{x.label}</span>
