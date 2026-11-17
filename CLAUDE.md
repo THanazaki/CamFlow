@@ -44,7 +44,8 @@
 マスタ管理 ▾
   モデルマスタ              /masters/models
   撮影会マスタ              /masters/organizers
-  ロケ地・スタジオマスタ    /masters/venues
+  ロケ地マスタ              /masters/locations
+  スタジオマスタ            /masters/studios
 設定 ▾
   通知設定                  /settings/notifications
   アカウント設定            /settings/account

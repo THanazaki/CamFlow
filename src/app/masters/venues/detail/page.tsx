@@ -6,7 +6,7 @@ import { useSearchParams } from 'next/navigation'
 import { Suspense } from 'react'
 
 import { StorageUrlList } from '@/components/StorageUrlList'
-import { loadVenueDetail, venueKindLabel } from '@/lib/queries/venues'
+import { loadVenueDetail, venueKindLabel, venueListHref } from '@/lib/queries/venues'
 
 export default function VenueDetailPage() {
   return (
@@ -34,10 +34,10 @@ function VenueDetailView() {
         <h1 className="text-2xl font-semibold tracking-tight">撮影場所の詳細</h1>
         <p className="text-muted text-sm">撮影場所が見つかりませんでした。</p>
         <Link
-          href="/masters/venues"
+          href="/masters/studios"
           className="text-navy-600 dark:text-navy-200 text-sm underline underline-offset-2"
         >
-          ロケ地・スタジオマスタへ
+          マスタ一覧へ
         </Link>
       </div>
     )
@@ -50,7 +50,7 @@ function VenueDetailView() {
         <div className="flex shrink-0 gap-2">
           {/* 編集から来た場合も含め、常に一覧へ戻る */}
           <Link
-            href="/masters/venues"
+            href={venueListHref(venue.kind)}
             className="tap-target border-border hover:bg-navy-50 rounded-md border px-4 py-2 text-sm dark:hover:bg-white/5"
           >
             戻る

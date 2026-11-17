@@ -195,7 +195,7 @@ async function prepareShoot(
   const modelIds = model ? [model.id, ...extraIds] : []
 
   // ── 場所 ─────────────────────────────────────────────────
-  const venueId = await resolveVenue(userId, venueName, input.placeCategory)
+  const venueId = await resolveVenue(userId, venueName, input.placeCategory, { registerLocation: false })
 
   const sessionValues = {
     title: eventName || concept || fallbackShootTitle(input.shootCategory, modelName),
@@ -322,22 +322,27 @@ export function venueKindOf(placeCategory: PlaceCategory): 'studio' | 'location'
 /**
  * 場所マスタの行を返す。空なら null。同名（大文字小文字は区別しない）が無ければ作る。
  * 作るときの種別は場所区分から決める（屋外 → ロケ地、スタジオ → スタジオ）。
- * 予約情報入力では呼ばない（予約段階で場所マスタが増え続けるのを避けるため）
+ * 予約情報入力では呼ばない（予約段階で場所マスタが増え続けるのを避けるため）。
+ * ロケ地は過去撮影登録だけで登録する。`registerLocation` が false のとき、ロケ地になる場所は
+ * 登録せず null を返す（同名がマスタにあれば紐づける。`venue_name` には呼び出し側が入力を残す）
  */
 export async function resolveVenue(
   userId: string,
   venueName: string,
   placeCategory: PlaceCategory,
+  options: { registerLocation: boolean },
 ): Promise<string | null> {
   const name = venueName.trim()
   if (!name) return null
   const venues = await db.venues.toArray()
   const existing = venues.find((v) => !v.deleted_at && normalize(v.name) === normalize(name))
   if (existing) return existing.id
+  const kind = venueKindOf(placeCategory)
+  if (kind === 'location' && !options.registerLocation) return null
   return createRow('venues', {
     user_id: userId,
     name,
-    kind: venueKindOf(placeCategory),
+    kind,
     is_favorite: false,
   })
 }

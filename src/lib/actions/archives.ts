@@ -77,7 +77,7 @@ async function prepareShootHistory(
     })
     if (extra.id !== model?.id && !extraIds.includes(extra.id)) extraIds.push(extra.id)
   }
-  const venueId = await resolveVenue(userId, venueName, input.placeCategory)
+  const venueId = await resolveVenue(userId, venueName, input.placeCategory, { registerLocation: true })
 
   return {
     modelIds: model ? [model.id, ...extraIds] : [],

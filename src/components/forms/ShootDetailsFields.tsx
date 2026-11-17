@@ -51,6 +51,7 @@ export function ShootDetailsFields({
   onChange,
   maxShootDate,
   showMeetingPoint = true,
+  registerLocation = false,
 }: {
   values: ShootDetailsInput
   onChange: <K extends keyof ShootDetailsInput>(key: K, value: ShootDetailsInput[K]) => void
@@ -58,6 +59,8 @@ export function ShootDetailsFields({
   maxShootDate?: string
   /** 過去の撮影では集合場所を入力しない */
   showMeetingPoint?: boolean
+  /** ロケ地（屋外）も保存でマスタに登録するか。過去撮影の登録・編集だけ true */
+  registerLocation?: boolean
 }) {
   const suggestions = useLiveQuery(() => loadSuggestions(), [], {
     models: [],
@@ -142,7 +145,11 @@ export function ShootDetailsFields({
         )}
       </Field>
 
-      <Field label="場所" hint="ロケ地・スタジオマスタに無い場所は、保存すると登録されます">
+      <Field label="場所" hint={
+          registerLocation
+            ? 'ロケ地マスタ・スタジオマスタに無い場所は、保存すると登録されます'
+            : 'スタジオマスタに無いスタジオは、保存すると登録されます（ロケ地は過去撮影登録で登録します）'
+        }>
         {(p) => (
           <>
             <input

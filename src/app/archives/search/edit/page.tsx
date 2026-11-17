@@ -162,6 +162,7 @@ function ShootEditForm({ record, returnTo }: { record: ShootRecord; returnTo: st
             values={form}
             onChange={setDetails}
             maxShootDate={isSlot ? undefined : localToday()}
+            registerLocation={!isSlot}
             showMeetingPoint={isSlot}
           />
 

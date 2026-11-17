@@ -7,6 +7,11 @@ export const VENUE_KINDS: { value: VenueKind; label: string }[] = [
   { value: 'location', label: 'ロケ地' },
 ]
 
+/** 種別ごとのマスタ一覧の画面 */
+export function venueListHref(kind: VenueKind): string {
+  return kind === 'location' ? '/masters/locations' : '/masters/studios'
+}
+
 export function venueKindLabel(kind: VenueKind): string {
   return VENUE_KINDS.find((k) => k.value === kind)?.label ?? kind
 }
@@ -59,11 +64,11 @@ export interface VenueRow {
   name: string
 }
 
-/** 登録済みの場所を名前の順に返す（場所には読みのカラムが無い） */
-export async function loadVenueList(): Promise<VenueRow[]> {
+/** 登録済みの場所を名前の順に返す（場所には読みのカラムが無い）。kind を渡すとその種別だけ */
+export async function loadVenueList(kind?: VenueKind): Promise<VenueRow[]> {
   const venues = await db.venues.toArray()
   return venues
-    .filter((v) => !v.deleted_at)
+    .filter((v) => !v.deleted_at && (!kind || (v.kind ?? 'studio') === kind))
     .sort((a, b) => a.name.localeCompare(b.name, 'ja'))
     .map((v) => ({ id: v.id, name: v.name }))
 }

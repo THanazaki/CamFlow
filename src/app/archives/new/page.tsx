@@ -110,6 +110,7 @@ export default function ArchiveNewPage() {
             values={details}
             onChange={set}
             maxShootDate={localToday()}
+            registerLocation
             showMeetingPoint={false}
           />
           <StorageUrlsField

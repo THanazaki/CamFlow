@@ -31,10 +31,10 @@ function VenueEdit() {
         <h1 className="text-2xl font-semibold tracking-tight">撮影場所の編集</h1>
         <p className="text-muted text-sm">撮影場所が見つかりませんでした。</p>
         <Link
-          href="/masters/venues"
+          href="/masters/studios"
           className="text-navy-600 dark:text-navy-200 text-sm underline underline-offset-2"
         >
-          ロケ地・スタジオマスタへ
+          マスタ一覧へ
         </Link>
       </div>
     )
@@ -83,7 +83,7 @@ function VenueEditForm({ venue }: { venue: VenueDetail }) {
     <div className="max-w-2xl space-y-6">
       <header>
         <h1 className="text-2xl font-semibold tracking-tight">撮影場所の編集</h1>
-        <p className="text-muted mt-1 text-sm">ロケ地・スタジオマスタの内容を変更します。</p>
+        <p className="text-muted mt-1 text-sm">撮影場所（ロケ地・スタジオ）の内容を変更します。</p>
       </header>
 
       {error && (

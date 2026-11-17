@@ -92,17 +92,31 @@ beforeEach(async () => {
 })
 
 describe('撮影場所の自動登録', () => {
-  it('確定撮影情報入力で、場所区分から種別を決めて登録し、撮影に紐づける', async () => {
+  it('確定撮影情報入力ではスタジオだけ登録する。ロケ地は登録せず、場所名だけ撮影に残す', async () => {
     await confirmShoot(USER, confirmation({ venueName: ' スタジオA ', placeCategory: 'studio' }))
-    await confirmShoot(USER, confirmation({ venueName: '代々木公園', placeCategory: 'outdoor', shootDate: '2026-06-02' }))
+    const { sessionId } = await confirmShoot(
+      USER,
+      confirmation({ venueName: '代々木公園', placeCategory: 'outdoor', shootDate: '2026-06-02' }),
+    )
 
     const venues = await db.venues.toArray()
-    expect(venues.map((v) => [v.name, v.kind]).sort()).toEqual([
-      ['スタジオA', 'studio'],
-      ['代々木公園', 'location'],
-    ])
-    const sessions = await db.sessions.toArray()
-    expect(sessions.every((s) => venues.some((v) => v.id === s.venue_id))).toBe(true)
+    expect(venues.map((v) => [v.name, v.kind])).toEqual([['スタジオA', 'studio']])
+    const session = await db.sessions.get(sessionId)
+    expect(session?.venue_id).toBeNull()
+    expect(session?.venue_name).toBe('代々木公園')
+  })
+
+  it('ロケ地は過去撮影登録で登録する。マスタにあれば確定撮影情報入力でも紐づく', async () => {
+    await createShootHistory(USER, history({ venueName: '代々木公園', placeCategory: 'outdoor' }))
+    const [location] = await db.venues.toArray()
+    expect(location.kind).toBe('location')
+
+    const { sessionId } = await confirmShoot(
+      USER,
+      confirmation({ venueName: '代々木公園', placeCategory: 'outdoor', shootDate: '2026-06-02' }),
+    )
+    expect((await db.sessions.get(sessionId))?.venue_id).toBe(location.id)
+    expect(await db.venues.count()).toBe(1)
   })
 
   it('過去撮影登録でも登録する。同じ名前（大文字小文字の違いを含む）は増やさない', async () => {
@@ -129,6 +143,17 @@ describe('撮影場所の自動登録', () => {
 
     expect((await loadVenueList()).map((v) => v.id)).not.toContain(old)
     expect(await venueNames()).toEqual(['スタジオA'])
+  })
+})
+
+describe('ロケ地マスタ・スタジオマスタの一覧', () => {
+  it('種別ごとに分けて出す', async () => {
+    await createRow('venues', { user_id: USER, name: 'スタジオA', kind: 'studio', is_favorite: false })
+    await createRow('venues', { user_id: USER, name: '代々木公園', kind: 'location', is_favorite: false })
+
+    expect((await loadVenueList('location')).map((v) => v.name)).toEqual(['代々木公園'])
+    expect((await loadVenueList('studio')).map((v) => v.name)).toEqual(['スタジオA'])
+    expect(await venueNames()).toEqual(['スタジオA', '代々木公園'])
   })
 })
 
