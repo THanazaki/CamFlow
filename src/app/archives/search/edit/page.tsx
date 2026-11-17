@@ -14,6 +14,8 @@ import { ShootOptionsFields, ShootPaymentFields } from '@/components/forms/Shoot
 import { StorageUrlsField } from '@/components/forms/StorageUrlsField'
 import { localToday, updateShootHistory } from '@/lib/actions/archives'
 import {
+  affiliationConfirmMessage,
+  findAffiliationConflict,
   updateConfirmedShoot,
   type ShootDetailsInput,
   type ShootFormInput,
@@ -21,6 +23,7 @@ import {
   type ShootPaymentInput,
 } from '@/lib/actions/shoots'
 import { getActiveUserId } from '@/lib/auth/session'
+import { chooseExtraFreeModels, chooseFreeModel } from '@/lib/free-model-choice'
 import { DEFAULT_PLACE_CATEGORY } from '@/lib/place-category'
 import {
   loadShootRecord,
@@ -28,7 +31,7 @@ import {
   type ShootRecord,
   type ShootSource,
 } from '@/lib/queries/archives'
-import { DEFAULT_SHOOT_CATEGORY } from '@/lib/shoot-category'
+import { categoryHasModel, DEFAULT_SHOOT_CATEGORY } from '@/lib/shoot-category'
 import { MAX_STORAGE_URLS } from '@/lib/storage-urls'
 
 export default function ShootEditPage() {
@@ -127,10 +130,35 @@ function ShootEditForm({ record, returnTo }: { record: ShootRecord; returnTo: st
         )
         return
       }
+      // 新規登録と同様に、既存のモデルと重なっていないか確認する。
+      // モデル名・撮影会名を変えていないときは、登録済みのモデルのままなので確認しない
+      const initial = toFormValues(record)
+      const hasModel = categoryHasModel(form.shootCategory)
+      const eventChanged = form.eventName.trim() !== initial.eventName.trim()
+      const primaryChanged =
+        eventChanged || form.modelName.trim() !== initial.modelName.trim()
+      let addAffiliation = false
+      let freeModel: string | undefined
+      if (hasModel && primaryChanged) {
+        const conflict = await findAffiliationConflict(form.modelName, form.eventName)
+        if (conflict) {
+          // キャンセルなら登録は続け、同名の別モデルとして登録する
+          addAffiliation = confirm(affiliationConfirmMessage(conflict))
+        }
+        freeModel = await chooseFreeModel(form.modelName, form.eventName)
+      }
+      const knownExtras = new Set((initial.extraModelNames ?? []).map((n) => n.trim()))
+      const extraNames = eventChanged
+        ? form.extraModelNames
+        : form.extraModelNames?.filter((n) => !knownExtras.has(n.trim()))
+      const extraFreeModels = hasModel
+        ? await chooseExtraFreeModels(form.modelName, extraNames, form.eventName)
+        : undefined
+      const input = { ...form, storageUrls, addAffiliation, freeModel, extraFreeModels }
       if (isSlot) {
-        await updateConfirmedShoot(userId, record.id, { ...form, storageUrls })
+        await updateConfirmedShoot(userId, record.id, input)
       } else {
-        await updateShootHistory(userId, record.id, { ...form, storageUrls })
+        await updateShootHistory(userId, record.id, input)
       }
       // 「戻る」で編集画面に戻らないよう、履歴を置き換える
       router.replace(returnTo ?? shootRecordHref('detail', record))
