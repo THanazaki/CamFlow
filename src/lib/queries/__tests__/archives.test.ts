@@ -476,6 +476,27 @@ describe('モデルの登録時の名義', () => {
     expect(filterShootArchive(records, { ...EMPTY_SHOOT_SEARCH, modelName: '葵' })).toHaveLength(2)
   })
 
+  it('撮影に一度も使っていない旧名義でも検索で当たる', async () => {
+    await createShootHistory(USER, history({ modelName: '葵' }))
+    const model = (await db.models.toArray()).find((m) => m.name === '葵')!
+    await updateModel(model.id, {
+      name: '葵改',
+      nameKana: '',
+      accounts: [],
+      contactMethod: '',
+      contactValue: '',
+      affiliations: [''],
+      mainAffiliation: 0,
+      aliases: [{ name: '昔の名前', kana: '' }],
+      isFavorite: false,
+      status: 'active',
+      notes: '',
+    })
+
+    const records = await loadShootArchive(NOW)
+    expect(filterShootArchive(records, { ...EMPTY_SHOOT_SEARCH, modelName: '昔の' })).toHaveLength(1)
+  })
+
   it('登録時の名義が空の行は、改名の保存で改名前の名前を残す', async () => {
     const { historyId } = await createShootHistory(USER, history({ modelName: '葵' }))
     const link = (await db.shoot_history_models.where('shoot_history_id').equals(historyId).toArray())[0]

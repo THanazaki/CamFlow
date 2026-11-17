@@ -30,6 +30,8 @@ export interface ShootRecord {
   modelNames: string[]
   /** 今のモデル名（modelNames と同じ順）。編集フォームの初期値と統計に使う */
   currentModelNames: string[]
+  /** 紐づくモデルの旧名義（model_former_names）。検索だけに使う */
+  formerModelNames: string[]
   /** modelNames と同じ順 */
   modelIds: string[]
   /** 撮影会マスタへの紐づけ。撮影会名が未入力の撮影は null */
@@ -71,7 +73,7 @@ export const EMPTY_SHOOT_SEARCH: ShootSearchConditions = {
 }
 
 async function loadTables() {
-  const [sessions, slots, histories, slotModels, historyModels, models, venues] = await Promise.all([
+  const [sessions, slots, histories, slotModels, historyModels, models, venues, formerNames] = await Promise.all([
     db.sessions.toArray(),
     db.slots.toArray(),
     db.shoot_history.toArray(),
@@ -79,8 +81,9 @@ async function loadTables() {
     db.shoot_history_models.toArray(),
     db.models.toArray(),
     db.venues.toArray(),
+    db.model_former_names.toArray(),
   ])
-  return { sessions, slots, histories, slotModels, historyModels, models, venues }
+  return { sessions, slots, histories, slotModels, historyModels, models, venues, formerNames }
 }
 
 type Tables = Awaited<ReturnType<typeof loadTables>>
@@ -91,6 +94,8 @@ interface RecordModel {
   name: string
   /** 今のモデル名。編集フォームの初期値や統計はこちら（名前でモデルを引き直すため） */
   currentName: string
+  /** 旧名義。検索用 */
+  formerNames: string[]
 }
 
 /** 紐づく行からモデルを引くための表。削除済みのモデルも過去の記録として名前を出す */
@@ -98,15 +103,20 @@ function modelsBy<K extends string>(
   links: ({ model_id: string; model_name?: string | null } & Record<K, string>)[],
   key: K,
   models: Tables['models'],
+  formerNames: Tables['formerNames'],
 ): Map<string, RecordModel[]> {
   const nameById = new Map(models.map((m) => [m.id, m.name]))
+  const formerById = new Map<string, string[]>()
+  for (const f of formerNames) {
+    formerById.set(f.model_id, [...(formerById.get(f.model_id) ?? []), f.name])
+  }
   const result = new Map<string, RecordModel[]>()
   for (const link of links) {
     const name = nameById.get(link.model_id)
     if (!name) continue
     result.set(link[key], [
       ...(result.get(link[key]) ?? []),
-      { id: link.model_id, name: link.model_name || name, currentName: name },
+      { id: link.model_id, name: link.model_name || name, currentName: name, formerNames: formerById.get(link.model_id) ?? [] },
     ])
   }
   return result
@@ -160,6 +170,7 @@ function fromSlot(
     venueName: venueNameOf(session, venues),
     modelNames: models.map((m) => m.name),
     currentModelNames: models.map((m) => m.currentName),
+    formerModelNames: models.flatMap((m) => m.formerNames),
     modelIds: models.map((m) => m.id),
     organizerId: session.organizer_id ?? null,
     eventKey: `session:${session.id}`,
@@ -197,6 +208,7 @@ function fromHistory(
     venueName: venueNameOf(history, venues),
     modelNames: models.map((m) => m.name),
     currentModelNames: models.map((m) => m.currentName),
+    formerModelNames: models.flatMap((m) => m.formerNames),
     modelIds: models.map((m) => m.id),
     organizerId: history.organizer_id ?? null,
     eventKey: `history:${history.id}`,
@@ -237,8 +249,8 @@ export async function loadShootArchive(now: Date = new Date()): Promise<ShootRec
   const t = await loadTables()
   const sessionMap = new Map(t.sessions.map((s) => [s.id, s]))
   const venueMap = new Map(t.venues.map((v) => [v.id, v]))
-  const modelsBySlot = modelsBy(t.slotModels, 'slot_id', t.models)
-  const modelsByHistory = modelsBy(t.historyModels, 'shoot_history_id', t.models)
+  const modelsBySlot = modelsBy(t.slotModels, 'slot_id', t.models, t.formerNames)
+  const modelsByHistory = modelsBy(t.historyModels, 'shoot_history_id', t.models, t.formerNames)
   const nowIso = now.toISOString()
 
   const slotRecords = t.slots.flatMap((slot) => {
@@ -265,7 +277,7 @@ export async function loadUpcomingShoots(now: Date = new Date()): Promise<ShootR
   const t = await loadTables()
   const sessionMap = new Map(t.sessions.map((s) => [s.id, s]))
   const venueMap = new Map(t.venues.map((v) => [v.id, v]))
-  const modelsBySlot = modelsBy(t.slotModels, 'slot_id', t.models)
+  const modelsBySlot = modelsBy(t.slotModels, 'slot_id', t.models, t.formerNames)
   const nowIso = now.toISOString()
 
   return t.slots
@@ -289,7 +301,7 @@ export async function loadShootRecord(source: ShootSource, id: string): Promise<
     if (!history) return null
     return fromHistory(
       history,
-      modelsBy(t.historyModels, 'shoot_history_id', t.models).get(id) ?? [],
+      modelsBy(t.historyModels, 'shoot_history_id', t.models, t.formerNames).get(id) ?? [],
       venueMap,
     )
   }
@@ -297,7 +309,7 @@ export async function loadShootRecord(source: ShootSource, id: string): Promise<
   const slot = t.slots.find((s) => s.id === id)
   const session = slot && t.sessions.find((s) => s.id === slot.session_id)
   if (!slot || !session || !isConfirmedSlot(slot, session)) return null
-  return fromSlot(slot, session, modelsBy(t.slotModels, 'slot_id', t.models).get(id) ?? [], venueMap)
+  return fromSlot(slot, session, modelsBy(t.slotModels, 'slot_id', t.models, t.formerNames).get(id) ?? [], venueMap)
 }
 
 function includes(value: string | null, keyword: string): boolean {
@@ -313,7 +325,7 @@ export function filterShootArchive(
   return records.filter(
     (r) =>
       includes(r.title, c.eventName) &&
-      (!c.modelName.trim() || [...r.modelNames, ...r.currentModelNames].some((name) => includes(name, c.modelName))) &&
+      (!c.modelName.trim() || [...r.modelNames, ...r.currentModelNames, ...r.formerModelNames].some((name) => includes(name, c.modelName))) &&
       includes(r.venueName, c.venueName) &&
       (!c.dateFrom || r.shootDate >= c.dateFrom) &&
       (!c.dateTo || r.shootDate <= c.dateTo),
