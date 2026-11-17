@@ -15,11 +15,11 @@ export function RankingList({
 }) {
   const rows =
     kind === "models"
-      ? rankBy(stats.models, (m) => m.shootCount).map((r) => ({
+      ? rankBy(stats.models, (m) => m.soloCount, Infinity).map((r) => ({
           id: r.item.id,
           rank: r.rank,
           name: r.item.name,
-          count: r.item.shootCount,
+          count: r.item.soloCount,
           lastDate: r.item.lastDate,
           extras: [] as { label: string; value: number }[],
         }))
@@ -34,16 +34,20 @@ export function RankingList({
             { label: "撮影会利用予定回数", value: r.item.plannedUseCount },
           ],
         }));
-  const unit = kind === "models" ? "撮影回数" : "撮影モデル数";
+  const unit = kind === "models" ? "個撮回数" : "撮影モデル数";
 
   return (
     <section aria-label="ランキング" className="space-y-3">
       <p className="text-muted text-xs">
-        撮影実績の多い順に、上位20位までを表示します（撮影予定は含めません）。同じ数は同順位です。
+        {kind === "models"
+          ? "個撮の回数が多い順に、個撮の実績があるモデルをすべて表示します（撮影予定は含めません）。同じ数は同順位です。"
+          : "撮影実績の多い順に、上位20位までを表示します（撮影予定は含めません）。同じ数は同順位です。"}
       </p>
       {rows.length === 0 ? (
         <div className="border-border text-muted rounded-lg border border-dashed p-8 text-center text-sm">
-          撮影実績のある{kind === "models" ? "モデル" : "撮影会"}
+          {kind === "models"
+            ? "個撮の実績のあるモデル"
+            : "撮影実績のある撮影会"}
           はまだありません
         </div>
       ) : (

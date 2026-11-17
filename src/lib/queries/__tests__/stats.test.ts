@@ -62,11 +62,24 @@ describe('モデル別情報', () => {
     ])
   })
 
-  it('最新撮影日の新しい順に並べる', async () => {
+  it('50音順（読み、無ければ名前）に並べる。撮影日の新しさでは並べない', async () => {
     await createShootHistory(USER, history({ modelName: '栞奈', shootDate: '2026-01-01' }))
     await createShootHistory(USER, history({ modelName: '葵', shootDate: '2026-02-01' }))
+    await createShootHistory(USER, history({ modelName: 'さくら', shootDate: '2026-03-01' }))
+    for (const [name, kana] of [['栞奈', 'かんな'], ['葵', 'あおい']] as const) {
+      const model = (await db.models.toArray()).find((m) => m.name === name)!
+      await db.models.update(model.id, { name_kana: kana })
+    }
 
-    expect((await loadHistoryStats(NOW)).models.map((m) => m.name)).toEqual(['葵', '栞奈'])
+    expect((await loadHistoryStats(NOW)).models.map((m) => m.name)).toEqual(['葵', '栞奈', 'さくら'])
+  })
+
+  it('個撮の回数を数える。個撮以外の撮影は含めない', async () => {
+    await createShootHistory(USER, history({ shootDate: '2026-01-10' }))
+    await createShootHistory(USER, history({ shootDate: '2026-01-11', shootCategory: 'group' }))
+    await confirmShoot(USER, confirmation({ shootDate: '2026-05-01' }))
+
+    expect((await loadHistoryStats(NOW)).models).toMatchObject([{ name: '葵', shootCount: 3, soloCount: 2 }])
   })
 
   it('同じイベントの複数の枠は1回と数える', async () => {

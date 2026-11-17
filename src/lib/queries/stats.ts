@@ -10,6 +10,8 @@ export interface ModelHistoryStat {
   nameKana: string | null
   /** 撮影回数。撮影イベントの数で、同じイベントの枠は1回と数える */
   shootCount: number
+  /** うち個撮（撮影区分が個撮）の回数。数え方は撮影回数と同じ */
+  soloCount: number
   /** 撮影予定回数。確定済みでまだ撮影日時になっていない撮影イベントの数（数え方は撮影回数と同じ） */
   plannedCount: number
   /** 撮影予定しか無いモデルは null */
@@ -51,6 +53,8 @@ interface Bucket {
   /** 撮影会の利用回数用。撮影イベント（eventKey）の集合 */
   events: Set<string>
   plannedEvents: Set<string>
+  /** 個撮の撮影イベント（eventKey）の集合 */
+  solo: Set<string>
   firstDate: string | null
   lastDate: string | null
 }
@@ -65,6 +69,7 @@ function bucketOf(buckets: Map<string, Bucket>, id: string, name: string): Bucke
       planned: new Set(),
       events: new Set(),
       plannedEvents: new Set(),
+      solo: new Set(),
       firstDate: null,
       lastDate: null,
     }
@@ -113,7 +118,9 @@ export async function loadHistoryStats(now: Date = new Date()): Promise<HistoryS
 
   for (const record of records) {
     record.modelIds.forEach((modelId, i) => {
-      addPast(bucketOf(models, modelId, record.currentModelNames[i]), record.shootDate, [record.eventKey])
+      const bucket = bucketOf(models, modelId, record.currentModelNames[i])
+      addPast(bucket, record.shootDate, [record.eventKey])
+      if (record.shootCategory === 'solo') bucket.solo.add(record.eventKey)
     })
     const org = organizerBucket(record)
     if (org) {
@@ -134,15 +141,23 @@ export async function loadHistoryStats(now: Date = new Date()): Promise<HistoryS
   }
 
   return {
-    models: sortBuckets(models).map(({ id, name, items, planned, firstDate, lastDate }) => ({
-      id,
-      name,
-      nameKana: modelKana.get(id) ?? null,
-      shootCount: items.size,
-      plannedCount: planned.size,
-      firstDate,
-      lastDate,
-    })),
+    // モデルは50音順（読み、無ければ名前）。読みが同じなら名前の順
+    models: [...models.values()]
+      .map(({ id, name, items, solo, planned, firstDate, lastDate }) => ({
+        id,
+        name,
+        nameKana: modelKana.get(id) ?? null,
+        shootCount: items.size,
+        soloCount: solo.size,
+        plannedCount: planned.size,
+        firstDate,
+        lastDate,
+      }))
+      .sort(
+        (a, b) =>
+          (a.nameKana?.trim() || a.name).localeCompare(b.nameKana?.trim() || b.name, 'ja') ||
+          a.name.localeCompare(b.name, 'ja'),
+      ),
     organizers: sortBuckets(orgs).map(
       ({ id, name, items, planned, events, plannedEvents, firstDate, lastDate }) => ({
         id,

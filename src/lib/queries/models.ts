@@ -38,7 +38,8 @@ export async function loadModelDetail(id: string): Promise<ModelDetail | null> {
   const m = await db.models.get(id)
   if (!m || m.deleted_at) return null
   const aliases = (await db.model_former_names.where('model_id').equals(id).toArray()).sort(
-    (a, b) => a.created_at.localeCompare(b.created_at),
+    // 同じミリ秒に作った行は作成日時が並ぶので、名前で順を決める（毎回同じ並びにする）
+    (a, b) => a.created_at.localeCompare(b.created_at) || a.name.localeCompare(b.name, 'ja'),
   )
   return {
     id: m.id,

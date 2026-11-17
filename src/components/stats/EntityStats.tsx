@@ -4,15 +4,24 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { useState } from "react";
 
 import { RankingList, type StatsKind } from "@/components/stats/RankingList";
+import { FirstYearList } from "@/components/stats/FirstYearList";
 import { StatsTable } from "@/components/stats/StatsTable";
 import { loadHistoryStats } from "@/lib/queries/stats";
 
-type Tab = "ranking" | "history";
+type Tab = "ranking" | "history" | "firstYear";
 
-const TABS: { key: Tab; label: string }[] = [
-  { key: "ranking", label: "ランキング" },
-  { key: "history", label: "全撮影データ" },
-];
+/** 画面ごとのタブ。モデル別情報は個撮回数・50音・初撮影年、撮影会別情報はランキング・全撮影データ */
+const TABS: Record<StatsKind, { key: Tab; label: string }[]> = {
+  models: [
+    { key: "ranking", label: "個撮回数" },
+    { key: "history", label: "50音" },
+    { key: "firstYear", label: "初撮影年" },
+  ],
+  organizers: [
+    { key: "ranking", label: "ランキング" },
+    { key: "history", label: "全撮影データ" },
+  ],
+};
 
 const TITLES: Record<StatsKind, string> = {
   models: "モデル別情報",
@@ -40,7 +49,7 @@ export function EntityStats({ kind }: { kind: StatsKind }) {
         aria-label="表示の切り替え"
         className="border-border flex gap-1 border-b"
       >
-        {TABS.map((t) => (
+        {TABS[kind].map((t) => (
           <button
             key={t.key}
             type="button"
@@ -66,9 +75,11 @@ export function EntityStats({ kind }: { kind: StatsKind }) {
         <div role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>
           {tab === "ranking" ? (
             <RankingList kind={kind} stats={stats} />
+          ) : tab === "firstYear" ? (
+            <FirstYearList models={stats.models} />
           ) : kind === "models" ? (
             <StatsTable
-              title="全撮影データ"
+              title="50音"
               columns={[
                 "モデル名",
                 "撮影回数",
