@@ -262,7 +262,9 @@ describe('過去撮影の複数ロケ地', () => {
       outdoor({ extraVenueNames: ['新宿御苑', ' ', '代々木公園', 'Shinjuku Gyoen', 'shinjuku gyoen'] }),
     )
 
-    expect(await extraNames()).toEqual([['新宿御苑', 'Shinjuku Gyoen']])
+    // 同じ時刻に作った行の順は決まらないので、並びは問わない
+    expect((await extraNames())[0].sort()).toEqual(['Shinjuku Gyoen', '新宿御苑'])
+    expect(await extraNames()).toHaveLength(1)
     const venues = await db.venues.toArray()
     expect(venues.map((v) => [v.name, v.kind]).sort()).toEqual([
       ['Shinjuku Gyoen', 'location'],
@@ -284,7 +286,7 @@ describe('過去撮影の複数ロケ地', () => {
     const { historyId } = await createShootHistory(USER, outdoor({ extraVenueNames: ['新宿御苑', '井の頭公園'] }))
 
     await updateShootHistory(USER, historyId, outdoor({ extraVenueNames: ['井の頭公園', '上野公園'] }))
-    expect(await extraNames()).toEqual([['井の頭公園', '上野公園']])
+    expect((await extraNames())[0].sort()).toEqual(['上野公園', '井の頭公園'].sort())
     expect(await db.shoot_history_venues.count()).toBe(2)
 
     await updateShootHistory(USER, historyId, history({ venueName: 'スタジオA', extraVenueNames: ['上野公園'] }))

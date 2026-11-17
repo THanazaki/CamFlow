@@ -1,18 +1,39 @@
 "use client";
 
-import type { ModelHistoryStat } from "@/lib/queries/stats";
+/** 初撮影年・初利用年の一覧の1行 */
+export interface FirstYearItem {
+  id: string;
+  name: string;
+  /** 撮影予定しか無いものは null */
+  firstDate: string | null;
+  /** 右側に出す件数 */
+  count: number;
+}
 
-/** 初撮影日が無い（撮影予定しか無い）モデルのグループ名 */
+/** 初日が無い（撮影予定しか無い）もののグループ名 */
 const NO_SHOOT = "撮影予定のみ";
 
 /**
- * 初撮影年ごとにモデルをまとめて出す。年は新しい順。
- * 年の中は初撮影日の古い順（同じ日は50音順）。撮影予定しか無いモデルは最後にまとめる。
+ * 初撮影日（初利用日）の年ごとにまとめて出す。年は新しい順。
+ * 年の中は初日の古い順（同じ日は渡された順＝50音順）。撮影予定しか無いものは最後にまとめる。
  */
-export function FirstYearList({ models }: { models: ModelHistoryStat[] }) {
-  const groups = new Map<string, ModelHistoryStat[]>();
-  // models は50音順なので、安定ソートで同じ日の中の並びが50音になる
-  const ordered = [...models].sort((a, b) =>
+export function FirstYearList({
+  items,
+  dateLabel,
+  countLabel,
+  emptyText,
+  title,
+}: {
+  items: FirstYearItem[];
+  /** 「初撮影」「初利用」 */
+  dateLabel: string;
+  countLabel: string;
+  emptyText: string;
+  title: string;
+}) {
+  const groups = new Map<string, FirstYearItem[]>();
+  // 安定ソート。同じ日の中は渡された順（50音順）のまま
+  const ordered = [...items].sort((a, b) =>
     (a.firstDate ?? "9").localeCompare(b.firstDate ?? "9"),
   );
   for (const m of ordered) {
@@ -27,19 +48,19 @@ export function FirstYearList({ models }: { models: ModelHistoryStat[] }) {
   if (keys.length === 0) {
     return (
       <div className="border-border text-muted rounded-lg border border-dashed p-8 text-center text-sm">
-        撮影実績・撮影予定のあるモデルはまだありません
+        {emptyText}
       </div>
     );
   }
 
   return (
-    <section aria-label="初撮影年" className="space-y-5">
+    <section aria-label={title} className="space-y-5">
       {keys.map((key) => (
         <div key={key} className="space-y-2">
           <h2 className="text-base font-semibold">
             {key}
             <span className="text-muted ml-2 text-xs font-normal tabular-nums">
-              {groups.get(key)!.length}人
+              {groups.get(key)!.length}件
             </span>
           </h2>
           <ul className="bg-surface border-border divide-border divide-y rounded-lg border">
@@ -53,13 +74,13 @@ export function FirstYearList({ models }: { models: ModelHistoryStat[] }) {
                     {m.name}
                   </span>
                   <span className="text-muted block text-xs tabular-nums">
-                    初撮影 {m.firstDate ?? "—"}
+                    {dateLabel} {m.firstDate ?? "—"}
                   </span>
                 </span>
                 <span className="shrink-0 text-right">
-                  <span className="text-muted block text-xs">撮影回数</span>
+                  <span className="text-muted block text-xs">{countLabel}</span>
                   <span className="block font-semibold tabular-nums">
-                    {m.shootCount}
+                    {m.count}
                   </span>
                 </span>
               </li>

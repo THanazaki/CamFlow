@@ -5,7 +5,7 @@ import { rankBy } from "@/lib/ranking";
 
 export type StatsKind = "models" | "organizers";
 
-/** ランキング。撮影実績（予定は含めない）の多い順に上位20位まで */
+/** 個撮回数のランキング。個撮の実績（予定は含めない）の多い順に全件 */
 export function RankingList({
   kind,
   stats,
@@ -23,31 +23,29 @@ export function RankingList({
           lastDate: r.item.lastDate,
           extras: [] as { label: string; value: number }[],
         }))
-      : rankBy(stats.organizers, (o) => o.modelCount).map((r) => ({
+      : rankBy(stats.organizers, (o) => o.soloCount, Infinity).map((r) => ({
           id: r.item.id,
           rank: r.rank,
           name: r.item.name,
-          count: r.item.modelCount,
+          count: r.item.soloCount,
           lastDate: r.item.lastDate,
           extras: [
             { label: "撮影会利用回数", value: r.item.useCount },
             { label: "撮影会利用予定回数", value: r.item.plannedUseCount },
           ],
         }));
-  const unit = kind === "models" ? "個撮回数" : "撮影モデル数";
+  const unit = "個撮回数";
 
   return (
     <section aria-label="ランキング" className="space-y-3">
       <p className="text-muted text-xs">
-        {kind === "models"
-          ? "個撮の回数が多い順に、個撮の実績があるモデルをすべて表示します（撮影予定は含めません）。同じ数は同順位です。"
-          : "撮影実績の多い順に、上位20位までを表示します（撮影予定は含めません）。同じ数は同順位です。"}
+        個撮の回数が多い順に、個撮の実績がある
+        {kind === "models" ? "モデル" : "撮影会"}
+        をすべて表示します（撮影予定は含めません）。同じ数は同順位です。
       </p>
       {rows.length === 0 ? (
         <div className="border-border text-muted rounded-lg border border-dashed p-8 text-center text-sm">
-          {kind === "models"
-            ? "個撮の実績のあるモデル"
-            : "撮影実績のある撮影会"}
+          個撮の実績のある{kind === "models" ? "モデル" : "撮影会"}
           はまだありません
         </div>
       ) : (

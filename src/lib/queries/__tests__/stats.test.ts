@@ -160,6 +160,21 @@ describe('モデル別情報', () => {
 })
 
 describe('撮影会別情報', () => {
+  it('50音順（読み、無ければ名前）に並べ、個撮回数を数える', async () => {
+    await createShootHistory(USER, history({ eventName: '春', shootDate: '2026-03-01' }))
+    await createShootHistory(USER, history({ eventName: '春', shootDate: '2026-03-02', shootCategory: 'group' }))
+    await createShootHistory(USER, history({ eventName: '秋', modelName: '栞奈', shootDate: '2026-01-01' }))
+    for (const [name, kana] of [['秋', 'あき'], ['春', 'はる']] as const) {
+      const org = (await db.organizers.toArray()).find((o) => o.name === name)!
+      await db.organizers.update(org.id, { name_kana: kana })
+    }
+
+    expect((await loadHistoryStats(NOW)).organizers).toMatchObject([
+      { name: '秋', useCount: 1, soloCount: 1 },
+      { name: '春', useCount: 2, soloCount: 1 },
+    ])
+  })
+
   it('撮影モデル数は同じモデルを1人と数え、最初・最新の利用日を出す', async () => {
     await createShootHistory(USER, history({ eventName: '秋', modelName: '葵', shootDate: '2026-01-10' }))
     await createShootHistory(USER, history({ eventName: '秋', modelName: '葵', shootDate: '2026-02-10' }))

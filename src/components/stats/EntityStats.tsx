@@ -10,7 +10,7 @@ import { loadHistoryStats } from "@/lib/queries/stats";
 
 type Tab = "ranking" | "history" | "firstYear";
 
-/** 画面ごとのタブ。モデル別情報は個撮回数・50音・初撮影年、撮影会別情報はランキング・全撮影データ */
+/** 画面ごとのタブ。モデル別情報は個撮回数・50音・初撮影年、撮影会別情報は個撮回数・50音・初利用日 */
 const TABS: Record<StatsKind, { key: Tab; label: string }[]> = {
   models: [
     { key: "ranking", label: "個撮回数" },
@@ -18,8 +18,9 @@ const TABS: Record<StatsKind, { key: Tab; label: string }[]> = {
     { key: "firstYear", label: "初撮影年" },
   ],
   organizers: [
-    { key: "ranking", label: "ランキング" },
-    { key: "history", label: "全撮影データ" },
+    { key: "ranking", label: "個撮回数" },
+    { key: "history", label: "50音" },
+    { key: "firstYear", label: "初利用日" },
   ],
 };
 
@@ -76,7 +77,33 @@ export function EntityStats({ kind }: { kind: StatsKind }) {
           {tab === "ranking" ? (
             <RankingList kind={kind} stats={stats} />
           ) : tab === "firstYear" ? (
-            <FirstYearList models={stats.models} />
+            kind === "models" ? (
+              <FirstYearList
+                title="初撮影年"
+                dateLabel="初撮影"
+                countLabel="撮影回数"
+                emptyText="撮影実績・撮影予定のあるモデルはまだありません"
+                items={stats.models.map((m) => ({
+                  id: m.id,
+                  name: m.name,
+                  firstDate: m.firstDate,
+                  count: m.shootCount,
+                }))}
+              />
+            ) : (
+              <FirstYearList
+                title="初利用日"
+                dateLabel="初利用"
+                countLabel="撮影会利用回数"
+                emptyText="撮影実績・撮影予定のある撮影会はまだありません"
+                items={stats.organizers.map((o) => ({
+                  id: o.id,
+                  name: o.name,
+                  firstDate: o.firstDate,
+                  count: o.useCount,
+                }))}
+              />
+            )
           ) : kind === "models" ? (
             <StatsTable
               title="50音"
@@ -99,7 +126,7 @@ export function EntityStats({ kind }: { kind: StatsKind }) {
             />
           ) : (
             <StatsTable
-              title="全撮影データ"
+              title="50音"
               hint="撮影会名を入力した撮影だけを集計します"
               columns={[
                 "撮影会名",

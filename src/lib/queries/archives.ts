@@ -95,7 +95,12 @@ type Tables = Awaited<ReturnType<typeof loadTables>>
 function extraVenueNamesBy(t: Tables): Map<string, string[]> {
   const nameById = new Map(t.venues.filter((v) => !v.deleted_at).map((v) => [v.id, v.name]))
   const result = new Map<string, string[]>()
-  const links = [...t.historyVenues].sort((a, b) => a.created_at.localeCompare(b.created_at))
+  // 同じミリ秒に作った行は作成日時が並ぶので、場所の名前で順を決める（毎回同じ並びにする）
+  const links = [...t.historyVenues].sort(
+    (a, b) =>
+      a.created_at.localeCompare(b.created_at) ||
+      (nameById.get(a.venue_id) ?? '').localeCompare(nameById.get(b.venue_id) ?? '', 'ja'),
+  )
   for (const link of links) {
     const name = nameById.get(link.venue_id)
     if (!name) continue

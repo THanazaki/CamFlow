@@ -31,6 +31,8 @@ export interface OrganizerHistoryStat {
   plannedModelCount: number
   /** 撮影会利用回数。その撮影会の撮影イベントの数（同じイベントの枠は1回、モデルなしの撮影も数える） */
   useCount: number
+  /** うち個撮（撮影区分が個撮）の撮影イベントの数。ランキングで使う */
+  soloCount: number
   /** 撮影会利用予定回数。確定済みでまだ撮影日時になっていない撮影イベントの数 */
   plannedUseCount: number
   /** 撮影予定しか無い撮影会は null */
@@ -84,11 +86,14 @@ function addPast(bucket: Bucket, date: string, items: string[]): void {
   if (!bucket.lastDate || date > bucket.lastDate) bucket.lastDate = date
 }
 
-/** 最新の日付の新しい順。撮影予定しか無いものは最後。同じなら名前の順 */
-function sortBuckets(buckets: Map<string, Bucket>): Bucket[] {
-  return [...buckets.values()].sort(
-    (a, b) =>
-      (b.lastDate ?? '').localeCompare(a.lastDate ?? '') || a.name.localeCompare(b.name, 'ja'),
+/** 50音順（読み、無ければ名前）。読みが同じなら名前の順 */
+function byKanaName(
+  a: { name: string; nameKana: string | null },
+  b: { name: string; nameKana: string | null },
+): number {
+  return (
+    (a.nameKana?.trim() || a.name).localeCompare(b.nameKana?.trim() || b.name, 'ja') ||
+    a.name.localeCompare(b.name, 'ja')
   )
 }
 
@@ -126,6 +131,7 @@ export async function loadHistoryStats(now: Date = new Date()): Promise<HistoryS
     if (org) {
       addPast(org, record.shootDate, record.modelIds)
       org.events.add(record.eventKey)
+      if (record.shootCategory === 'solo') org.solo.add(record.eventKey)
     }
   }
 
@@ -153,24 +159,22 @@ export async function loadHistoryStats(now: Date = new Date()): Promise<HistoryS
         firstDate,
         lastDate,
       }))
-      .sort(
-        (a, b) =>
-          (a.nameKana?.trim() || a.name).localeCompare(b.nameKana?.trim() || b.name, 'ja') ||
-          a.name.localeCompare(b.name, 'ja'),
-      ),
-    organizers: sortBuckets(orgs).map(
-      ({ id, name, items, planned, events, plannedEvents, firstDate, lastDate }) => ({
+      .sort(byKanaName),
+    // 撮影会も完全に50音順（読み、無ければ名前）
+    organizers: [...orgs.values()]
+      .map(({ id, name, items, planned, events, solo, plannedEvents, firstDate, lastDate }) => ({
         id,
         name,
         nameKana: organizerKana.get(id) ?? null,
         modelCount: items.size,
         plannedModelCount: planned.size,
         useCount: events.size,
+        soloCount: solo.size,
         plannedUseCount: plannedEvents.size,
         firstDate,
         lastDate,
-      }),
-    ),
+      }))
+      .sort(byKanaName),
   }
 }
 
