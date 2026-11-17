@@ -339,10 +339,16 @@ export async function loadDashboard(now: Date = new Date()): Promise<DashboardDa
     overdueCount: feeItems.filter((f) => f.daysUntil === null || f.daysUntil < 0).length,
   }
 
-  // 直近の撮影済み: v_shoot_history_all のクライアント版
+  // 直近の撮影済み: v_shoot_history_all のクライアント版。
+  // 撮影済みへ変更する画面がまだ無いので、`shot` に加えて、確定済みで撮影が終わった枠も含める
+  // （撮影情報検索・全撮影データと同じ範囲。撮影リマインドから外れた枠がここに移る）
   const recent: ShootSummary[] = [
-    ...slots
-      .filter((s) => s.shoot_status === 'shot')
+    ...live
+      .filter((s) => {
+        if (s.shoot_status === 'shot') return true
+        const status = sessionMap.get(s.session_id)?.status
+        return (status === 'confirmed' || status === 'done') && isSlotFinished(s, now)
+      })
       .flatMap((slot) => {
         const session = sessionMap.get(slot.session_id)
         if (!session) return []

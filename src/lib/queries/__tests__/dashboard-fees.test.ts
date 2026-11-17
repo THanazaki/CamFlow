@@ -231,3 +231,14 @@ describe('本日の撮影', () => {
     expect(today.map((t) => t.modelNames[0])).toEqual(['凛', '葵'])
   })
 })
+
+describe('直近の撮影済みデータ', () => {
+  it('確定済みで撮影が終わった枠も出す。まだ終わっていない枠は出さない', async () => {
+    await confirmShoot(USER, input({ eventName: '終わった撮影', shootDate: '2026-06-01' }))
+    await confirmShoot(USER, input({ eventName: 'これから', shootDate: '2026-06-20' }))
+
+    const { recent, shoots } = await loadDashboard(NOW)
+    expect(recent.map((r) => r.title)).toEqual(['終わった撮影'])
+    expect(shoots.items.map((r) => r.title)).toEqual(['これから'])
+  })
+})
