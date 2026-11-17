@@ -45,8 +45,8 @@ export const NAV_ITEMS: NavItem[] = [
     label: '統計情報',
     ready: false,
     children: [
-      { href: '/stats/history', label: '全撮影データ', ready: true },
-      { href: '/stats/ranking', label: 'ランキング', ready: true },
+      { href: '/stats/models', label: 'モデル別情報', ready: true },
+      { href: '/stats/organizers', label: '撮影会別情報', ready: true },
     ],
   },
   {

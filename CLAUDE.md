@@ -39,8 +39,8 @@
   過去撮影一覧              /archives/list
   撮影情報検索              /archives/search
 統計情報 ▾
-  全撮影データ              /stats/history
-  ランキング                /stats/ranking
+  モデル別情報              /stats/models
+  撮影会別情報              /stats/organizers
 マスタ管理 ▾
   モデルマスタ              /masters/models
   撮影会マスタ              /masters/organizers
